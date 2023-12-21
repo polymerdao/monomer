@@ -1,0 +1,21 @@
+syntax = "proto3";
+package rollup;
+
+// import "gogoproto/gogo.proto";
+
+option go_package = "github.com/polymerdao/monomer/x/rollup/types";
+
+// Msg defines all tx endpoints for the rollup module.
+service Msg {
+  rpc ApplyL1Txs(MsgL1Txs) returns (MsgL1TxsResponse);
+}
+
+// MsgL1Txs defines a message for all L1 system and user deposit txs
+message MsgL1Txs {
+  // array of bytes, each bytes is a eth.Transaction.MarshalBinary tx
+  // The first tx must be a L1 system deposit tx, and the rest are user txs if present
+  repeated bytes txBytes = 1;
+}
+
+message MsgL1TxsResponse {
+}

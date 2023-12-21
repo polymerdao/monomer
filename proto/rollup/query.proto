@@ -1,0 +1,45 @@
+syntax = "proto3";
+package rollup;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+
+option go_package = "github.com/polymerdao/monomer/x/rollup/types";
+
+// Query defines all tx endpoints for the rollup module.
+service Query {
+  rpc L1BlockInfo(QueryL1BlockInfoRequest) returns (QueryL1BlockInfoResponse) {
+    option (google.api.http).get = "/rollup/l1blockinfo/{height}";
+  }
+}
+
+// QueryL1BlockInfoRequest is the request type for the Query/L1BlockInfo RPC
+message QueryL1BlockInfoRequest {
+  option (gogoproto.goproto_getters) = false;
+  // L2 block height; use 0 for latest block height
+  uint64 height = 1;
+}
+
+// QueryL1BlockInfoResponse is the stored L1 block info
+message QueryL1BlockInfoResponse {
+  option (gogoproto.goproto_getters) = false;
+  // Block number
+  uint64 number = 1;
+  // Block timestamp
+  uint64 time = 2;
+  // Base fee for the block
+  bytes baseFee = 3;
+  // Hash of the blocK; bytes32
+  bytes blockHash = 4;
+  // Number of L2 blocks since the start of the epoch
+  // Not strictly a piece of L1 information. Represents the number of L2 blocks since the start of the epoch,
+  // i.e. when the actual L1 info was first introduced.
+  uint64 sequenceNumber = 5;
+  // Fields 6,7,8 are SystemConfig
+  // Address of the batcher; bytes20
+  bytes batcherAddr = 6;
+  // Overhead fee for L1; bytes32
+  bytes l1FeeOverhead = 7;
+  // Scalar fee for L1; bytes32
+  bytes l1FeeScalar = 8;
+}
