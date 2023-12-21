@@ -104,10 +104,6 @@ import (
 	ibctm "github.com/cosmos/ibc-go/v7/modules/light-clients/07-tendermint"
 	"github.com/spf13/cast"
 
-	// overide ibc module to allow Polymer specific ibc light clients
-	// ibc "github.com/cosmos/ibc-go/v7/modules/core"
-	"github.com/polymerdao/monomer/x/ibc"
-
 	rollupmodule "github.com/polymerdao/monomer/x/rollup"
 	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
 	rollupmoduletypes "github.com/polymerdao/monomer/x/rollup/types"
@@ -156,7 +152,6 @@ var (
 		crisis.AppModuleBasic{},
 		slashing.AppModuleBasic{},
 		feegrantmodule.AppModuleBasic{},
-		ibc.AppModuleBasic{},
 		ibcfee.AppModuleBasic{},
 		ibctm.AppModuleBasic{},
 		solomachine.AppModuleBasic{},
@@ -606,7 +601,6 @@ func New(
 		params.NewAppModule(app.ParamsKeeper),
 		consensus.NewAppModule(appCodec, app.ConsensusParamsKeeper),
 
-		ibc.NewAppModule(app.IBCKeeper),
 		transferModule,
 		icaModule,
 		rollupmodule.NewAppModule(appCodec, &app.RollupKeeper),
@@ -763,7 +757,6 @@ func New(
 		),
 		params.NewAppModule(app.ParamsKeeper),
 		evidence.NewAppModule(app.EvidenceKeeper),
-		ibc.NewAppModule(app.IBCKeeper),
 		transferModule,
 	)
 	app.sm.RegisterStoreDecoders()
