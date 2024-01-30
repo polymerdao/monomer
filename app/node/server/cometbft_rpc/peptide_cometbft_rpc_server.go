@@ -4,13 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/armon/go-metrics"
-	"github.com/cosmos/cosmos-sdk/telemetry"
 	"log"
 	"sort"
 	"strconv"
 	"time"
 
+	"github.com/armon/go-metrics"
 	abciclient "github.com/cometbft/cometbft/abci/client"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/bytes"
@@ -24,6 +23,7 @@ import (
 	rpctypes "github.com/cometbft/cometbft/rpc/jsonrpc/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/cometbft/cometbft/version"
+	"github.com/cosmos/cosmos-sdk/telemetry"
 	"github.com/polymerdao/monomer/app/node/server"
 	eetypes "github.com/polymerdao/monomer/app/node/types"
 )
@@ -67,6 +67,7 @@ type Node interface {
 	GetTxByHash([]byte) (*abcitypes.TxResult, error)
 	SearchTx(ctx context.Context, q *cmtquery.Query) ([]*abcitypes.TxResult, error)
 	GetBlock(id any) (*Block, error)
+	ReportMetrics()
 }
 
 // NewCometRpcServer creates a new CometBFT server and a RPC server.

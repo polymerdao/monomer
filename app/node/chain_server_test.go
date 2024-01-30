@@ -98,9 +98,9 @@ func (s *ChainServerTestSuite) TestBlockByNumber() {
 	s.NoError(err)
 	hash := block.Hash()
 	for _, tc := range []struct {
-		desc string
-		id   any
-		err  string
+		desc   string
+		id     any
+		hasErr bool
 	}{{
 		desc: "safe label",
 		id:   eth.Safe,
@@ -120,21 +120,22 @@ func (s *ChainServerTestSuite) TestBlockByNumber() {
 		desc: "big int",
 		id:   big.NewInt(1),
 	}, {
-		desc: "boolean",
-		id:   true,
-		err:  "cannot query block by value true (bool)",
+		desc:   "boolean",
+		id:     true,
+		hasErr: true,
 	}, {
-		desc: "invalid label",
-		id:   "foo",
-		err:  "not found",
+		desc:   "invalid label",
+		id:     "foo",
+		hasErr: true,
 	}} {
 		s.Run(tc.desc, func() {
 			block, err = s.client.BlockByNumber(tc.id)
-			if tc.err == "" {
+			if !tc.hasErr {
 				s.NoErrorf(err, "error with value %v (%T)", tc.id, tc.id)
 				s.Equalf(hash, block.Hash(), "hash mismatch with value %v (%T)", tc.id, tc.id)
 			} else {
-				s.ErrorContainsf(err, tc.err, "expected error with value %v (%T)", tc.id, tc.id)
+				s.Nil(err)
+				s.Nil(block)
 			}
 		})
 	}
@@ -311,7 +312,12 @@ func (s *ChainServerTestSuite) TestL1UserDeposit() {
 // collectEvents collects events from the websocket client and return when one of the following conditions is met:
 // 1. the number of events collected is equal to the number of expected events
 // 2. the timer expires
-func (s *ChainServerTestSuite) collectEvents(query string, numOfEvents int, timeOut time.Duration, resultChan chan<- []json.RawMessage) {
+func (s *ChainServerTestSuite) collectEvents(
+	query string,
+	numOfEvents int,
+	timeOut time.Duration,
+	resultChan chan<- []json.RawMessage,
+) {
 	wsClient := lo.Must(tmrpc.NewWS("//"+s.node.CometServerAddress().String(), "/websocket"))
 	lo.Must0(wsClient.Start())
 	defer func() {
@@ -396,7 +402,8 @@ func (s *ChainServerTestSuite) TestReorg() {
 		tx, terr := node.Tx(transactions[i], false)
 		if i > reorgIndex {
 			s.Require().Nil(block)
-			s.Require().Error(berr)
+			// non-existent block in BlockByNumber should return (nil, nil)
+			s.Require().NoError(berr)
 
 			s.Require().Nil(tx)
 			s.Require().Error(terr)

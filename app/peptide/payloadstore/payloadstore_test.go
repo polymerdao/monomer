@@ -45,13 +45,9 @@ func TestRollback(t *testing.T) {
 	require.NoError(t, ps.RollbackToHeight(5))
 
 	for h := int64(0); h < 10; h++ {
+		// nothing remains after rollback
 		p, ok := ps.Get(*ids[h])
-		if h <= 5 {
-			require.True(t, ok)
-			require.NotNil(t, p)
-		} else {
-			require.False(t, ok)
-			require.Nil(t, p)
-		}
+		require.False(t, ok)
+		require.Nil(t, p)
 	}
 }

@@ -47,6 +47,13 @@ type BlockStore interface {
 // the caller.
 type BlockUnmarshaler func(bz []byte) (eetypes.BlockData, error)
 
+/*
+* BlockStore implementation
+* Main key: {block hash => block bytes}
+* Secondary keys:
+*   - {height => block hash}
+*   - {label => block hash}
+ */
 type blockStore struct {
 	// we trust the db handles concurrency accordingly.
 	// For now, we don't need mutexes
@@ -129,6 +136,10 @@ func (b *blockStore) BlockByLabel(label eth.BlockLabel) eetypes.BlockData {
 	return b.BlockByHash(hash)
 }
 
+// RollbackToHeight removes all blocks with blockHeight > rollbackHeight
+// Both hash and height keys are deleted
+// PeptideNode will call blockStore.UpdateLabel to update 3 head labels
+// TODO: perhaps make BlockStore rollback atomic?
 func (b *blockStore) RollbackToHeight(height int64) error {
 	batch := b.db.NewBatch()
 	defer batch.Close()
@@ -139,13 +150,13 @@ func (b *blockStore) RollbackToHeight(height int64) error {
 		if len(hash) == 0 {
 			break
 		}
-		mainKey := hashKey(eetypes.Hash(hash))
 
 		// if an error occurs here, the whole batch is discarded and
 		// no changes to the db are written
 		if err := batch.Delete(secondaryKey); err != nil {
 			return err
 		}
+		mainKey := hashKey(eetypes.Hash(hash))
 		if err := batch.Delete(mainKey); err != nil {
 			return err
 		}

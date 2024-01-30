@@ -75,13 +75,14 @@ func (h *Header) Populate(cosmosHeader *tmproto.Header) *Header {
 }
 
 type Block struct {
-	Txs             bfttypes.Txs   `json:"txs"`
-	Header          *Header        `json:"header"`
-	ParentBlockHash Hash           `json:"parentHash"`
-	L1Txs           []eth.Data     `json:"l1Txs"`
-	GasLimit        hexutil.Uint64 `json:"gasLimit"`
-	BlockHash       Hash           `json:"hash"`
-	PrevRandao      eth.Bytes32    `json:"prevRandao"`
+	Txs             bfttypes.Txs       `json:"txs"`
+	Header          *Header            `json:"header"`
+	ParentBlockHash Hash               `json:"parentHash"`
+	L1Txs           []eth.Data         `json:"l1Txs"`
+	GasLimit        hexutil.Uint64     `json:"gasLimit"`
+	BlockHash       Hash               `json:"hash"`
+	PrevRandao      eth.Bytes32        `json:"prevRandao"`
+	Withdrawals     *types.Withdrawals `json:"withdrawals,omitempty"`
 }
 
 var _ BlockData = (*Block)(nil)
@@ -123,6 +124,7 @@ func (b *Block) Hash() Hash {
 		header.UncleHash = types.EmptyUncleHash
 		header.ReceiptHash = types.EmptyReceiptsHash
 		header.BaseFee = common.Big0
+		header.WithdrawalsHash = &types.EmptyWithdrawalsHash
 
 		hash := header.Hash()
 		copy(b.BlockHash[:], hash[:])
@@ -180,14 +182,17 @@ func (b *Block) ToEthLikeBlock(inclTx bool) map[string]any {
 
 		// these are required fields that need to be part of the header or
 		// the eth client will complain during unmarshalling
-		"sha3Uncles":    types.EmptyUncleHash,
-		"receiptsRoot":  types.EmptyReceiptsHash,
-		"baseFeePerGas": (*hexutil.Big)(common.Big0),
-		"difficulty":    (*hexutil.Big)(common.Big0),
-		"extraData":     EmptyExtra,
-		"gasUsed":       hexutil.Uint64(0),
-		"logsBloom":     EmptyBloom,
+		"sha3Uncles":      types.EmptyUncleHash,
+		"receiptsRoot":    types.EmptyReceiptsHash,
+		"baseFeePerGas":   (*hexutil.Big)(common.Big0),
+		"difficulty":      (*hexutil.Big)(common.Big0),
+		"extraData":       EmptyExtra,
+		"gasUsed":         hexutil.Uint64(0),
+		"logsBloom":       EmptyBloom,
+		"withdrawalsRoot": types.EmptyWithdrawalsHash,
+		"withdrawals":     b.Withdrawals,
 	}
+
 	if inclTx {
 		txs, hash := b.Transactions()
 		result["transactionsRoot"] = hash

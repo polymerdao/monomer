@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"log"
 	"math/big"
 	"net"
@@ -81,7 +82,7 @@ func NewPeptideNode(
 	logger server.Logger) *PeptideNode {
 	bs := store.NewBlockStore(bsdb, eetypes.BlockUnmarshaler)
 	txstore := txstore.NewTxStore(txstoreDb, logger)
-	node := newNode(chainApp, clientCreator, bs, txstore, genesis, logger)
+	node := newNode(chainApp, clientCreator, bs, txstore, genesis, logger.With("module", "node"))
 	cometServer, cometRpcServer := cometbft_rpc.NewCometRpcServer(
 		node,
 		appEndpoint.FullAddress(),
@@ -123,12 +124,13 @@ func NewPeptideNodeFromConfig(
 func InitChain(app *peptide.PeptideApp, bsdb tmdb.DB, genesis *PeptideGenesis) (*Block, error) {
 	block := Block{}
 	l1TxBytes, err := derive.L1InfoDepositBytes(
+		&rollup.Config{},
+		// TODO fill this out?
+		eth.SystemConfig{},
 		0,
 		// TODO add l1 parent hash from genesis
 		eetypes.NewBlockInfo(genesis.L1.Hash, eetypes.HashOfEmptyHash, genesis.L1.Number, uint64(genesis.GenesisTime.Unix())),
-		// TODO fill this out?
-		eth.SystemConfig{},
-		false,
+		0,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive L1 info deposit tx bytes for genesis block: %v", err)
@@ -288,6 +290,44 @@ func (cs *PeptideNode) resume() {
 	cs.latestBlock = lastBlock
 }
 
+func (cs *PeptideNode) RollbackBlockStore(head, safe, finalized *eetypes.Block) {
+	cs.logger.Debug("starting BlockStore rollback", "height", head.Height())
+	if err := cs.bs.RollbackToHeight(head.Height()); err != nil {
+		panic(fmt.Sprintf("failed to roll back the block store: %v", err))
+	}
+	cs.logger.Debug("updating labels...")
+	cs.bs.UpdateLabel(eth.Unsafe, head.Hash())
+	cs.bs.UpdateLabel(eth.Safe, safe.Hash())
+	cs.bs.UpdateLabel(eth.Finalized, finalized.Hash())
+	cs.logger.Debug("finished BlockStore rollback", "height", head.Height())
+}
+
+func (cs *PeptideNode) RollbackAppStore(head int64) {
+	cs.logger.Debug("starting app rollback", "height", head)
+	// Line below hangs indefinitely; but works fine in separate cli cmd `pepctl`
+	if err := cs.chainApp.RollbackToHeight(head); err != nil {
+		panic(fmt.Sprintf("failed to roll back the app: %v", err))
+	}
+	cs.logger.Debug("finished app rollback", "height", head)
+}
+
+func (cs *PeptideNode) RollbackPayloadStore(head int64) {
+	cs.logger.Debug("starting PayloadStore rollback", "height", head)
+	if err := cs.ps.RollbackToHeight(head); err != nil {
+		cs.logger.Error("failed to roll back the payload store", "err", err)
+		// panic(fmt.Sprintf("failed to roll back the payload store: %v", err))
+	}
+	cs.logger.Debug("finished PayloadStore rollback", "height", head)
+}
+
+func (cs *PeptideNode) RollbackTxStore(head, current int64) {
+	cs.logger.Debug("starting TxStore rollback", "height", head, "current", current)
+	if err := cs.txstore.RollbackToHeight(head, current); err != nil {
+		panic(fmt.Sprintf("failed to roll back the tx store: %v", err))
+	}
+	cs.logger.Debug("finished TxStore rollback", "height", head, "current", current)
+}
+
 // this performs the rollback to a previous height of all of our stores, removing anything that
 // happened *after* the rollback height. If this function suceeds, the chain will resume normal
 // operations starting from the block pointed by `head` (i.e. the latest block will
@@ -295,63 +335,49 @@ func (cs *PeptideNode) resume() {
 // there's a potential risk with having to rollback different databases, if one of them fails
 // the chain' state may be inconsistent. There's no easy way around this so in that case we panic.
 func (cs *PeptideNode) Rollback(head, safe, finalized *eetypes.Block) error {
+	rollbackHeight := head.Height()
+
+	cs.logger.Debug("trying: PeptideNode rollback to height", "rollbackHeight", rollbackHeight, "newHead", head.Height(), "safe", safe.Height(), "finalized", finalized.Height())
 	cs.lock.Lock()
-	defer cs.lock.Unlock()
+	defer func() {
+		cs.lock.Unlock()
+		cs.logger.Debug("PeptideNode rollback to height [unlock]")
+	}()
+	cs.logger.Debug("PeptideNode rollback to height [lock]", "rollbackHeight", rollbackHeight, "newHead", head.Height(), "safe", safe.Height(), "finalized", finalized.Height())
+
 	currentHeight := cs.chainApp.LastBlockHeight()
 	// first, do all the non-mutating checks and error out if something is not right
-	if safe.Height() > head.Height() {
+	if safe.Height() > rollbackHeight {
 		return fmt.Errorf(
 			"invalid rollback heights. safe (%v) > unsafe (%v)",
 			safe.Height(),
-			head.Height(),
+			rollbackHeight,
 		)
 	}
-	if finalized.Height() > head.Height() {
+	if finalized.Height() > rollbackHeight {
 		return fmt.Errorf(
 			"invalid rollback heights. finalized (%v) > unsafe (%v)",
 			finalized.Height(),
-			head.Height(),
+			rollbackHeight,
 		)
 	}
-	if head.Height() >= currentHeight {
+	if rollbackHeight >= currentHeight {
 		return fmt.Errorf(
 			"invalid rollback heights. unsafe (%v) >= app.lastblock (%v)",
-			head.Height(),
+			rollbackHeight,
 			currentHeight,
 		)
 	}
 
-	// here's where the actual rollback begins. in case of error, panic away!
-
-	// block store
-	if err := cs.bs.RollbackToHeight(head.Height()); err != nil {
-		panic(fmt.Sprintf("failed to roll back the block store: %v", err))
-	}
-
-	// app
-	if err := cs.chainApp.RollbackToHeight(head.Height()); err != nil {
-		panic(fmt.Sprintf("failed to roll back the app: %v", err))
-	}
-
-	// payload store
-	if err := cs.ps.RollbackToHeight(head.Height()); err != nil {
-		panic(fmt.Sprintf("failed to roll back the payload store: %v", err))
-	}
-
-	// tx indexer / store
-	if err := cs.txstore.RollbackToHeight(head.Height(), currentHeight); err != nil {
-		panic(fmt.Sprintf("failed to roll back the tx store: %v", err))
-	}
-
-	// update the corresponding labels
-	cs.bs.UpdateLabel(eth.Finalized, finalized.Hash())
-	cs.bs.UpdateLabel(eth.Safe, safe.Hash())
-	cs.bs.UpdateLabel(eth.Unsafe, head.Hash())
+	cs.RollbackBlockStore(head, safe, finalized)
+	cs.RollbackAppStore(head.Height())
+	cs.RollbackPayloadStore(head.Height())
+	cs.RollbackTxStore(head.Height(), currentHeight)
 
 	cs.logger.Info("Rollback complete",
 		"safe_hash", safe.Hash(), "safe_height", safe.Height(),
 		"finalized_hash", finalized.Hash(), "finalized_height", finalized.Height(),
-		"head_hash", head.Hash(), "head_height", head.Height())
+		"head_hash", head.Hash(), "head_height", head.Height(), "rollbackHeight", rollbackHeight)
 
 	// resume the app at the very end
 	cs.resume()
@@ -401,6 +427,10 @@ func (cs *PeptideNode) LastNodeInfo() NodeInfo {
 // The nodeInfo is nothing but a placeholder intended only for cometbft rpc server.
 func (cs *PeptideNode) EarliestNodeInfo() NodeInfo {
 	return cs.earliestNodeInfo
+}
+
+func (cs *PeptideNode) ReportMetrics() {
+	cs.chainApp.ReportMetrics()
 }
 
 // AddToTxMempool adds txs to the mempool.
@@ -473,8 +503,11 @@ func (cs *PeptideNode) getBlockByString(str string) eetypes.BlockData {
 }
 
 func (cs *PeptideNode) GetBlock(id any) (*Block, error) {
+
+	cs.logger.Info("trying: PeptideNode.GetBlock", "id", id)
 	cs.lock.RLock()
 	defer cs.lock.RUnlock()
+	cs.logger.Info("PeptideNode.GetBlock", "id", id)
 
 	block, err := func() (eetypes.BlockData, error) {
 		switch v := id.(type) {
@@ -503,8 +536,11 @@ func (cs *PeptideNode) GetBlock(id any) (*Block, error) {
 }
 
 func (cs *PeptideNode) UpdateLabel(label eth.BlockLabel, hash Hash) error {
+	cs.logger.Debug("trying: PeptideNode.UpdateLabel", "label", label, "hash", hash)
 	cs.lock.Lock()
 	defer cs.lock.Unlock()
+	cs.logger.Debug("PeptideNode.UpdateLabel", "label", label, "hash", hash)
+
 	return cs.bs.UpdateLabel(label, hash)
 }
 
@@ -561,6 +597,7 @@ func (cs *PeptideNode) fillBlockWithL1Data(block *Block) *Block {
 	if cs.ps.Current() != nil {
 		// must include L1Txs for L2 block's L1Origin
 		block.L1Txs = cs.ps.Current().Attrs.Transactions
+		block.Withdrawals = cs.ps.Current().Attrs.Withdrawals
 	} else if cs.engineMode {
 		cs.logger.Error("currentPayload is nil for non-genesis block", "blockHeight", block.Height())
 		log.Panicf("currentPayload is nil for non-genesis block with height %d", block.Height())
@@ -659,6 +696,7 @@ func (cs *PeptideNode) sealBlock(block *Block) *Block {
 		block.GasLimit = *payload.Attrs.GasLimit
 		block.Header.Time = uint64(payload.Attrs.Timestamp)
 		block.PrevRandao = payload.Attrs.PrevRandao
+		block.Withdrawals = payload.Attrs.Withdrawals
 	}
 
 	block.ParentBlockHash = cs.findParentHash()

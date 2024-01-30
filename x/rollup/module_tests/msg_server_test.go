@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tmdb "github.com/cometbft/cometbft-db"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
@@ -23,8 +24,9 @@ type MsgServerTestSuite struct {
 	suite.Suite
 	app *peptide.PeptideApp
 
-	sysConfig eth.SystemConfig
-	l1info    eth.BlockInfo
+	sysConfig    eth.SystemConfig
+	rollupConfig *rollup.Config
+	l1info       eth.BlockInfo
 }
 
 func (s *MsgServerTestSuite) SetupTest() {
@@ -38,12 +40,14 @@ func (s *MsgServerTestSuite) SetupTest() {
 	l1info := testutils.RandomBlockInfo(rnd)
 	l1info.InfoNum = 42
 	s.l1info = l1info
+	s.rollupConfig = &rollup.Config{}
 
 	s.sysConfig = eth.SystemConfig{BatcherAddr: testutils.RandomAddress(rnd), GasLimit: 1234567}
 }
 
 func (s *MsgServerTestSuite) TestMsgServer() {
-	l1sysTxBytes := lo.Must(derive.L1InfoDepositBytes(0, s.l1info, s.sysConfig, false))
+
+	l1sysTxBytes := lo.Must(derive.L1InfoDepositBytes(s.rollupConfig, s.sysConfig, 0, s.l1info, 0))
 	l1userTxBytes := hexutil.MustDecode("0x7ef85da0f68cf7d1d457abc94560ed47a9bd3bd391dd2a01861487f6fefec0407c4edf359415d34aaf54267db7d7c367839aaf71a00a2c6a659415d34aaf54267db7d7c367839aaf71a00a2c6a6585e8d4a5100085e8d4a51000830f42408080")
 	msg := types.NewMsgL1Txs([][]byte{l1sysTxBytes, l1userTxBytes})
 	result, err := s.app.RunMsgs(s.app.NewUncachedSdkContext(), msg)

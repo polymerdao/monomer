@@ -14,7 +14,7 @@ var _ types.QueryServer = Keeper{}
 func (k Keeper) L1BlockInfo(goCtx context.Context, request *types.QueryL1BlockInfoRequest) (*types.QueryL1BlockInfoResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	l1blockInfo, err := k.GetL1BlockInfo(ctx)
+	l1blockInfo, err := k.GetL1BlockInfo(k.rollupCfg, ctx)
 	if err != nil {
 		return nil, err
 	}

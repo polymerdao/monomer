@@ -68,21 +68,10 @@ func (p *pstore) RollbackToHeight(height int64) error {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
-	if id, ok := p.heights[height]; !ok {
-		return fmt.Errorf("invalid height %v", height)
-	} else if current, ok := p.payloads[id]; !ok {
-		panic("payload store corrupted")
-	} else {
-		p.current = current
-	}
+	// nuke everything in memory
+	p.current = nil
+	p.heights = make(map[int64]eetypes.PayloadID)
+	p.payloads = make(map[eetypes.PayloadID]*eetypes.Payload)
 
-	for i := height + 1; ; i++ {
-		id, ok := p.heights[i]
-		if !ok {
-			break
-		}
-		delete(p.heights, i)
-		delete(p.payloads, id)
-	}
 	return nil
 }

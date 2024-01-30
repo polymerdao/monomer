@@ -20,13 +20,14 @@ import (
 	teststaking "github.com/cosmos/cosmos-sdk/x/staking/testutil"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	app "github.com/polymerdao/monomer/app/abci"
+	"github.com/notbdu/gm/app"
 	"github.com/samber/lo"
 )
 
 // PeptideApp extends the ABCI-compatible App with additional op-stack L2 chain features
 type PeptideApp struct {
 	// App is the ABCI-compatible App
+	// TODO: IMPORT YOUR ABCI APP HERE
 	*app.App
 
 	ValSet               *tmtypes.ValidatorSet
@@ -76,27 +77,51 @@ var DefaultConsensusParams = &tmproto.ConsensusParams{
 	},
 }
 
-// New creates application instance with in-memory database and disabled logging.
+type PeptideAppOptions struct {
+	DB                  tmdb.DB
+	HomePath            string
+	ChainID             string
+	IAVLDisableFastNode bool
+	IAVLLazyLoading     bool
+}
+
 func New(chainID string, dir string, db tmdb.DB, logger tmlog.Logger) *PeptideApp {
+	return NewWithOptions(PeptideAppOptions{
+		ChainID:  chainID,
+		HomePath: dir,
+		DB:       db,
+	}, logger)
+}
+
+// New creates application instance with in-memory database and disabled logging.
+func NewWithOptions(options PeptideAppOptions, logger tmlog.Logger) *PeptideApp {
+	logger.Info("new app with options",
+		"chain_id", options.ChainID,
+		"home_path", options.HomePath,
+		"iavl_lazy_loading", options.IAVLLazyLoading,
+		"iavl_disable_fast_node", options.IAVLDisableFastNode,
+	)
 	encoding := app.MakeEncodingConfig(app.ModuleBasics)
 	mainApp := app.New(
 		logger,
-		db,
+		options.DB,
 		nil,
 		true,
 		map[int64]bool{},
-		dir,
+		options.HomePath,
 		0,
 		encoding,
 		simtestutil.EmptyAppOptions{},
-		baseapp.SetChainID(chainID),
+		baseapp.SetChainID(options.ChainID),
+		baseapp.SetIAVLDisableFastNode(options.IAVLDisableFastNode),
+		baseapp.SetIAVLLazyLoading(options.IAVLLazyLoading),
 	)
 
 	newPeptideApp := &PeptideApp{
 		App:                  mainApp,
 		ValSet:               &tmtypes.ValidatorSet{},
 		EncodingConfig:       &encoding,
-		ChainId:              chainID,
+		ChainId:              options.ChainID,
 		BondDenom:            sdk.DefaultBondDenom,
 		VotingPowerReduction: sdk.DefaultPowerReduction,
 	}
@@ -218,7 +243,8 @@ func (a *PeptideApp) Resume(lastHeader *tmproto.Header, genesisState []byte) err
 // Rolls back the app state (i.e. commit multi store from the base app) to the specified height (version)
 // If successful, the latest committed version is that of "height"
 func (a *PeptideApp) RollbackToHeight(height int64) error {
-	return a.CommitMultiStore().RollbackToVersion(height)
+	cms := a.CommitMultiStore()
+	return cms.RollbackToVersion(height)
 }
 
 // DefaultGenesis create a default GenesisState, which is a map
@@ -320,7 +346,7 @@ func (a *PeptideApp) MultiDelegationGenesis(
 //
 // Useful for testing module genesis export/import.
 func (a *PeptideApp) Clone() *PeptideApp {
-	cloned := New(a.ChainId, "/tmp/PeptideApp", tmdb.NewMemDB(), a.Logger())
+	cloned := New(a.ChainId, "/tmp/monomer-PeptideApp", tmdb.NewMemDB(), a.Logger())
 	cloned.ValSet = a.ValSet.Copy()
 	cloned.InitChainWithGenesisState(a.ExportGenesis())
 	return cloned
@@ -360,6 +386,8 @@ func (a *PeptideApp) OnCommit(timestamp eth.Uint64Quantity) {
 		ChainID:            a.ChainId,
 		Time:               time.Unix(int64(timestamp), 0),
 	}
+
+	defer a.ReportBlockHeight()
 }
 
 // CurrentHeader is the header that is being built, which is not committed yet
@@ -441,4 +469,12 @@ func (a *PeptideApp) MultiSignAndDeliverMsgs(
 // Return account from committed state
 func (a *PeptideApp) GetAccount(addr sdk.AccAddress) AccountI {
 	return a.AccountKeeper.GetAccount(a.NewUncachedSdkContext(), addr)
+}
+
+func (a *PeptideApp) ReportMetrics() {
+	ctx := a.NewUncachedSdkContext()
+	a.PolyibcKeeper.ReportIbcClients(ctx)
+	a.PolyibcKeeper.ReportIbcConnections(ctx)
+	a.PolyibcKeeper.ReportIbcChannels(ctx)
+	a.ReportBlockHeight()
 }

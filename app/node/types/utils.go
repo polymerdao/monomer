@@ -103,9 +103,9 @@ func (p *Payload) Valid(id *PayloadID) *eth.ForkchoiceUpdatedResult {
 	return ValidForkchoiceUpdateResult(&p.ParentHash, id)
 }
 
-// ToExecutionPayload converts a Payload to an ExecutionPayload.
-func (p *Payload) ToExecutionPayload(blockHash Hash) *eth.ExecutionPayload {
-	return &eth.ExecutionPayload{
+// ToExecutionPayloadEnvelope converts a Payload to an ExecutionPayload.
+func (p *Payload) ToExecutionPayloadEnvelope(blockHash Hash) *eth.ExecutionPayloadEnvelope {
+	return &eth.ExecutionPayloadEnvelope{ExecutionPayload: &eth.ExecutionPayload{
 		ParentHash:   p.ParentHash,
 		BlockNumber:  hexutil.Uint64(p.Height),
 		BlockHash:    blockHash,
@@ -113,9 +113,10 @@ func (p *Payload) ToExecutionPayload(blockHash Hash) *eth.ExecutionPayload {
 		Timestamp:    p.Attrs.Timestamp,
 		PrevRandao:   p.Attrs.PrevRandao,
 		// add cosmos txs too?
+		Withdrawals:  p.Attrs.Withdrawals,
 		Transactions: p.Attrs.Transactions,
 		GasLimit:     *p.Attrs.GasLimit,
-	}
+	}}
 }
 
 // ValidForkchoiceUpdateResult returns a valid ForkchoiceUpdateResult with given head block hash.

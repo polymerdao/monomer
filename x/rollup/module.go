@@ -14,7 +14,6 @@ import (
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/spf13/cobra"
 
-	"github.com/polymerdao/monomer/x/polyibc/core/client/cli"
 	"github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/polymerdao/monomer/x/rollup/types"
 )
@@ -84,12 +83,14 @@ func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *r
 
 // GetTxCmd returns the capability module's root tx command.
 func (a AppModuleBasic) GetTxCmd() *cobra.Command {
-	return cli.GetTxCmd()
+	// TODO
+	return nil
 }
 
 // GetQueryCmd returns the capability module's root query command.
 func (AppModuleBasic) GetQueryCmd() *cobra.Command {
-	return cli.GetQueryCmd(types.StoreKey)
+	// TODO
+	return nil
 }
 
 // ----------------------------------------------------------------------------
@@ -99,7 +100,6 @@ func (AppModuleBasic) GetQueryCmd() *cobra.Command {
 // AppModule implements the AppModule interface for the capability module.
 type AppModule struct {
 	AppModuleBasic
-
 	keeper *keeper.Keeper
 }
 

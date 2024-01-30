@@ -73,6 +73,7 @@ type Route = map[string]*cometRpcServer.RPCFunc
 type serviceHook interface {
 	// called when a websocket connection is disconnected
 	OnWebsocketDisconnect(remoteAddr string, logger tmlog.Logger)
+	ReportMetrics()
 }
 
 func NewRPCServer(address string, route Route, provider serviceHook, name string, logger tmlog.Logger) *RPCServer {
@@ -87,7 +88,13 @@ func NewRPCServer(address string, route Route, provider serviceHook, name string
 	mux.HandleFunc(websocketPath, wsManager.WebsocketHandler)
 
 	cometRpcServer.RegisterRPCFuncs(mux, route, logger)
-	mux.HandleFunc("/metrics", promhttp.Handler().ServeHTTP)
+
+	metricsHandler := func(w http.ResponseWriter, r *http.Request) {
+		provider.ReportMetrics()
+		promhttp.Handler().ServeHTTP(w, r)
+	}
+
+	mux.HandleFunc("/metrics", metricsHandler)
 
 	config := Config
 
