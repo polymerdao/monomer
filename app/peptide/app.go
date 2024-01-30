@@ -21,6 +21,7 @@ import (
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/notbdu/gm/app"
+	"github.com/notbdu/gm/app/params"
 	"github.com/samber/lo"
 )
 
@@ -31,7 +32,7 @@ type PeptideApp struct {
 	*app.App
 
 	ValSet               *tmtypes.ValidatorSet
-	EncodingConfig       *app.EncodingConfig
+	EncodingConfig       *params.EncodingConfig
 	lastHeader           *tmproto.Header
 	currentHeader        *tmproto.Header
 	ChainId              string
@@ -101,7 +102,7 @@ func NewWithOptions(options PeptideAppOptions, logger tmlog.Logger) *PeptideApp 
 		"iavl_lazy_loading", options.IAVLLazyLoading,
 		"iavl_disable_fast_node", options.IAVLDisableFastNode,
 	)
-	encoding := app.MakeEncodingConfig(app.ModuleBasics)
+	encoding := app.MakeEncodingConfig()
 	mainApp := app.New(
 		logger,
 		options.DB,
@@ -386,8 +387,6 @@ func (a *PeptideApp) OnCommit(timestamp eth.Uint64Quantity) {
 		ChainID:            a.ChainId,
 		Time:               time.Unix(int64(timestamp), 0),
 	}
-
-	defer a.ReportBlockHeight()
 }
 
 // CurrentHeader is the header that is being built, which is not committed yet
@@ -472,9 +471,5 @@ func (a *PeptideApp) GetAccount(addr sdk.AccAddress) AccountI {
 }
 
 func (a *PeptideApp) ReportMetrics() {
-	ctx := a.NewUncachedSdkContext()
-	a.PolyibcKeeper.ReportIbcClients(ctx)
-	a.PolyibcKeeper.ReportIbcConnections(ctx)
-	a.PolyibcKeeper.ReportIbcChannels(ctx)
-	a.ReportBlockHeight()
+	// TODO
 }

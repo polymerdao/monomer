@@ -13,6 +13,7 @@ require (
 	github.com/golang/protobuf v1.5.3
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
+	github.com/notbdu/gm v0.0.0-20240130062431-6a10b64277ac
 	github.com/prometheus/client_golang v1.17.0
 	github.com/samber/lo v1.39.0
 	github.com/spf13/cobra v1.6.1
@@ -166,7 +167,6 @@ require (
 	github.com/multiformats/go-multihash v0.2.3 // indirect
 	github.com/multiformats/go-multistream v0.5.0 // indirect
 	github.com/multiformats/go-varint v0.0.7 // indirect
-	github.com/notbdu/gm v0.0.0-20240130052812-7b10e1ade0b0
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.0.7 // indirect
 	github.com/petermattis/goid v0.0.0-20230317030725-371a4b8eda08 // indirect
@@ -231,6 +231,14 @@ require (
 	pgregory.net/rapid v0.5.5 // indirect
 	rsc.io/tmplfunc v0.0.3 // indirect
 	sigs.k8s.io/yaml v1.3.0 // indirect
+)
+
+replace (
+	// use latest golang.org/x/exp/slices api
+	github.com/cosmos/cosmos-sdk => github.com/polymerdao/cosmos-sdk v0.47.2-0.20231019015026-1f883c9977fd
+	// use latest golang.org/x/exp/slices api
+	github.com/cosmos/gogoproto => github.com/polymerdao/gogoproto v0.0.0-20230905135849-dbeac9fa0743
+	github.com/ethereum/go-ethereum v1.13.5 => github.com/ethereum-optimism/op-geth v1.101304.2-0.20231130012434-cd5316814d08
 )
 
 go 1.21.5
