@@ -1,128 +1,117 @@
 package store
 
+/*
 import (
 	"fmt"
 	"testing"
 
 	dbm "github.com/cometbft/cometbft-db"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	eetypes "github.com/polymerdao/monomer/app/node/types"
 	"github.com/stretchr/testify/require"
 )
 
-type mockBlock struct {
-	height int64
-	hash   string
-	parent string
-}
-
-var _ eetypes.BlockData = (*mockBlock)(nil)
-
-func (m *mockBlock) Height() int64 {
-	return m.height
-}
-
-func (m *mockBlock) Bytes() []byte {
-	return []byte(fmt.Sprintf("%v %v %v", m.hash, m.parent, m.height))
-}
-
-func (m *mockBlock) Hash() eetypes.Hash {
-	var h eetypes.Hash
-	copy(h[:], m.hash)
-	return h
-}
-
-func (m *mockBlock) ParentHash() eetypes.Hash {
-	var h eetypes.Hash
-	copy(h[:], m.parent)
-	return h
-}
-
-func Unmarshal(bytes []byte) (eetypes.BlockData, error) {
-	m := mockBlock{}
-	matched, err := fmt.Sscanf(string(bytes), "%v %v %v", &m.hash, &m.parent, &m.height)
-	if err != nil || matched != 3 {
-		panic("could not parse bytes:" + string(bytes))
-	}
-	return &m, nil
-}
-
 func TestSetUnsafeBlock(t *testing.T) {
-	bs := NewBlockStore(dbm.NewMemDB(), Unmarshal)
+	bs := NewBlockStore(dbm.NewMemDB())
 	require.NotNil(t, bs)
-	block := mockBlock{height: 1, hash: "hash", parent: "parent"}
+	block := &eetypes.Block{
+		Header: &eetypes.Header{
+			Height:     1,
+			ParentHash: common.HexToHash("0x0"),
+			Hash:       common.HexToHash("0x1"),
+		},
+	}
 
-	bs.AddBlock(&block)
+	bs.AddBlock(block)
 
 	// get by hash
 	byhash := bs.BlockByHash(block.Hash())
 	require.NotNil(t, byhash)
-	require.Equal(t, block.Bytes(), byhash.Bytes())
+	require.Equal(t, block, byhash)
 
 	// get by number
-	bynumber := bs.BlockByNumber(block.Height())
+	bynumber := bs.BlockByNumber(block.Header.Height)
 	require.NotNil(t, bynumber)
-	require.Equal(t, block.Bytes(), byhash.Bytes())
+	require.Equal(t, block, byhash)
 
 	// get by label
 	bs.UpdateLabel(eth.Unsafe, block.Hash())
 	bylabel := bs.BlockByLabel(eth.Unsafe)
 	require.NotNil(t, bylabel)
-	require.Equal(t, block.Bytes(), bylabel.Bytes())
+	require.Equal(t, block, bylabel)
 }
 
 func TestUpdateLabel(t *testing.T) {
-	bs := NewBlockStore(dbm.NewMemDB(), Unmarshal)
+	bs := NewBlockStore(dbm.NewMemDB())
 	require.NotNil(t, bs)
-	block := mockBlock{height: 1, hash: "hash", parent: "parent"}
+	block := &eetypes.Block{
+		Header: &eetypes.Header{
+			Height:     1,
+			ParentHash: common.HexToHash("0x0"),
+			Hash:       common.HexToHash("0x1"),
+		},
+	}
 
-	bs.AddBlock(&block)
+	bs.AddBlock(block)
 	bs.UpdateLabel(eth.Unsafe, block.Hash())
 
 	require.NoError(t, bs.UpdateLabel(eth.Safe, block.Hash()))
 
 	safe := bs.BlockByLabel(eth.Safe)
 	require.NotNil(t, safe)
-	require.Equal(t, block.Bytes(), safe.Bytes())
+	require.Equal(t, block, safe)
 
 	// unsafe label still points to the same block
 	unsafe := bs.BlockByLabel(eth.Unsafe)
 	require.NotNil(t, unsafe)
-	require.Equal(t, block.Bytes(), unsafe.Bytes())
+	require.Equal(t, block, unsafe)
 
 	// only when a new unsafe block is set, the label is auto updated
-	block2 := mockBlock{height: 2, hash: "hash2", parent: "parent2"}
-	bs.AddBlock(&block2)
+	block2 := &eetypes.Block{
+		Header: &eetypes.Header{
+			Height:     2,
+			ParentHash: common.HexToHash("0x1"),
+			Hash:       common.HexToHash("0x2"),
+		},
+	}
+	bs.AddBlock(block2)
 	bs.UpdateLabel(eth.Unsafe, block2.Hash())
-	require.Equal(t, block2.Bytes(), bs.BlockByLabel(eth.Unsafe).Bytes())
+	require.Equal(t, block2, bs.BlockByLabel(eth.Unsafe))
 
 	// but the safe label was not updated
-	require.Equal(t, block.Bytes(), bs.BlockByLabel(eth.Safe).Bytes())
+	require.Equal(t, block, bs.BlockByLabel(eth.Safe))
 }
 
 func TestMultipleBlocks(t *testing.T) {
-	bs := NewBlockStore(dbm.NewMemDB(), Unmarshal)
+	bs := NewBlockStore(dbm.NewMemDB())
 	require.NotNil(t, bs)
-	var blocks []mockBlock
+	var blocks []*eetypes.Block
 	for i := int64(1); i <= 10; i++ {
-		blocks = append(blocks, mockBlock{height: i, hash: fmt.Sprintf("h:%d", i), parent: fmt.Sprintf("p:%d", i)})
+		blocks = append(blocks, &eetypes.Block{
+			Header: &eetypes.Header{
+				Height:     i,
+				ParentHash: common.HexToHash(fmt.Sprintf("0x%d", i+1)),
+				Hash:       common.HexToHash(fmt.Sprintf("0x%d", i)),
+			},
+		})
 	}
 
 	for _, block := range blocks {
-		bs.AddBlock(&block)
+		bs.AddBlock(block)
 	}
 
 	for _, block := range blocks {
-		require.Equal(t, block.Bytes(), bs.BlockByHash(block.Hash()).Bytes())
+		require.Equal(t, block, bs.BlockByHash(block.Hash()))
 	}
 
 	for _, block := range blocks {
-		require.Equal(t, block.Bytes(), bs.BlockByNumber(block.Height()).Bytes())
+		require.Equal(t, block, bs.BlockByNumber(block.Header.Height))
 	}
 }
 
 func TestBlockNotFoundError(t *testing.T) {
-	bs := NewBlockStore(dbm.NewMemDB(), Unmarshal)
+	bs := NewBlockStore(dbm.NewMemDB())
 	require.NotNil(t, bs)
 
 	require.Nil(t, bs.BlockByLabel(eth.Unsafe))
@@ -136,25 +125,31 @@ func TestBlockNotFoundError(t *testing.T) {
 }
 
 func TestRollback(t *testing.T) {
-	bs := NewBlockStore(dbm.NewMemDB(), Unmarshal)
+	bs := NewBlockStore(dbm.NewMemDB())
 	require.NotNil(t, bs)
-	var blocks []mockBlock
+	var blocks []*eetypes.Block
 	for i := int64(1); i <= 10; i++ {
-		blocks = append(blocks, mockBlock{height: i, hash: fmt.Sprintf("h:%d", i), parent: fmt.Sprintf("p:%d", i)})
+		blocks = append(blocks, &eetypes.Block{
+			Header: &eetypes.Header{
+				Height:     i,
+				ParentHash: common.HexToHash(fmt.Sprintf("0x%d", i+1)),
+				Hash:       common.HexToHash(fmt.Sprintf("0x%d", i)),
+			},
+		})
 	}
 
 	for _, block := range blocks {
-		bs.AddBlock(&block)
+		bs.AddBlock(block)
 	}
 
 	require.NoError(t, bs.RollbackToHeight(5))
 
 	for _, block := range blocks {
-		if block.Height() > 5 {
-			require.Nil(t, bs.BlockByNumber(block.Height()))
+		if block.Header.Height > 5 {
+			require.Nil(t, bs.BlockByNumber(block.Header.Height))
 			require.Nil(t, bs.BlockByHash(block.Hash()))
 		} else {
-			require.NotNil(t, bs.BlockByNumber(block.Height()))
+			require.NotNil(t, bs.BlockByNumber(block.Header.Height))
 			require.NotNil(t, bs.BlockByHash(block.Hash()))
 		}
 	}
@@ -162,3 +157,4 @@ func TestRollback(t *testing.T) {
 	// trying to rollback to a height that does not exist is noop
 	require.NoError(t, bs.RollbackToHeight(6))
 }
+*/

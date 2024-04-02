@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package testapp.v1;
+
+message GetRequest {
+    string key = 2;
+}
+
+message GetResponse {
+    string value = 2;
+}
+
+service GetService {
+    rpc Get(GetRequest) returns (GetResponse) {}
+}

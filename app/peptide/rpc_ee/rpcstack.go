@@ -26,7 +26,7 @@ type Config struct {
 	// HTTPPort is the TCP port number on which to start the HTTP RPC server. The
 	// default zero value is/ valid and will pick a port number randomly (useful
 	// for ephemeral nodes).
-	HTTPPort int `toml:",omitempty"`
+	HTTPPort uint16 `toml:",omitempty"`
 
 	// HTTPPathPrefix specifies a path prefix on which http-rpc is to be served.
 	HTTPPathPrefix string `toml:",omitempty"`
@@ -59,7 +59,7 @@ type httpServer struct {
 	// These are set by setListenAddr.
 	endpoint string
 	host     string
-	port     int
+	port     uint16
 }
 
 const (
@@ -83,7 +83,7 @@ func (h *httpServer) listenAddr() string {
 
 // setListenAddr configures the listening address of the server.
 // The address can only be set while the server isn't running.
-func (h *httpServer) setListenAddr(host string, port int) error {
+func (h *httpServer) setListenAddr(host string, port uint16) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
@@ -143,29 +143,26 @@ func (h *httpServer) start(c *Config, apis []rpc.API) error {
 
 func (h *httpServer) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// check if ws request and serve if ws enabled
-	ws := h.wsHandler
-	if ws != nil && isWebsocket(r) {
+	if h.wsHandler != nil && isWebsocket(r) {
 		if checkPath(r, h.httpConfig.WSPathPrefix) {
-			ws.ServeHTTP(w, r)
+			h.wsHandler.ServeHTTP(w, r)
 		}
 		return
 	}
 
 	// if http-rpc is enabled, try to serve request
-	rpc := h.httpHandler
-	if rpc != nil {
+	if h.httpHandler != nil {
 		// First try to route in the mux.
 		// Requests to a path below root are handled by the mux,
 		// which has all the handlers registered via Node.RegisterHandler.
 		// These are made available when RPC is enabled.
-		muxHandler, pattern := h.mux.Handler(r)
-		if pattern != "" {
+		if muxHandler, pattern := h.mux.Handler(r); pattern != "" {
 			muxHandler.ServeHTTP(w, r)
 			return
 		}
 
 		if checkPath(r, h.httpConfig.HTTPPathPrefix) {
-			rpc.ServeHTTP(w, r)
+			h.httpHandler.ServeHTTP(w, r)
 			return
 		}
 	}

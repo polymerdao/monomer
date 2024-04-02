@@ -6,7 +6,6 @@ import (
 
 	dbm "github.com/cometbft/cometbft-db"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	tmlog "github.com/cometbft/cometbft/libs/log"
 	cmtquery "github.com/cometbft/cometbft/libs/pubsub/query"
 	"github.com/cometbft/cometbft/state/txindex"
 	"github.com/cometbft/cometbft/state/txindex/kv"
@@ -28,18 +27,16 @@ type TxStore interface {
 }
 
 type txstore struct {
-	db     dbm.DB
-	idx    txindex.TxIndexer
-	logger tmlog.Logger
+	db  dbm.DB
+	idx txindex.TxIndexer
 }
 
 var _ TxStore = (*txstore)(nil)
 
-func NewTxStore(db dbm.DB, logger tmlog.Logger) TxStore {
+func NewTxStore(db dbm.DB) TxStore {
 	return &txstore{
-		db:     db,
-		idx:    kv.NewTxIndex(db),
-		logger: logger,
+		db:  db,
+		idx: kv.NewTxIndex(db),
 	}
 }
 

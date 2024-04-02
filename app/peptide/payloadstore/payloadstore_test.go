@@ -7,11 +7,11 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	eetypes "github.com/polymerdao/monomer/app/node/types"
+	"github.com/polymerdao/monomer"
 	"github.com/stretchr/testify/require"
 )
 
-func dummyPayload(height int64) *eetypes.Payload {
+func dummyPayload(height int64) *monomer.Payload {
 	gaslimit := hexutil.Uint64(1)
 	attrs := eth.PayloadAttributes{
 		GasLimit: &gaslimit,

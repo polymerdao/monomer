@@ -13,13 +13,6 @@ var (
 	_ sdktypes.Msg = &MsgL1Txs{}
 )
 
-// NewMsgL1Txs creates a new MsgL1Txs instance.
-func NewMsgL1Txs(txBytes [][]byte) *MsgL1Txs {
-	return &MsgL1Txs{
-		TxBytes: txBytes,
-	}
-}
-
 // GetSigners implements types.Msg.
 func (*MsgL1Txs) GetSigners() []sdktypes.AccAddress {
 	return nil

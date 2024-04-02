@@ -1,38 +1,44 @@
 package store
 
 import (
+	"encoding/json"
 	"fmt"
 
 	dbm "github.com/cometbft/cometbft-db"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	eetypes "github.com/polymerdao/monomer/app/node/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/polymerdao/monomer"
 )
 
-type BlockStore interface {
+type BlockStoreReader interface {
+	// Retrieves a block from the store by its hash and returns it. It uses the user-provided BlockUnmarshaler
+	// callback to do unmarshal the opaque bytes into an actual block. Returns the block if found or nil otherwise.
+	BlockByHash(hash common.Hash) *monomer.Block
+
+	// Retrieves a block from the store by its height and returns it. It uses the user-provided BlockUnmarshaler
+	// callback to do unmarshal the opaque bytes into an actual block. Returns the block if found or nil otherwise.
+	BlockByNumber(height int64) *monomer.Block
+
+	// Retrieves a block from the store by its label and returns it. It uses the user-provided BlockUnmarshaler
+	// callback to do unmarshal the opaque bytes into an actual block. Returns the block if found or nil otherwise.
+	BlockByLabel(label eth.BlockLabel) *monomer.Block
+
+	HeadBlock() *monomer.Block
+}
+
+type BlockStoreWriter interface {
 	// Adds a new block to the store
 	//
 	// NOTE: no block by label is updated. We have to call UpdateLabel to update labels explicitly including "unsafe"
 	// label.
 	// EE client won't observe latest block changes until after Forkchoice is performed on the added block
-	AddBlock(block eetypes.BlockData)
+	AddBlock(block *monomer.Block)
 
 	// Given a block already in the store it updates its label to `label`. A common use case for this method
 	// is when the op-node informs the engine of a new finalised block so the engine can go back to the
 	// store and update it.
 	// Returns error in case the block is not found
-	UpdateLabel(label eth.BlockLabel, hash eetypes.Hash) error
-
-	// Retrieves a block from the store by its hash and returns it. It uses the user-provided BlockUnmarshaler
-	// callback to do unmarshal the opaque bytes into an actual block. Returns the block if found or nil otherwise.
-	BlockByHash(hash eetypes.Hash) eetypes.BlockData
-
-	// Retrieves a block from the store by its height and returns it. It uses the user-provided BlockUnmarshaler
-	// callback to do unmarshal the opaque bytes into an actual block. Returns the block if found or nil otherwise.
-	BlockByNumber(height int64) eetypes.BlockData
-
-	// Retrieves a block from the store by its label and returns it. It uses the user-provided BlockUnmarshaler
-	// callback to do unmarshal the opaque bytes into an actual block. Returns the block if found or nil otherwise.
-	BlockByLabel(label eth.BlockLabel) eetypes.BlockData
+	UpdateLabel(label eth.BlockLabel, hash common.Hash) error
 
 	// Removes all blocks up to (not including) height. Note that updating any label that may go stale
 	// is up to the caller
@@ -42,10 +48,15 @@ type BlockStore interface {
 	//      but having an explicit method for it could be better?
 }
 
+type BlockStore interface {
+	BlockStoreReader
+	BlockStoreWriter
+}
+
 // We hide the block marshaling behind this function so the store does not need to know
 // about any concrete type when fetching blocks from the db. The unmarshaling is up to
 // the caller.
-type BlockUnmarshaler func(bz []byte) (eetypes.BlockData, error)
+type BlockUnmarshaler func(bz []byte) (*monomer.Block, error)
 
 /*
 * BlockStore implementation
@@ -57,8 +68,7 @@ type BlockUnmarshaler func(bz []byte) (eetypes.BlockData, error)
 type blockStore struct {
 	// we trust the db handles concurrency accordingly.
 	// For now, we don't need mutexes
-	db           dbm.DB
-	unmarshaller BlockUnmarshaler
+	db dbm.DB
 
 	// TODO store pointers to blocks in a list so whenever there's a re-org we can walk the tree up
 	//      until the new root and prune everything in between
@@ -66,23 +76,43 @@ type blockStore struct {
 
 var _ BlockStore = (*blockStore)(nil)
 
-func NewBlockStore(db dbm.DB, unmarshaller BlockUnmarshaler) BlockStore {
+func NewBlockStore(db dbm.DB) BlockStore {
 	return &blockStore{
-		db:           db,
-		unmarshaller: unmarshaller,
+		db: db,
 	}
 }
 
-func (b *blockStore) AddBlock(block eetypes.BlockData) {
+var headKey = []byte("headBlock")
+
+func (b *blockStore) HeadBlock() *monomer.Block {
+	bz := b.get(headKey)
+	if bz == nil {
+		return nil
+	}
+	block := new(monomer.Block)
+	if err := json.Unmarshal(bz, &block); err != nil {
+		panic(fmt.Errorf("unmarshal block: %v", err))
+	}
+	return block
+}
+
+func (b *blockStore) AddBlock(block *monomer.Block) {
 	// use batching for atomic updates
 	batch := b.db.NewBatch()
 	defer batch.Close()
 
-	hash := block.Hash()
-	if err := batch.Set(hashKey(hash), block.Bytes()); err != nil {
+	hash := block.Hash() // It is important to calculate this before marshalling. Ensures all blocks have hashes set in the db.
+	blockBytes, err := json.Marshal(block)
+	if err != nil {
 		panic(err)
 	}
-	if err := batch.Set(heightKey(block.Height()), hash[:]); err != nil {
+	if err := batch.Set(hashKey(hash), blockBytes); err != nil {
+		panic(err)
+	}
+	if err := batch.Set(heightKey(block.Header.Height), hash[:]); err != nil {
+		panic(err)
+	}
+	if err := batch.Set(headKey, blockBytes); err != nil {
 		panic(err)
 	}
 	if err := batch.WriteSync(); err != nil {
@@ -90,7 +120,8 @@ func (b *blockStore) AddBlock(block eetypes.BlockData) {
 	}
 }
 
-func (b *blockStore) UpdateLabel(label eth.BlockLabel, hash eetypes.Hash) error {
+// UpdateLabel returns an error only when the block hash is not found in the block store.
+func (b *blockStore) UpdateLabel(label eth.BlockLabel, hash common.Hash) error {
 	found, err := b.db.Has(hashKey(hash))
 	if err != nil {
 		panic(err)
@@ -99,39 +130,39 @@ func (b *blockStore) UpdateLabel(label eth.BlockLabel, hash eetypes.Hash) error 
 		return fmt.Errorf("block not found hash: %x", hash)
 	}
 	if err := b.db.SetSync(labelKey(label), hash[:]); err != nil {
-		panic(err)
+		panic(fmt.Errorf("set sync: %v", err))
 	}
 	return nil
 }
 
-func (b *blockStore) BlockByHash(hash eetypes.Hash) eetypes.BlockData {
+func (b *blockStore) BlockByHash(hash common.Hash) *monomer.Block {
 	bz := b.get(hashKey(hash))
 	if len(bz) == 0 {
 		return nil
 	}
-	block, err := b.unmarshaller(bz)
-	if err != nil {
+	block := new(monomer.Block)
+	if err := json.Unmarshal(bz, &block); err != nil {
 		return nil
 	}
 	return block
 }
 
-func (b *blockStore) BlockByNumber(height int64) eetypes.BlockData {
+func (b *blockStore) BlockByNumber(height int64) *monomer.Block {
 	bz := b.get(heightKey(height))
 	if len(bz) == 0 {
 		return nil
 	}
-	var hash eetypes.Hash
+	var hash common.Hash
 	copy(hash[:], bz)
 	return b.BlockByHash(hash)
 }
 
-func (b *blockStore) BlockByLabel(label eth.BlockLabel) eetypes.BlockData {
+func (b *blockStore) BlockByLabel(label eth.BlockLabel) *monomer.Block {
 	bz := b.get(labelKey(label))
 	if len(bz) == 0 {
 		return nil
 	}
-	var hash eetypes.Hash
+	var hash common.Hash
 	copy(hash[:], bz)
 	return b.BlockByHash(hash)
 }
@@ -156,11 +187,20 @@ func (b *blockStore) RollbackToHeight(height int64) error {
 		if err := batch.Delete(secondaryKey); err != nil {
 			return err
 		}
-		mainKey := hashKey(eetypes.Hash(hash))
+		mainKey := hashKey(common.Hash(hash))
 		if err := batch.Delete(mainKey); err != nil {
 			return err
 		}
 	}
+	block := b.BlockByNumber(height)
+	if block == nil {
+		return fmt.Errorf("block not found at height %d", height)
+	}
+	blockBytes, err := json.Marshal(block)
+	if err != nil {
+		return fmt.Errorf("marshal block: %v", err)
+	}
+	batch.Set(headKey, blockBytes)
 	if err := batch.WriteSync(); err != nil {
 		panic(err)
 	}
@@ -175,7 +215,7 @@ func (b *blockStore) get(key []byte) []byte {
 	return bz
 }
 
-func hashKey(hash eetypes.Hash) []byte {
+func hashKey(hash common.Hash) []byte {
 	return []byte(fmt.Sprintf("bh:%x", hash))
 }
 
