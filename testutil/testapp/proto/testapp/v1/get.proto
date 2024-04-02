@@ -3,7 +3,7 @@ syntax = "proto3";
 package testapp.v1;
 
 message GetRequest {
-    string key = 2;
+    string key = 1;
 }
 
 message GetResponse {
