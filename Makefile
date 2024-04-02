@@ -4,4 +4,4 @@ monomer:
 
 .PHONY: clean
 clean:
-	@rm ./monomer
+	@if [ -f ./monomer ]; then rm ./monomer; fi
