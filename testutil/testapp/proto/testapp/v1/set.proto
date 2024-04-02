@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package testapp.v1;
+
+message SetRequest {
+    string key = 1;
+    string value = 2;
+}
+
+message SetResponse {}
+
+service SetService {
+    rpc Set(SetRequest) returns (SetResponse) {}
+}

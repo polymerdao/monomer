@@ -13,9 +13,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/polymerdao/monomer/app/peptide/common"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
 )
@@ -53,7 +53,6 @@ func (k Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgL1Txs) (*types.M
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "first L1 tx must be a system deposit tx, but got type %d", tx.Type())
 	}
 	l1blockInfo, err := derive.L1BlockInfoFromBytes(k.rollupCfg, 0, tx.Data())
-
 	if err != nil {
 		ctx.Logger().Error("failed to derive L1 block info from L1 Info Deposit tx", "err", err, "txBytes", txBytes)
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to derive L1 block info from L1 Info Deposit tx: %v", err)
@@ -99,7 +98,7 @@ func (k Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgL1Txs) (*types.M
 			ctx.Logger().Error("Contract creation txs are not supported", "index", i)
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "Contract creation txs are not supported, index:%d", i)
 		}
-		cosmAddr := common.EvmToCosmos(*to)
+		cosmAddr := evmToCosmos(*to)
 		mintAmount := sdkmath.NewIntFromBigInt(tx.Value())
 		err := k.MintETH(ctx, cosmAddr, mintAmount)
 		if err != nil {
@@ -183,4 +182,9 @@ func (k Keeper) GetL1BlockHistory(rollupCfg *rollup.Config, ctx sdk.Context, blo
 	} else {
 		return *l1blockInfo, nil
 	}
+}
+
+// evmToCosmos converts an EVM address to a sdk.AccAddress
+func evmToCosmos(addr common.Address) sdk.AccAddress {
+	return sdk.AccAddress(addr.Bytes())
 }

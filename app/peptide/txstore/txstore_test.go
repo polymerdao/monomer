@@ -3,13 +3,11 @@ package txstore
 import (
 	"fmt"
 	"math/rand"
-	"os"
 	"testing"
 	"time"
 
 	dbm "github.com/cometbft/cometbft-db"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	tmlog "github.com/cometbft/cometbft/libs/log"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +47,7 @@ func TestRollback(t *testing.T) {
 		},
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
-			txs := NewTxStore(dbm.NewMemDB(), tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout)))
+			txs := NewTxStore(dbm.NewMemDB())
 			hashes := make(map[int64][][]byte)
 			r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
