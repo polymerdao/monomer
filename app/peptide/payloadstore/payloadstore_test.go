@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
@@ -17,18 +18,30 @@ func dummyPayload(height int64) *monomer.Payload {
 		GasLimit: &gaslimit,
 	}
 	hash := common.HexToHash(fmt.Sprintf("0x%x", height))
-	return eetypes.NewPayload(&attrs, hash, height)
+
+	return &monomer.Payload{
+		Timestamp:             uint64(attrs.Timestamp),
+		PrevRandao:            attrs.PrevRandao,
+		SuggestedFeeRecipient: attrs.SuggestedFeeRecipient,
+		Withdrawals:           attrs.Withdrawals,
+		NoTxPool:              attrs.NoTxPool,
+		GasLimit:              uint64(*attrs.GasLimit),
+		ParentBeaconBlockRoot: attrs.ParentBeaconBlockRoot,
+		ParentHash:            hash,
+		Height:                height,
+		Transactions:          attrs.Transactions,
+		CosmosTxs:             nil,
+	}
 }
 
 func TestRollback(t *testing.T) {
 	ps := NewPayloadStore()
-	ids := make([]*eetypes.PayloadID, 10)
+	ids := make([]*engine.PayloadID, 10)
 
 	for h := int64(0); h < 10; h++ {
 		payload := dummyPayload(h)
-		require.NoError(t, ps.Add(payload))
-		id, err := payload.GetPayloadID()
-		require.NoError(t, err)
+		ps.Add(payload)
+		id := payload.ID()
 		ids[h] = id
 	}
 
@@ -36,8 +49,7 @@ func TestRollback(t *testing.T) {
 		newpayload, ok := ps.Get(*ids[h])
 		require.True(t, ok)
 
-		id, err := newpayload.GetPayloadID()
-		require.NoError(t, err)
+		id := newpayload.ID()
 
 		require.Equal(t, ids[h], id)
 	}
