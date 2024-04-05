@@ -38,8 +38,7 @@ type Config struct {
 }
 
 func main() {
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer cancel()
+	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	if err := run(ctx); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
@@ -57,11 +56,11 @@ func parseFlags() (*Config, error) {
 	var engineHost string
 	flag.StringVar(&engineHost, "engine-host", "127.0.0.1", "")
 	var enginePort uint64
-	flag.Uint64Var(&enginePort, "engine-port", 8888, "")
+	flag.Uint64Var(&enginePort, "engine-port", 8888, "") //nolint:gomnd
 	var ethHost string
 	flag.StringVar(&ethHost, "eth-host", "127.0.0.1", "")
 	var ethPort uint64
-	flag.Uint64Var(&ethPort, "eth-port", 8888, "")
+	flag.Uint64Var(&ethPort, "eth-port", 8889, "") //nolint:gomnd
 	var genesisFile string
 	flag.StringVar(&genesisFile, "genesis-file", "", "")
 
@@ -118,7 +117,7 @@ func run(ctx context.Context) error {
 	}()
 	blockStore := store.NewBlockStore(blockdb)
 
-	if err := prepareBlockStoreAndApp(config.Genesis, blockStore, app); err != nil {
+	if err = prepareBlockStoreAndApp(config.Genesis, blockStore, app); err != nil {
 		return err
 	}
 

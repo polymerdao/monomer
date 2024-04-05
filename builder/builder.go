@@ -25,7 +25,7 @@ type Builder struct {
 }
 
 func New(
-	mempool *mempool.Pool,
+	mpool *mempool.Pool,
 	app monomer.Application,
 	blockStore store.BlockStore,
 	txStore txstore.TxStore,
@@ -33,7 +33,7 @@ func New(
 	chainID monomer.ChainID,
 ) *Builder {
 	return &Builder{
-		mempool:    mempool,
+		mempool:    mpool,
 		app:        app,
 		blockStore: blockStore,
 		txStore:    txStore,
@@ -63,10 +63,15 @@ func (b *Builder) Rollback(head, safe, finalized common.Hash) error {
 	if err := b.blockStore.RollbackToHeight(targetHeight); err != nil {
 		return fmt.Errorf("rollback block store: %v", err)
 	}
-	// Ignore errors from UpdateLabel since we assume all hashes exist in the block store already.
-	b.blockStore.UpdateLabel(eth.Unsafe, head)
-	b.blockStore.UpdateLabel(eth.Safe, safe)
-	b.blockStore.UpdateLabel(eth.Finalized, finalized)
+	if err := b.blockStore.UpdateLabel(eth.Unsafe, head); err != nil {
+		return fmt.Errorf("update unsafe label: %v", err)
+	}
+	if err := b.blockStore.UpdateLabel(eth.Safe, safe); err != nil {
+		return fmt.Errorf("update safe label: %v", err)
+	}
+	if err := b.blockStore.UpdateLabel(eth.Finalized, finalized); err != nil {
+		return fmt.Errorf("update finalized label: %v", err)
+	}
 
 	if err := b.txStore.RollbackToHeight(targetHeight, currentHeight); err != nil {
 		return fmt.Errorf("rollback tx store: %v", err)
@@ -120,10 +125,10 @@ func (b *Builder) Build(payload *Payload) error {
 	header := &monomer.Header{
 		ChainID:    b.chainID,
 		Height:     currentHeight + 1,
-		Time:       uint64(payload.Timestamp), // TODO should we validate timestamp is greater than the previous timestamp? Probably should be done in engine api, if at all.
+		Time:       payload.Timestamp,
 		ParentHash: currentHead.Header.Hash,
 		AppHash:    info.GetLastBlockAppHash(),
-		GasLimit:   uint64(payload.GasLimit),
+		GasLimit:   payload.GasLimit,
 	}
 
 	// BeginBlock, DeliverTx, EndBlock, Commit
