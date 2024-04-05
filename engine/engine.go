@@ -43,18 +43,18 @@ type TxValidator interface {
 	CheckTx(abci.RequestCheckTx) abci.ResponseCheckTx
 }
 
-func NewEngineAPI(builder *builder.Builder, txValidator TxValidator, adapter PayloadTxAdapter, blockStore BlockStore) *EngineAPI {
+func NewEngineAPI(b *builder.Builder, txValidator TxValidator, adapter PayloadTxAdapter, blockStore BlockStore) *EngineAPI {
 	return &EngineAPI{
 		txValidator:  txValidator,
 		blockStore:   blockStore,
-		builder:      builder,
+		builder:      b,
 		payloadStore: payloadstore.NewPayloadStore(),
 		adapter:      adapter,
 	}
 }
 
 func (e *EngineAPI) ForkchoiceUpdatedV1(
-	fcs eth.ForkchoiceState,
+	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	// TODO should this be called after Ecotone?
@@ -62,7 +62,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV1(
 }
 
 func (e *EngineAPI) ForkchoiceUpdatedV2(
-	fcs eth.ForkchoiceState,
+	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	// TODO should this be called after Ecotone?
@@ -70,7 +70,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV2(
 }
 
 func (e *EngineAPI) ForkchoiceUpdatedV3(
-	fcs eth.ForkchoiceState,
+	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.lock.Lock()
@@ -85,7 +85,8 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	headBlock := e.blockStore.BlockByHash(fcs.HeadBlockHash)
 
 	// Engine API spec:
-	//   Before updating the forkchoice state, client software MUST ensure the validity of the payload referenced by forkchoiceState.headBlockHash...
+	//   Before updating the forkchoice state, client software MUST ensure the validity of the payload referenced by
+	//   forkchoiceState.headBlockHash...
 	// Because we assume we're the only proposer, this is equivalent to checking if the head block is present in the block store.
 	if headBlock == nil {
 		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf("head block not found"))
@@ -98,16 +99,20 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	if safeBlock := e.blockStore.BlockByHash(fcs.SafeBlockHash); safeBlock == nil {
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("safe block not found"))
 	} else if safeBlock.Header.Height > headBlock.Header.Height {
-		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf("safe block at height %d comes after head block at height %d", safeBlock.Header.Height, headBlock.Header.Height))
+		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf("safe block at height %d comes after head block at height %d",
+			safeBlock.Header.Height, headBlock.Header.Height))
 	}
 	if finalizedBlock := e.blockStore.BlockByHash(fcs.FinalizedBlockHash); finalizedBlock == nil {
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("finalized block not found"))
 	} else if finalizedBlock.Header.Height > headBlock.Header.Height {
-		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf("finalized block at height %d comes after head block at height %d", finalizedBlock.Header.Height, headBlock.Header.Height))
+		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf(
+			"finalized block at height %d comes after head block at height %d", finalizedBlock.Header.Height,
+			headBlock.Header.Height))
 	}
 
 	// Engine API spec:
-	//   Client software MAY skip an update of the forkchoice state and MUST NOT begin a payload build process if forkchoiceState.headBlockHash references an ancestor of the head of canonical chain.
+	//   Client software MAY skip an update of the forkchoice state and MUST NOT begin a payload build process if
+	//   forkchoiceState.headBlockHash references an ancestor of the head of canonical chain.
 	// This part of the spec does not apply to us.
 	// Because we assume we're the sole proposer, the CL should only give us a past block head hash when L1 reorgs.
 	// TODO Is reorg handling in the Engine API discussed in the OP Execution Engine spec?
@@ -121,10 +126,15 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	}
 
 	// Update block labels.
-	// Since we know all of the hashes exist in the block store already, we can ignore the errors.
-	e.blockStore.UpdateLabel(eth.Unsafe, fcs.HeadBlockHash)
-	e.blockStore.UpdateLabel(eth.Safe, fcs.SafeBlockHash)
-	e.blockStore.UpdateLabel(eth.Finalized, fcs.FinalizedBlockHash)
+	if err := e.blockStore.UpdateLabel(eth.Unsafe, fcs.HeadBlockHash); err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("update unsafe label: %v", err))
+	}
+	if err := e.blockStore.UpdateLabel(eth.Safe, fcs.SafeBlockHash); err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("update safe label: %v", err))
+	}
+	if err := e.blockStore.UpdateLabel(eth.Finalized, fcs.FinalizedBlockHash); err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("update finalized label: %v", err))
+	}
 
 	if pa == nil {
 		// Engine API spec:
@@ -135,14 +145,17 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	// Ethereum execution specs:
 	//   https://github.com/ethereum/execution-specs/blob/119208cf1a13d5002074bcee3b8ea4ef096eeb0d/src/ethereum/shanghai/fork.py#L298
 	if headTime := e.blockStore.HeadBlock().Header.Time; uint64(pa.Timestamp) <= headTime {
-		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("timestamp too small: parent timestamp %d, got %d", headTime, pa.Timestamp))
+		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("timestamp too small: parent timestamp %d, got %d", headTime,
+			pa.Timestamp))
 	}
 
 	// Docs on OP PayloadAttributes struct:
 	//   Withdrawals... should be nil or empty depending on Shanghai enablement
-	//   Starting at Ecotone, the parentBeaconBlockRoot must be set to the L1 origin parentBeaconBlockRoot, or a zero bytes32 if the Dencun functionality with parentBeaconBlockRoot is not active on L1.
+	//   Starting at Ecotone, the parentBeaconBlockRoot must be set to the L1 origin parentBeaconBlockRoot, or a zero bytes32 if the
+	//   Dencun functionality with parentBeaconBlockRoot is not active on L1.
 	// We don't make any judgements about what hard fork is on L1.
-	// We can change this later if it becomes an issue, but right now it just prevents us from using Geth in PoW clique mode for devnets.
+	// We can change this later if it becomes an issue, but right now it just prevents us from using Geth in PoW clique mode for
+	// devnets.
 
 	// OP Spec:
 	//   The gasLimit is optional w.r.t. compatibility with L1, but required when used as rollup.
@@ -151,7 +164,8 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	// I do not know how to reconcile the above with:
 	// Engine API spec:
 	//   Client software MUST respond to this method call in the following way: ...
-	//     [InvalidPayloadAttributes] if the payload is deemed VALID and forkchoiceState has been applied successfully, but no build process has been started due to invalid payloadAttributes.
+	//     [InvalidPayloadAttributes] if the payload is deemed VALID and forkchoiceState has been applied successfully, but no build
+	//     process has been started due to invalid payloadAttributes.
 	// STATUS_INVALID is only for applying the head block payload and executing and checking the payload transactions.
 	// OP-Geth returns InvalidParams.
 	if pa.GasLimit == nil {
@@ -167,7 +181,8 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	}
 
 	// OP Spec:
-	//   If the transactions field is present, the engine must execute the transactions in order and return STATUS_INVALID if there is an error processing the transactions.
+	//   If the transactions field is present, the engine must execute the transactions in order and return STATUS_INVALID if there is
+	//   an error processing the transactions.
 	//   It must return STATUS_VALID if all of the transactions could be executed without error.
 	// TODO checktx doesn't actually run the tx, it only does basic validation.
 	for _, txBytes := range cosmosTxs {
@@ -199,7 +214,8 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	}
 
 	// Engine API spec:
-	//   Client software MUST begin a payload build process building on top of forkchoiceState.headBlockHash and identified via buildProcessId value if payloadAttributes
+	//   Client software MUST begin a payload build process building on top of forkchoiceState.headBlockHash and identified via
+	//   buildProcessId value if payloadAttributes
 	//   is not null and the forkchoice state has been updated successfully.
 	e.payloadStore.Add(payload)
 
@@ -219,7 +235,8 @@ func (e *EngineAPI) GetPayloadV2(payloadID engine.PayloadID) (*eth.ExecutionPayl
 	return e.GetPayloadV3(payloadID)
 }
 
-// GetPayloadV3 seals a payload that is currently being built (i.e. was introduced in the PayloadAttributes from a previous ForkchoiceUpdated call).
+// GetPayloadV3 seals a payload that is currently being built (i.e. was introduced in the PayloadAttributes from a previous
+// ForkchoiceUpdated call).
 func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
 	e.lock.RLock()
 	defer e.lock.RUnlock()
@@ -244,19 +261,19 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 	return payload.ToExecutionPayloadEnvelope(e.blockStore.HeadBlock().Hash()), nil
 }
 
-func (e *EngineAPI) NewPayloadV1(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *EngineAPI) NewPayloadV1(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
 	// TODO should this be called after Ecotone?
 	return e.NewPayloadV3(payload)
 }
 
-func (e *EngineAPI) NewPayloadV2(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *EngineAPI) NewPayloadV2(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
 	// TODO should this be called after Ecotone?
 	return e.NewPayloadV3(payload)
 }
 
 // NewPayloadV3 ensures the payload's block hash is present in the block store.
 // TODO will this ever be called if we are the sole block proposer?
-func (e *EngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) {
+func (e *EngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
 	e.lock.Lock()
 	defer e.lock.Unlock()
 

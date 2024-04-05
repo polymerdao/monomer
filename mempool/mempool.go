@@ -16,7 +16,7 @@ const (
 	tailKey       = "tailKey"
 )
 
-// Pool stores the transactions in a linked list for its inherent FCFS behaviour
+// Pool stores the transactions in a linked list for its inherent FCFS behavior
 type storageElem struct {
 	Txn      comettypes.Tx `json:"txn"`
 	NextHash []byte        `json:"nextHash"`

@@ -10,9 +10,7 @@ import (
 
 var _ paramtypes.ParamSet = (*Params)(nil)
 
-var (
-	KeyAllowedErc20Tokens = []byte("AllowedERC20Tokens")
-)
+var KeyAllowedErc20Tokens = []byte("AllowedERC20Tokens")
 
 // ParamKeyTable the param key table for launch module
 func ParamKeyTable() paramtypes.KeyTable {

@@ -4,14 +4,7 @@ import (
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 )
 
-// bank message types
-const (
-	TypeMsgL1Txs = "l1txs"
-)
-
-var (
-	_ sdktypes.Msg = &MsgL1Txs{}
-)
+var _ sdktypes.Msg = &MsgL1Txs{}
 
 // GetSigners implements types.Msg.
 func (*MsgL1Txs) GetSigners() []sdktypes.AccAddress {
@@ -26,10 +19,10 @@ func (m *MsgL1Txs) ValidateBasic() error {
 	return nil
 }
 
-func (msg *MsgL1Txs) Type() string {
-	return TypeMsgL1Txs
+func (*MsgL1Txs) Type() string {
+	return "l1txs"
 }
 
-func (msg *MsgL1Txs) Route() string {
+func (*MsgL1Txs) Route() string {
 	return RouterKey
 }

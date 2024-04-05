@@ -22,7 +22,7 @@ func NewChainID(chainID *hexutil.Big) *ChainID {
 	}
 }
 
-func (e *ChainID) ChainId() *hexutil.Big {
+func (e *ChainID) ChainId() *hexutil.Big { //nolint:stylecheck
 	return e.chainID
 }
 

@@ -7,11 +7,11 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	ethengine "github.com/ethereum/go-ethereum/beacon/engine"
-	"github.com/polymerdao/monomer/engine"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/builder"
+	"github.com/polymerdao/monomer/engine"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/mempool"
 	"github.com/polymerdao/monomer/testutil/testapp"
@@ -89,7 +89,7 @@ func TestForkchoiceUpdatedV3(t *testing.T) {
 	api, b, blockStore := newAPI(t)
 	genesisBlock := blockStore.HeadBlock()
 	require.NoError(t, b.Build(&builder.Payload{
-		Timestamp: uint64(genesisBlock.Header.Time) + 1,
+		Timestamp: genesisBlock.Header.Time + 1,
 	}))
 	postGenesisBlock := blockStore.HeadBlock()
 
@@ -111,7 +111,7 @@ func TestForkchoiceUpdatedV3(t *testing.T) {
 			// just manually do these
 			for description, pa := range map[string]eth.PayloadAttributes{
 				"with payload": {
-					// TODO
+					// TODO add test
 				},
 				"without payload": {},
 			} {

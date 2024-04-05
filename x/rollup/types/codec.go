@@ -4,11 +4,10 @@ import (
 	"math/big"
 
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum/go-ethereum/common"
-
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 // only required for legacy Amino codec
@@ -22,7 +21,7 @@ func RegisterInterfaces(registry cdctypes.InterfaceRegistry) {
 }
 
 // ToL1BlockInfoResponse converts a derive.L1BlockInfo to QueryL1BlockInfoResponse.
-func ToL1BlockInfoResponse(l1blockInfo derive.L1BlockInfo) *QueryL1BlockInfoResponse {
+func ToL1BlockInfoResponse(l1blockInfo *derive.L1BlockInfo) *QueryL1BlockInfoResponse {
 	return &QueryL1BlockInfoResponse{
 		Number:         l1blockInfo.Number,
 		Time:           l1blockInfo.Time,

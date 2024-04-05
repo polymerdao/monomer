@@ -152,11 +152,9 @@ func TestBuild(t *testing.T) {
 			genesisBlock := blockStore.BlockByNumber(preBuildInfo.GetLastBlockHeight())
 			require.NotNil(t, genesisBlock)
 			gotBlock := blockStore.HeadBlock()
-			var allTxs [][]byte
-			if test.noTxPool {
-				allTxs = inclusionListTxs
-			} else {
-				allTxs = append(inclusionListTxs, mempoolTxs...)
+			allTxs := append([][]byte{}, inclusionListTxs...)
+			if !test.noTxPool {
+				allTxs = append(allTxs, mempoolTxs...)
 			}
 			wantBlock := &monomer.Block{
 				Header: &monomer.Header{

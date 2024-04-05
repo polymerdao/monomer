@@ -24,15 +24,14 @@ func NewKeeper(
 	memKey storetypes.StoreKey,
 	// dependencies
 	mintKeeper *mintkeeper.Keeper,
-	bankkeeper bankkeeper.Keeper,
-
+	bankKeeper bankkeeper.Keeper,
 ) *Keeper {
 	return &Keeper{
 		cdc:        cdc,
 		storeKey:   storeKey,
 		memKey:     memKey,
 		mintKeeper: mintKeeper,
-		bankkeeper: bankkeeper,
+		bankkeeper: bankKeeper,
 		rollupCfg:  &rollup.Config{},
 	}
 }

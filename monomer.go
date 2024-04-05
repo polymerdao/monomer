@@ -3,6 +3,8 @@ package monomer
 import (
 	"crypto/sha256"
 	"encoding/binary"
+	"fmt"
+	"hash"
 	"math/big"
 	"strconv"
 	"time"
@@ -79,7 +81,7 @@ func (b *Block) Hash() common.Hash {
 			ParentHash:      b.Header.ParentHash,
 			Root:            common.BytesToHash(b.Header.AppHash), // TODO actually take the keccak
 			Number:          big.NewInt(b.Header.Height),
-			GasLimit:        uint64(b.Header.GasLimit),
+			GasLimit:        b.Header.GasLimit,
 			MixDigest:       common.Hash{},
 			Time:            b.Header.Time,
 			UncleHash:       ethtypes.EmptyUncleHash,
@@ -146,24 +148,23 @@ type Payload struct {
 
 // ID returns a PaylodID (a hash) from a PayloadAttributes when it's applied to a head block.
 // Hashing does not conform to go-ethereum/miner/payload_building.go
-// PayloadID is only caclulated once, and cached for future calls.
+// PayloadID is only calculated once, and cached for future calls.
 func (p *Payload) ID() *engine.PayloadID {
 	if p.id != nil {
 		return p.id
 	}
-
 	hasher := sha256.New()
-	hasher.Write(p.ParentHash[:])
-	binary.Write(hasher, binary.BigEndian, p.Timestamp)
-	hasher.Write(p.PrevRandao[:])
-	hasher.Write(p.SuggestedFeeRecipient[:])
-	binary.Write(hasher, binary.BigEndian, p.GasLimit)
 
+	hashData(hasher, p.ParentHash[:])
+	hashDataAsBinary(hasher, p.Timestamp)
+	hashData(hasher, p.PrevRandao[:])
+	hashData(hasher, p.SuggestedFeeRecipient[:])
+	hashDataAsBinary(hasher, p.GasLimit)
 	if p.NoTxPool || len(p.Transactions) == 0 {
-		binary.Write(hasher, binary.BigEndian, p.NoTxPool)
-		binary.Write(hasher, binary.BigEndian, uint64(len(p.Transactions)))
+		hashDataAsBinary(hasher, p.NoTxPool)
+		hashDataAsBinary(hasher, uint64(len(p.Transactions)))
 		for _, txData := range p.CosmosTxs {
-			hasher.Write(txData)
+			hashData(hasher, txData)
 		}
 	}
 
@@ -171,6 +172,20 @@ func (p *Payload) ID() *engine.PayloadID {
 	copy(out[:], hasher.Sum(nil)[:8])
 	p.id = &out
 	return &out
+}
+
+func hashData(h hash.Hash, data []byte) {
+	// We know hash.Hash should never return an error, so a panic is fine.
+	if _, err := h.Write(data); err != nil {
+		panic(fmt.Errorf("hash data: %v", err))
+	}
+}
+
+func hashDataAsBinary(h hash.Hash, data any) {
+	// We know hash.Hash should never return an error, so a panic is fine.
+	if err := binary.Write(h, binary.BigEndian, data); err != nil {
+		panic(fmt.Errorf("hash data as binary: %v", err))
+	}
 }
 
 // ToExecutionPayloadEnvelope converts a Payload to an ExecutionPayload.
