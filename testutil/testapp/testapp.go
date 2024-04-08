@@ -59,7 +59,7 @@ var maccPerms = map[string][]string{
 
 var accountAddressPrefix = "testapp"
 
-func New(appdb dbm.DB, chainID string, logger log.Logger) *App {
+func New(appdb dbm.DB, chainID string) *App {
 	interfaceRegistry := codectypes.NewInterfaceRegistry()
 
 	basicManager := module.NewBasicManager(

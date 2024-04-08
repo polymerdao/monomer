@@ -36,8 +36,6 @@ func TestRollbackToHeight(t *testing.T) {
 		} else {
 			notReorgedState[key] = value
 		}
-		app.EndBlock(abcitypes.RequestEndBlock{})
-		app.Commit()
 	}
 
 	require.NoError(t, app.RollbackToHeight(uint64(newHeight)))
@@ -53,8 +51,6 @@ func TestRollbackToHeight(t *testing.T) {
 	for i := newHeight+1; i < height; i++ {
 		key, value := build(t, app, chainID, int64(i))
 		newState[key] = value
-		app.EndBlock(abcitypes.RequestEndBlock{})
-		app.Commit()
 	}
 	{
 		info := app.Info(abcitypes.RequestInfo{})
@@ -77,5 +73,7 @@ func build(t *testing.T, app *testapp.App, chainID string, height int64) (string
 		Tx: testapp.ToTx(t, key, value),
 	})
 	require.True(t, resp.IsOK())
+	app.EndBlock(abcitypes.RequestEndBlock{})
+	app.Commit()
 	return key, value
 }
