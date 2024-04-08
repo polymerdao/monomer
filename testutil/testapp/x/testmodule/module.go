@@ -57,15 +57,14 @@ func (m *Module) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, data json.RawMe
 			Power:  sdk.DefaultPowerReduction.Int64(),
 		},
 	}
-
 }
 
-func (m *Module) ExportGenesis(_ sdk.Context, _ codec.JSONCodec) json.RawMessage {
-	return []byte("{}")
+func (*Module) ExportGenesis(_ sdk.Context, _ codec.JSONCodec) json.RawMessage {
+	return json.RawMessage("{}")
 }
 
-func (m *Module) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
-	return []byte("{}")
+func (*Module) DefaultGenesis(_ codec.JSONCodec) json.RawMessage {
+	return json.RawMessage("{}")
 }
 
 func (m *Module) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, data json.RawMessage) error {
@@ -97,15 +96,15 @@ func (m *Module) Set(ctx context.Context, req *testappv1.SetRequest) (*testappv1
 	return &testappv1.SetResponse{}, nil
 }
 
-func (m *Module) GetQueryCmd() *cobra.Command {
+func (*Module) GetQueryCmd() *cobra.Command {
 	return nil
 }
 
-func (m *Module) GetTxCmd() *cobra.Command {
+func (*Module) GetTxCmd() *cobra.Command {
 	return nil
 }
 
-func (m *Module) Name() string {
+func (*Module) Name() string {
 	return ModuleName
 }
 
@@ -118,11 +117,11 @@ func (*Module) RegisterRESTRoutes(clientCtx client.Context, rtr *mux.Router) {
 }
 
 // RegisterInterfaces registers the module's interface types
-func (m *Module) RegisterInterfaces(r codectypes.InterfaceRegistry) {
+func (*Module) RegisterInterfaces(r codectypes.InterfaceRegistry) {
 	testappv1.RegisterInterfaces(r)
 }
 
-func (m *Module) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {}
+func (*Module) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {}
 
 func (m *Module) RegisterServices(cfg module.Configurator) {
 	testappv1.RegisterSetServiceServer(cfg.MsgServer(), m)
