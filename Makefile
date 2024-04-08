@@ -21,6 +21,9 @@ install-go-test-coverage:
 
 $(COVER_OUT):
 	go test ./... -coverprofile=$@ -covermode=atomic -coverpkg=./...
+
+.PHONY: check-cover
+check-cover: $(COVER_OUT)
 	${GOBIN}/go-test-coverage --config=./.testcoverage.yml
 
 $(COVER_HTML): $(COVER_OUT)

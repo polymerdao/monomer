@@ -7,22 +7,25 @@ on:
   workflow_dispatch:
 
 jobs:
-  test:
-    name: coverage profile
-    strategy:
-      fail-fast: false
-      matrix:
-        go: [ '1.22' ]
-        os: [ ubuntu-latest, macos-latest, self-hosted-linux-arm64]
-    runs-on: ${{ matrix.os }}
+  simple:
+    # Tests will run on Ubuntu when we generate the coverage profile.
+    # The go-test-coverage action doesn't work on Mac.
+    runs-on: macos-latest
     steps:
         - uses: actions/checkout@v4
         - uses: actions/setup-go@v5
           with:
             go-version-file: go.mod
-        - name: generate test coverage
-          run: make install-go-test-coverage && make cover.out
-        - name: check test coverage
-          uses: vladopajic/go-test-coverage@v2
+        - run: make test
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@v4
+        - uses: actions/setup-go@v5
+          with:
+            go-version-file: go.mod
+        - run: make cover.out
+        - uses: vladopajic/go-test-coverage@v2
           with:
             config: .testcoverage.yml
