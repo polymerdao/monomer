@@ -175,6 +175,13 @@ replace (
 	github.com/ethereum-optimism/optimism v1.4.2 => github.com/polymerdao/optimism-dev v1.4.2-polymer-1.1
 	// use OP's fork of op-geth
 	github.com/ethereum/go-ethereum v1.13.5 => github.com/ethereum-optimism/op-geth v1.101305.2-rc.2.0.20240117002010-d5f142e54a0a
+
+	// Use non-buggy version of goleveldb (the same version as the cosmos-sdk).
+        // As we learned the hard way, future versions have bugs.
+	// The bug that we hit consisted of returning `nil` instead of the empty byte slice `[]byte{}`, causing a really confusing
+	// rollback error that exclusively impacted sdk modules with empty state roots.
+	// https://github.com/cosmos/cosmos-sdk/blob/b2835eb78b721699757e772aa1876b7112afc255/go.mod#L204-L205
+	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 )
 
 go 1.21.5
