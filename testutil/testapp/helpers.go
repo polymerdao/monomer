@@ -7,7 +7,6 @@ import (
 
 	tmdb "github.com/cometbft/cometbft-db"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/log"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	testappv1 "github.com/polymerdao/monomer/testutil/testapp/gen/testapp/v1"
@@ -20,7 +19,7 @@ func NewTest(t *testing.T, chainID string) *App {
 	t.Cleanup(func() {
 		require.NoError(t, appdb.Close())
 	})
-	return New(appdb, chainID, log.NewNopLogger())
+	return New(appdb, chainID)
 }
 
 func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.RawMessage {

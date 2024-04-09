@@ -28,15 +28,6 @@ import (
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
-type Config struct {
-	DataDir    string           `json:"data_dir"`
-	EthHost    string           `json:"eth_host"`
-	EthPort    uint16           `json:"eth_port"`
-	EngineHost string           `json:"engine_host"`
-	EnginePort uint16           `json:"engine_port"`
-	Genesis    *genesis.Genesis `json:"genesis"`
-}
-
 func main() {
 	ctx, _ := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	if err := run(ctx); err != nil {
@@ -45,14 +36,8 @@ func main() {
 	}
 }
 
-func parseFlags() (*Config, error) {
-	cwd, err := os.Getwd()
-	if err != nil {
-		return nil, fmt.Errorf("get current working directory: %v", err)
-	}
-
-	var dataDir string
-	flag.StringVar(&dataDir, "data-dir", cwd, "")
+// run runs the Monomer node.
+func run(ctx context.Context) (err error) {
 	var engineHost string
 	flag.StringVar(&engineHost, "engine-host", "127.0.0.1", "")
 	var enginePort uint64
@@ -67,73 +52,41 @@ func parseFlags() (*Config, error) {
 	flag.Parse()
 
 	if enginePort > math.MaxUint16 {
-		return nil, fmt.Errorf("engine port is out of range: %d", enginePort)
+		return fmt.Errorf("engine port is out of range: %d", enginePort)
 	} else if ethPort > math.MaxUint16 {
-		return nil, fmt.Errorf("eth port is out of range: %d", ethPort)
+		return fmt.Errorf("eth port is out of range: %d", ethPort)
 	}
 
 	g := new(genesis.Genesis)
 	if genesisFile != "" {
 		genesisBytes, err := os.ReadFile(genesisFile)
 		if err != nil {
-			return nil, fmt.Errorf("read genesis file: %v", err)
+			return fmt.Errorf("read genesis file: %v", err)
 		}
 		if err = json.Unmarshal(genesisBytes, &g); err != nil {
-			return nil, fmt.Errorf("unmarshal genesis file: %v", err)
+			return fmt.Errorf("unmarshal genesis file: %v", err)
 		}
 	}
 
-	return &Config{
-		DataDir:    dataDir,
-		EthHost:    ethHost,
-		EthPort:    uint16(ethPort),
-		EngineHost: engineHost,
-		EnginePort: uint16(enginePort),
-		Genesis:    g,
-	}, nil
-}
+	app := testapp.New(tmdb.NewMemDB(), g.ChainID.String())
 
-// run runs the Monomer node. It assumes args excludes the program name.
-func run(ctx context.Context) error {
-	config, err := parseFlags()
-	if err != nil {
-		return err
-	}
-
-	logger := tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout))
-
-	appdb, err := openDB("app", config.DataDir)
-	if err != nil {
-		return err
-	}
-	app := testapp.New(appdb, config.Genesis.ChainID.String(), logger)
-
-	blockdb, err := openDB("block", config.DataDir)
-	if err != nil {
-		return err
-	}
+	blockdb := tmdb.NewMemDB()
 	defer func() {
 		err = runAndWrapOnError(err, "close block db", blockdb.Close)
 	}()
 	blockStore := store.NewBlockStore(blockdb)
 
-	if err = prepareBlockStoreAndApp(config.Genesis, blockStore, app); err != nil {
+	if err = prepareBlockStoreAndApp(g, blockStore, app); err != nil {
 		return err
 	}
 
-	txdb, err := openDB("tx", config.DataDir)
-	if err != nil {
-		return err
-	}
+	txdb := tmdb.NewMemDB()
 	defer func() {
 		err = runAndWrapOnError(err, "close tx db", txdb.Close)
 	}()
 	txStore := txstore.NewTxStore(txdb)
 
-	mempooldb, err := openDB("mempool", config.DataDir)
-	if err != nil {
-		return err
-	}
+	mempooldb := tmdb.NewMemDB()
 	defer func() {
 		err = runAndWrapOnError(err, "close mempool db", mempooldb.Close)
 	}()
@@ -141,27 +94,28 @@ func run(ctx context.Context) error {
 
 	eventBus := bfttypes.NewEventBus()
 
+	logger := tmlog.NewTMLogger(tmlog.NewSyncWriter(os.Stdout))
 	ethAPI := struct {
 		*eth.ChainID
 		*eth.BlockByNumber
 		*eth.BlockByHash
 	}{
-		ChainID:       eth.NewChainID(config.Genesis.ChainID.HexBig()),
+		ChainID:       eth.NewChainID(g.ChainID.HexBig()),
 		BlockByNumber: eth.NewBlockByNumber(blockStore, rolluptypes.AdaptCosmosTxsToEthTxs),
 		BlockByHash:   eth.NewBlockByHash(blockStore, rolluptypes.AdaptCosmosTxsToEthTxs),
 	}
 	n := newNodeService(
-		rpcee.NewEeRpcServer(config.EthHost, config.EthPort, []ethrpc.API{
+		rpcee.NewEeRpcServer(ethHost, uint16(ethPort), []ethrpc.API{
 			{
 				Namespace: "eth",
 				Service:   ethAPI,
 			},
 		}, logger),
-		rpcee.NewEeRpcServer(config.EngineHost, config.EnginePort, []ethrpc.API{
+		rpcee.NewEeRpcServer(engineHost, uint16(enginePort), []ethrpc.API{
 			{
 				Namespace: "engine",
 				Service: engine.NewEngineAPI(
-					builder.New(mpool, app, blockStore, txStore, eventBus, config.Genesis.ChainID),
+					builder.New(mpool, app, blockStore, txStore, eventBus, g.ChainID),
 					app,
 					rolluptypes.AdaptPayloadTxsToCosmosTxs,
 					blockStore,
@@ -212,14 +166,6 @@ func prepareBlockStoreAndApp(g *genesis.Genesis, blockStore store.BlockStore, ap
 	}
 
 	return nil
-}
-
-func openDB(name, dir string) (tmdb.DB, error) {
-	db, err := tmdb.NewDB(name, tmdb.GoLevelDBBackend, dir)
-	if err != nil {
-		return nil, fmt.Errorf("new db: %v", err)
-	}
-	return db, nil
 }
 
 func runAndWrapOnError(existingErr error, msg string, fn func() error) error {
