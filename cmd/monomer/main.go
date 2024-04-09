@@ -41,11 +41,11 @@ func run(ctx context.Context) (err error) {
 	var engineHost string
 	flag.StringVar(&engineHost, "engine-host", "127.0.0.1", "")
 	var enginePort uint64
-	flag.Uint64Var(&enginePort, "engine-port", 8888, "") //nolint:gomnd
+	flag.Uint64Var(&enginePort, "engine-port", 9551, "") //nolint:gomnd
 	var ethHost string
 	flag.StringVar(&ethHost, "eth-host", "127.0.0.1", "")
 	var ethPort uint64
-	flag.Uint64Var(&ethPort, "eth-port", 8889, "") //nolint:gomnd
+	flag.Uint64Var(&ethPort, "eth-port", 9546, "") //nolint:gomnd
 	var genesisFile string
 	flag.StringVar(&genesisFile, "genesis-file", "", "")
 
