@@ -5,29 +5,20 @@ import (
 	"github.com/polymerdao/monomer"
 )
 
-type PayloadStore interface {
-	Add(payload *monomer.Payload)
-	Get(id engine.PayloadID) (*monomer.Payload, bool)
-	Current() *monomer.Payload
-	RollbackToHeight(height int64) error
-}
-
-type pstore struct {
+type Store struct {
 	payloads map[engine.PayloadID]*monomer.Payload
 	heights  map[int64]engine.PayloadID
 	current  *monomer.Payload
 }
 
-var _ PayloadStore = (*pstore)(nil)
-
-func NewPayloadStore() PayloadStore {
-	return &pstore{
+func NewPayloadStore() *Store {
+	return &Store{
 		payloads: make(map[engine.PayloadID]*monomer.Payload),
 		heights:  make(map[int64]engine.PayloadID),
 	}
 }
 
-func (p *pstore) Add(payload *monomer.Payload) {
+func (p *Store) Add(payload *monomer.Payload) {
 	id := payload.ID()
 	if _, ok := p.payloads[*id]; !ok {
 		p.heights[payload.Height] = *id
@@ -36,18 +27,16 @@ func (p *pstore) Add(payload *monomer.Payload) {
 	}
 }
 
-func (p *pstore) Get(id engine.PayloadID) (*monomer.Payload, bool) {
-	if payload, ok := p.payloads[id]; ok {
-		return payload, true
-	}
-	return nil, false
+func (p *Store) Get(id engine.PayloadID) (*monomer.Payload, bool) {
+	payload, ok := p.payloads[id]
+	return payload, ok
 }
 
-func (p *pstore) Current() *monomer.Payload {
+func (p *Store) Current() *monomer.Payload {
 	return p.current
 }
 
-func (p *pstore) RollbackToHeight(height int64) error {
+func (p *Store) RollbackToHeight(height int64) error {
 	// nuke everything in memory
 	p.current = nil
 	p.heights = make(map[int64]engine.PayloadID)
