@@ -1,6 +1,6 @@
 # Monomer
 
-Monomer uses the OP stack to make Cosmos SDK applications delployable as Ethereum rollups.
+Monomer uses the OP stack to make Cosmos SDK applications deployable as Ethereum rollups.
 
 > ⚠ Monomer is pre-production software and should be used with caution. ⚠
 
