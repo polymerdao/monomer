@@ -34,6 +34,27 @@ func (p *Store) Add(payload *monomer.Payload) {
 	}
 }
 
+// Remove removes a payload from the store and updates the current payload
+// if necessary.
+func (p *Store) Remove(id engine.PayloadID) {
+	current := p.Current()
+	resetCurrent := id == *current.ID()
+
+	if payload, ok := p.payloads[id]; ok {
+		delete(p.payloads, id)
+		delete(p.heights, payload.Height)
+	}
+
+	if resetCurrent {
+		p.current = nil
+		for _, payload := range p.payloads {
+			if p.current == nil || payload.Height > p.current.Height {
+				p.current = payload
+			}
+		}
+	}
+}
+
 func (p *Store) Get(id engine.PayloadID) (*monomer.Payload, bool) {
 	payload, ok := p.payloads[id]
 	return payload, ok

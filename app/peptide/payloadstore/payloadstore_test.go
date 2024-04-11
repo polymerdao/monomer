@@ -117,3 +117,24 @@ func TestAdd(t *testing.T) {
 	// assert current not updated with stale payload
 	require.Equal(t, fresh, ps.Current().Height)
 }
+
+func TestRemove(t *testing.T) {
+	ps, ids := dummyPayloadStore(t, 10)
+	ps.Remove(*ids[5])
+
+	// assert removal of payload at height 5
+	p, ok := ps.Get(*ids[5])
+	require.False(t, ok)
+	require.Nil(t, p)
+
+	// assert current remains the same
+	require.Equal(t, int64(9), ps.Current().Height)
+	require.Equal(t, ids[9], ps.Current().ID())
+
+	// remove current payload
+	ps.Remove(*ids[9])
+
+	// assert current is updated
+	require.Equal(t, int64(8), ps.Current().Height)
+	require.Equal(t, ids[8], ps.Current().ID())
+}
