@@ -7,11 +7,9 @@ import (
 	"sync"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/payloadstore"
 	"github.com/polymerdao/monomer/app/peptide/store"
@@ -29,21 +27,15 @@ type EngineAPI struct {
 	txValidator  TxValidator
 	blockStore   BlockStore
 	payloadStore payloadstore.PayloadStore
-	adapter      PayloadTxAdapter
+	adapter      monomer.PayloadTxAdapter
 	lock         sync.RWMutex
 }
-
-// PayloadTxAdapter transforms Op payload transactions into Cosmos transactions.
-//
-// In practice, this will use msg types from Monomer's rollup module, but importing the rollup module here would create a circular module
-// dependency between Monomer, the SDK, and the rollup module. sdk -> monomer -> rollup -> sdk, where -> is "depends on".
-type PayloadTxAdapter func(ethTxs []hexutil.Bytes) (bfttypes.Txs, error)
 
 type TxValidator interface {
 	CheckTx(abci.RequestCheckTx) abci.ResponseCheckTx
 }
 
-func NewEngineAPI(b *builder.Builder, txValidator TxValidator, adapter PayloadTxAdapter, blockStore BlockStore) *EngineAPI {
+func NewEngineAPI(b *builder.Builder, txValidator TxValidator, adapter monomer.PayloadTxAdapter, blockStore BlockStore) *EngineAPI {
 	return &EngineAPI{
 		txValidator:  txValidator,
 		blockStore:   blockStore,

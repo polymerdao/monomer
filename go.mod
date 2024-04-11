@@ -13,6 +13,7 @@ require (
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
 	github.com/samber/lo v1.39.0
+	github.com/sourcegraph/conc v0.3.0
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.4
 	google.golang.org/genproto/googleapis/api v0.0.0-20240123012728-ef4313101c80
@@ -177,7 +178,7 @@ replace (
 	github.com/ethereum/go-ethereum v1.13.5 => github.com/ethereum-optimism/op-geth v1.101305.2-rc.2.0.20240117002010-d5f142e54a0a
 
 	// Use non-buggy version of goleveldb (the same version as the cosmos-sdk).
-        // As we learned the hard way, future versions have bugs.
+	// As we learned the hard way, future versions have bugs.
 	// The bug that we hit consisted of returning `nil` instead of the empty byte slice `[]byte{}`, causing a really confusing
 	// rollback error that exclusively impacted sdk modules with empty state roots.
 	// https://github.com/cosmos/cosmos-sdk/blob/b2835eb78b721699757e772aa1876b7112afc255/go.mod#L204-L205

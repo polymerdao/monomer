@@ -8,5 +8,4 @@ exclude:
     - \.pb\.go$
     - ^app
     - ^x/rollup
-    - ^cmd/monomer
     - ^engine
