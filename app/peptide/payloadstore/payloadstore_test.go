@@ -68,3 +68,27 @@ func TestClear(t *testing.T) {
 	// current is nil after Clear
 	require.Nil(t, ps.Current())
 }
+
+func TestRollback(t *testing.T) {
+	// test batch removal of payloads
+	ps, ids := dummyPayloadStore(t, 10)
+	ps.RollbackToHeight(5)
+
+	for h := int64(0); h < 10; h++ {
+		// payloads with height > 5 are removed
+		p, ok := ps.Get(*ids[h])
+		if h > 5 {
+			require.False(t, ok)
+			require.Nil(t, p)
+		} else {
+			require.True(t, ok)
+			require.Equal(t, ids[h], p.ID())
+		}
+	}
+	current := ps.Current()
+	require.Equal(t, int64(5), current.Height)
+	require.Equal(t, ids[5], current.ID())
+
+	// test no existing payload at height
+	require.Error(t, ps.RollbackToHeight(15))
+}
