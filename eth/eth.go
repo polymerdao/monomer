@@ -3,11 +3,10 @@ package eth
 import (
 	"fmt"
 
-	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 )
 
@@ -26,18 +25,12 @@ func (e *ChainID) ChainId() *hexutil.Big { //nolint:stylecheck
 	return e.chainID
 }
 
-// CosmosTxAdapter transforms Cosmos transactions into Ethereum transactions.
-//
-// In practice, this will use msg types from Monomer's rollup module, but importing the rollup module here would create a circular module
-// dependency between Monomer, the SDK, and the rollup module. sdk -> monomer -> rollup -> sdk, where -> is "depends on".
-type CosmosTxAdapter func(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, error)
-
 type BlockByNumber struct {
 	blockStore store.BlockStoreReader
-	adapter    CosmosTxAdapter
+	adapter    monomer.CosmosTxAdapter
 }
 
-func NewBlockByNumber(blockStore store.BlockStoreReader, adapter CosmosTxAdapter) *BlockByNumber {
+func NewBlockByNumber(blockStore store.BlockStoreReader, adapter monomer.CosmosTxAdapter) *BlockByNumber {
 	return &BlockByNumber{
 		blockStore: blockStore,
 		adapter:    adapter,
@@ -58,10 +51,10 @@ func (e *BlockByNumber) GetBlockByNumber(id BlockID, inclTx bool) (map[string]an
 
 type BlockByHash struct {
 	blockStore store.BlockStoreReader
-	adapter    CosmosTxAdapter
+	adapter    monomer.CosmosTxAdapter
 }
 
-func NewBlockByHash(blockStore store.BlockStoreReader, adapter CosmosTxAdapter) *BlockByHash {
+func NewBlockByHash(blockStore store.BlockStoreReader, adapter monomer.CosmosTxAdapter) *BlockByHash {
 	return &BlockByHash{
 		blockStore: blockStore,
 		adapter:    adapter,

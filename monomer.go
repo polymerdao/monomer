@@ -37,6 +37,18 @@ type Application interface {
 	RollbackToHeight(uint64) error
 }
 
+// CosmosTxAdapter transforms Cosmos transactions into Ethereum transactions.
+//
+// In practice, this will use msg types from Monomer's rollup module, but importing the rollup module here would create a circular module
+// dependency between Monomer, the SDK, and the rollup module. sdk -> monomer -> rollup -> sdk, where -> is "depends on".
+type CosmosTxAdapter func(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, error)
+
+// PayloadTxAdapter transforms Op payload transactions into Cosmos transactions.
+//
+// In practice, this will use msg types from Monomer's rollup module, but importing the rollup module here would create a circular module
+// dependency between Monomer, the SDK, and the rollup module. sdk -> monomer -> rollup -> sdk, where -> is "depends on".
+type PayloadTxAdapter func(ethTxs []hexutil.Bytes) (bfttypes.Txs, error)
+
 type ChainID uint64
 
 func (id ChainID) String() string {
