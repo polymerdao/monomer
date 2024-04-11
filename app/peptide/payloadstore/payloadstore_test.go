@@ -32,25 +32,30 @@ func dummyPayload(height int64) *monomer.Payload {
 	}
 }
 
-func TestClear(t *testing.T) {
+func dummyPayloadStore(t *testing.T, n int64) (*Store, []*engine.PayloadID) {
 	ps := NewPayloadStore()
-	ids := make([]*engine.PayloadID, 10)
+	ids := make([]*engine.PayloadID, n)
 
 	// add some payloads
-	for h := int64(0); h < 10; h++ {
+	for h := int64(0); h < n; h++ {
 		payload := dummyPayload(h)
 		ps.Add(payload)
 		ids[h] = payload.ID()
 	}
 
 	// assert non-emptiness
-	for h := int64(0); h < 10; h++ {
+	for h := int64(0); h < n; h++ {
 		newpayload, ok := ps.Get(*ids[h])
 		require.True(t, ok)
 		require.Equal(t, ids[h], newpayload.ID())
 	}
 	require.NotNil(t, ps.Current())
 
+	return ps, ids
+}
+
+func TestClear(t *testing.T) {
+	ps, ids := dummyPayloadStore(t, 10)
 	ps.Clear()
 
 	for h := int64(0); h < 10; h++ {
@@ -62,5 +67,4 @@ func TestClear(t *testing.T) {
 
 	// current is nil after Clear
 	require.Nil(t, ps.Current())
-}
 }
