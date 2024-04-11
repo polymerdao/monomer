@@ -92,3 +92,28 @@ func TestRollback(t *testing.T) {
 	// test no existing payload at height
 	require.Error(t, ps.RollbackToHeight(15))
 }
+
+func TestAdd(t *testing.T) {
+	fresh, stale := int64(10), int64(5)
+
+	ps := NewPayloadStore()
+	freshPayload := dummyPayload(fresh)
+	ps.Add(freshPayload)
+
+	// assert inclusion of fresh payload
+	retrieved, ok := ps.Get(*freshPayload.ID())
+	require.True(t, ok)
+	require.Equal(t, freshPayload.ID(), retrieved.ID())
+	require.NotNil(t, ps.Current())
+
+	stalePayload := dummyPayload(stale)
+	ps.Add(stalePayload)
+
+	// assert inclusion of stale payload
+	retrieved, ok = ps.Get(*stalePayload.ID())
+	require.True(t, ok)
+	require.Equal(t, stalePayload.ID(), retrieved.ID())
+
+	// assert current not updated with stale payload
+	require.Equal(t, fresh, ps.Current().Height)
+}

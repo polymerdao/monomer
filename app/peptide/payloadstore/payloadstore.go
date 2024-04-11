@@ -20,12 +20,17 @@ func NewPayloadStore() *Store {
 	}
 }
 
+// Add adds a payload to the store and updates the current payload
+// if the new payload has a greater height.
 func (p *Store) Add(payload *monomer.Payload) {
 	id := payload.ID()
 	if _, ok := p.payloads[*id]; !ok {
 		p.heights[payload.Height] = *id
 		p.payloads[*id] = payload
-		p.current = payload
+
+		if (p.current == nil) || (payload.Height > p.current.Height) {
+			p.current = payload
+		}
 	}
 }
 
