@@ -44,3 +44,11 @@ func (p *Store) RollbackToHeight(height int64) error {
 
 	return nil
 }
+
+// Clear removes all payloads from the store.
+func (p *Store) Clear() {
+	// nuke everything in memory
+	p.current = nil
+	p.heights = make(map[int64]engine.PayloadID)
+	p.payloads = make(map[engine.PayloadID]*monomer.Payload)
+}

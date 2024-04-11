@@ -32,28 +32,35 @@ func dummyPayload(height int64) *monomer.Payload {
 	}
 }
 
-func TestRollback(t *testing.T) {
+func TestClear(t *testing.T) {
 	ps := NewPayloadStore()
 	ids := make([]*engine.PayloadID, 10)
 
+	// add some payloads
 	for h := int64(0); h < 10; h++ {
 		payload := dummyPayload(h)
 		ps.Add(payload)
 		ids[h] = payload.ID()
 	}
 
+	// assert non-emptiness
 	for h := int64(0); h < 10; h++ {
 		newpayload, ok := ps.Get(*ids[h])
 		require.True(t, ok)
 		require.Equal(t, ids[h], newpayload.ID())
 	}
+	require.NotNil(t, ps.Current())
 
-	require.NoError(t, ps.RollbackToHeight(5))
+	ps.Clear()
 
 	for h := int64(0); h < 10; h++ {
-		// nothing remains after rollback
+		// nothing remains after Clear
 		p, ok := ps.Get(*ids[h])
 		require.False(t, ok)
 		require.Nil(t, p)
 	}
+
+	// current is nil after Clear
+	require.Nil(t, ps.Current())
+}
 }
