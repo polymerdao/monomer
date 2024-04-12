@@ -57,9 +57,8 @@ func (p *Store) Remove(id engine.PayloadID) {
 	}
 }
 
-func (p *Store) Get(id engine.PayloadID) (*monomer.Payload, bool) {
-	payload, ok := p.payloads[id]
-	return payload, ok
+func (p *Store) Get(id engine.PayloadID) *monomer.Payload {
+	return p.payloads[id]
 }
 
 func (p *Store) Current() *monomer.Payload {

@@ -45,8 +45,7 @@ func dummyPayloadStore(t *testing.T, n int64) (*Store, []*engine.PayloadID) {
 
 	// assert non-emptiness
 	for h := int64(0); h < n; h++ {
-		newpayload, ok := ps.Get(*ids[h])
-		require.True(t, ok)
+		newpayload := ps.Get(*ids[h])
 		require.Equal(t, ids[h], newpayload.ID())
 	}
 	require.NotNil(t, ps.Current())
@@ -60,8 +59,7 @@ func TestClear(t *testing.T) {
 
 	for h := int64(0); h < 10; h++ {
 		// nothing remains after Clear
-		p, ok := ps.Get(*ids[h])
-		require.False(t, ok)
+		p := ps.Get(*ids[h])
 		require.Nil(t, p)
 	}
 
@@ -76,12 +74,10 @@ func TestRollback(t *testing.T) {
 
 	for h := int64(0); h < 10; h++ {
 		// payloads with height > 5 are removed
-		p, ok := ps.Get(*ids[h])
+		p := ps.Get(*ids[h])
 		if h > 5 {
-			require.False(t, ok)
 			require.Nil(t, p)
 		} else {
-			require.True(t, ok)
 			require.Equal(t, ids[h], p.ID())
 		}
 	}
@@ -101,8 +97,7 @@ func TestAdd(t *testing.T) {
 	ps.Add(freshPayload)
 
 	// assert inclusion of fresh payload
-	retrieved, ok := ps.Get(*freshPayload.ID())
-	require.True(t, ok)
+	retrieved := ps.Get(*freshPayload.ID())
 	require.Equal(t, freshPayload.ID(), retrieved.ID())
 	require.NotNil(t, ps.Current())
 
@@ -110,8 +105,7 @@ func TestAdd(t *testing.T) {
 	ps.Add(stalePayload)
 
 	// assert inclusion of stale payload
-	retrieved, ok = ps.Get(*stalePayload.ID())
-	require.True(t, ok)
+	retrieved = ps.Get(*stalePayload.ID())
 	require.Equal(t, stalePayload.ID(), retrieved.ID())
 
 	// assert current not updated with stale payload
@@ -123,8 +117,7 @@ func TestRemove(t *testing.T) {
 	ps.Remove(*ids[5])
 
 	// assert removal of payload at height 5
-	p, ok := ps.Get(*ids[5])
-	require.False(t, ok)
+	p := ps.Get(*ids[5])
 	require.Nil(t, p)
 
 	// assert current remains the same
