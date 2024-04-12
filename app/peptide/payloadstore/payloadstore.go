@@ -7,6 +7,8 @@ import (
 	"github.com/polymerdao/monomer"
 )
 
+// Store is an in-memory store for payloads.
+// It is not thread-safe and should be used with a single goroutine.
 type Store struct {
 	payloads map[engine.PayloadID]*monomer.Payload
 	heights  map[int64]engine.PayloadID
