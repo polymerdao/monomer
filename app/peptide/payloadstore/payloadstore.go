@@ -13,7 +13,7 @@ type Store struct {
 	current  *monomer.Payload
 }
 
-func NewPayloadStore() *Store {
+func New() *Store {
 	return &Store{
 		payloads: make(map[engine.PayloadID]*monomer.Payload),
 		heights:  make(map[int64]engine.PayloadID),

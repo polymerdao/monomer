@@ -48,7 +48,7 @@ func NewEngineAPI(b *builder.Builder, txValidator TxValidator, adapter PayloadTx
 		txValidator:  txValidator,
 		blockStore:   blockStore,
 		builder:      b,
-		payloadStore: *payloadstore.NewPayloadStore(),
+		payloadStore: *payloadstore.New(),
 		adapter:      adapter,
 	}
 }

@@ -33,7 +33,7 @@ func dummyPayload(height int64) *monomer.Payload {
 }
 
 func dummyPayloadStore(t *testing.T, n int64) (*Store, []*engine.PayloadID) {
-	ps := NewPayloadStore()
+	ps := New()
 	ids := make([]*engine.PayloadID, n)
 
 	// add some payloads
@@ -96,7 +96,7 @@ func TestRollback(t *testing.T) {
 func TestAdd(t *testing.T) {
 	fresh, stale := int64(10), int64(5)
 
-	ps := NewPayloadStore()
+	ps := New()
 	freshPayload := dummyPayload(fresh)
 	ps.Add(freshPayload)
 
