@@ -12,8 +12,4 @@ From the [OP stack](https://specs.optimism.io/protocol/overview.html#components)
 
 ## Development
 
-**Prerequisites:**
-
-- `go 1.21` or later
-
-The Makefile includes commands for running unit tests and generating coverage profiles.
+You'll need `go` 1.22. The Makefile includes commands for running unit tests and generating coverage profiles.
