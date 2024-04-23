@@ -25,7 +25,7 @@ type EngineAPI struct {
 	builder     *builder.Builder
 	txValidator TxValidator
 	blockStore  BlockStore
-	payload     *monomer.Payload
+	payloadAttr *monomer.PayloadAttributes
 	adapter     monomer.PayloadTxAdapter
 	lock        sync.RWMutex
 }
@@ -39,7 +39,7 @@ func NewEngineAPI(b *builder.Builder, txValidator TxValidator, adapter monomer.P
 		txValidator: txValidator,
 		blockStore:  blockStore,
 		builder:     b,
-		payload:     nil,
+		payloadAttr: nil,
 		adapter:     adapter,
 	}
 }
@@ -187,7 +187,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		}
 	}
 
-	payload := &monomer.Payload{
+	mpa := &monomer.PayloadAttributes{
 		Timestamp:             uint64(pa.Timestamp),
 		PrevRandao:            pa.PrevRandao,
 		SuggestedFeeRecipient: pa.SuggestedFeeRecipient,
@@ -206,12 +206,12 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	//   buildProcessId value if payloadAttributes is not null and the forkchoice state has been updated successfully.
 	//
 	// Monomer does not have an async build process. We store the payload for the next call to GetPayload.
-	e.payload = payload
+	e.payloadAttr = mpa
 
 	// Engine API spec:
 	//   latestValidHash: ... the hash of the most recent valid block in the branch defined by payload and its ancestors.
 	// Recall that "payload" refers to the most recent block appended to the canonical chain, not the payload attributes.
-	return monomer.ValidForkchoiceUpdateResult(&fcs.HeadBlockHash, payload.ID()), nil
+	return monomer.ValidForkchoiceUpdateResult(&fcs.HeadBlockHash, mpa.ID()), nil
 }
 
 func (e *EngineAPI) GetPayloadV1(payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
@@ -230,24 +230,24 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 	e.lock.RLock()
 	defer e.lock.RUnlock()
 
-	if payloadID != *e.payload.ID() {
+	if payloadID != *e.payloadAttr.ID() {
 		return nil, engine.InvalidParams.With(errors.New("payload is not current"))
 	}
 
 	// TODO: handle time slot based block production
 	// for now assume block is sealed by this call
 	if err := e.builder.Build(&builder.Payload{
-		Transactions: e.payload.CosmosTxs,
-		GasLimit:     e.payload.GasLimit,
-		Timestamp:    e.payload.Timestamp,
-		NoTxPool:     e.payload.NoTxPool,
+		Transactions: e.payloadAttr.CosmosTxs,
+		GasLimit:     e.payloadAttr.GasLimit,
+		Timestamp:    e.payloadAttr.Timestamp,
+		NoTxPool:     e.payloadAttr.NoTxPool,
 	}); err != nil {
 		log.Panicf("failed to commit block: %v", err) // TODO error handling. An error here is potentially a big problem.
 	}
-	payloadEnvelope := e.payload.ToExecutionPayloadEnvelope(e.blockStore.HeadBlock().Hash())
+	payloadEnvelope := e.payloadAttr.ToExecutionPayloadEnvelope(e.blockStore.HeadBlock().Hash())
 
 	// remove payload
-	e.payload = nil
+	e.payloadAttr = nil
 
 	return payloadEnvelope, nil
 }
