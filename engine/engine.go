@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/payloadstore"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/builder"
 )
@@ -23,12 +22,12 @@ type BlockStore interface {
 
 // EngineAPI implements the Engine API. It assumes it is the sole block proposer.
 type EngineAPI struct {
-	builder      *builder.Builder
-	txValidator  TxValidator
-	blockStore   BlockStore
-	payloadStore payloadstore.PayloadStore
-	adapter      monomer.PayloadTxAdapter
-	lock         sync.RWMutex
+	builder     *builder.Builder
+	txValidator TxValidator
+	blockStore  BlockStore
+	payload     *monomer.Payload
+	adapter     monomer.PayloadTxAdapter
+	lock        sync.RWMutex
 }
 
 type TxValidator interface {
@@ -37,11 +36,11 @@ type TxValidator interface {
 
 func NewEngineAPI(b *builder.Builder, txValidator TxValidator, adapter monomer.PayloadTxAdapter, blockStore BlockStore) *EngineAPI {
 	return &EngineAPI{
-		txValidator:  txValidator,
-		blockStore:   blockStore,
-		builder:      b,
-		payloadStore: payloadstore.NewPayloadStore(),
-		adapter:      adapter,
+		txValidator: txValidator,
+		blockStore:  blockStore,
+		builder:     b,
+		payload:     nil,
+		adapter:     adapter,
 	}
 }
 
@@ -111,9 +110,6 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	if headBlock.Header.Height < e.blockStore.HeadBlock().Header.Height {
 		if err := e.builder.Rollback(fcs.HeadBlockHash, fcs.SafeBlockHash, fcs.FinalizedBlockHash); err != nil {
 			return nil, engine.GenericServerError.With(fmt.Errorf("rollback: %v", err))
-		}
-		if err := e.payloadStore.RollbackToHeight(headBlock.Header.Height); err != nil {
-			return nil, engine.InvalidForkChoiceState.With(fmt.Errorf("roll back payload store: %v", err))
 		}
 	}
 
@@ -207,9 +203,10 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 
 	// Engine API spec:
 	//   Client software MUST begin a payload build process building on top of forkchoiceState.headBlockHash and identified via
-	//   buildProcessId value if payloadAttributes
-	//   is not null and the forkchoice state has been updated successfully.
-	e.payloadStore.Add(payload)
+	//   buildProcessId value if payloadAttributes is not null and the forkchoice state has been updated successfully.
+	//
+	// Monomer does not have an async build process. We store the payload for the next call to GetPayload.
+	e.payload = payload
 
 	// Engine API spec:
 	//   latestValidHash: ... the hash of the most recent valid block in the branch defined by payload and its ancestors.
@@ -233,24 +230,26 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 	e.lock.RLock()
 	defer e.lock.RUnlock()
 
-	payload := e.payloadStore.Current()
-	if currentID := payload.ID(); payloadID != *currentID {
+	if payloadID != *e.payload.ID() {
 		return nil, engine.InvalidParams.With(errors.New("payload is not current"))
 	}
 
 	// TODO: handle time slot based block production
 	// for now assume block is sealed by this call
 	if err := e.builder.Build(&builder.Payload{
-		Transactions: payload.CosmosTxs,
-		GasLimit:     payload.GasLimit,
-		Timestamp:    payload.Timestamp,
-		NoTxPool:     payload.NoTxPool,
+		Transactions: e.payload.CosmosTxs,
+		GasLimit:     e.payload.GasLimit,
+		Timestamp:    e.payload.Timestamp,
+		NoTxPool:     e.payload.NoTxPool,
 	}); err != nil {
 		log.Panicf("failed to commit block: %v", err) // TODO error handling. An error here is potentially a big problem.
 	}
-	// TODO remove payload from payload store.
+	payloadEnvelope := e.payload.ToExecutionPayloadEnvelope(e.blockStore.HeadBlock().Hash())
 
-	return payload.ToExecutionPayloadEnvelope(e.blockStore.HeadBlock().Hash()), nil
+	// remove payload
+	e.payload = nil
+
+	return payloadEnvelope, nil
 }
 
 func (e *EngineAPI) NewPayloadV1(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
