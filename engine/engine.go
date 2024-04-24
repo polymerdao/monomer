@@ -39,7 +39,6 @@ func NewEngineAPI(b *builder.Builder, txValidator TxValidator, adapter monomer.P
 		txValidator: txValidator,
 		blockStore:  blockStore,
 		builder:     b,
-		payloadAttr: nil,
 		adapter:     adapter,
 	}
 }
