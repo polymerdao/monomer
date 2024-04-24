@@ -9,11 +9,15 @@ $(BINARY_NAME):
 
 .PHONY: install-golangci-lint
 install-golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.56.2
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.57.2
 
 .PHONY: lint
-lint: install-golangci-lint
+lint:
 	${GOBIN}/golangci-lint run
+
+.PHONY: install-gofumpt
+install-gofumpt:
+	go install mvdan.cc/gofumpt@v0.6.0
 
 .PHONY: install-go-test-coverage
 install-go-test-coverage:

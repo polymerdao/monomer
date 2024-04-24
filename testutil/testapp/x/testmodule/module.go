@@ -22,7 +22,7 @@ import (
 
 const (
 	ModuleName = "testmodule"
-	StoreKey = ModuleName
+	StoreKey   = ModuleName
 )
 
 type Module struct {
