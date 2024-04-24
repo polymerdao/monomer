@@ -187,7 +187,12 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		}
 	}
 
-	mpa := &monomer.PayloadAttributes{
+	// Engine API spec:
+	//   Client software MUST begin a payload build process building on top of forkchoiceState.headBlockHash and identified via
+	//   buildProcessId value if payloadAttributes is not null and the forkchoice state has been updated successfully.
+	//
+	// Monomer does not have an async build process. We store the payload for the next call to GetPayload.
+	e.payloadAttr = &monomer.PayloadAttributes{
 		Timestamp:             uint64(pa.Timestamp),
 		PrevRandao:            pa.PrevRandao,
 		SuggestedFeeRecipient: pa.SuggestedFeeRecipient,
@@ -202,16 +207,9 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	}
 
 	// Engine API spec:
-	//   Client software MUST begin a payload build process building on top of forkchoiceState.headBlockHash and identified via
-	//   buildProcessId value if payloadAttributes is not null and the forkchoice state has been updated successfully.
-	//
-	// Monomer does not have an async build process. We store the payload for the next call to GetPayload.
-	e.payloadAttr = mpa
-
-	// Engine API spec:
 	//   latestValidHash: ... the hash of the most recent valid block in the branch defined by payload and its ancestors.
 	// Recall that "payload" refers to the most recent block appended to the canonical chain, not the payload attributes.
-	return monomer.ValidForkchoiceUpdateResult(&fcs.HeadBlockHash, mpa.ID()), nil
+	return monomer.ValidForkchoiceUpdateResult(&fcs.HeadBlockHash, e.payloadAttr.ID()), nil
 }
 
 func (e *EngineAPI) GetPayloadV1(payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
