@@ -3,6 +3,7 @@ package types
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	bfttypes "github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -17,26 +18,28 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 	}
 
 	// Pack deposit txs into a single sdk.Msg.
-	var numDepositTxs int
+	var depositTxs [][]byte
+	var cosmosTxs [][]byte
 	for _, txBytes := range ethTxs {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
-			break
+			return nil, fmt.Errorf("unmarshal tx binary: %v", err)
 		}
-		numDepositTxs++
-	}
-	var txs [][]byte
-	for _, txBytes := range ethTxs {
-		txs = append(txs, txBytes)
+		if tx.IsDepositTx() {
+			depositTxs = append(depositTxs, txBytes)
+		} else {
+			cosmosTxs = append(cosmosTxs, tx.Data())
+		}
 	}
 
+	// Pack deposit txs into Cosmos tx.
 	msgAny, err := codectypes.NewAnyWithValue(&MsgL1Txs{
-		TxBytes: txs,
+		TxBytes: depositTxs,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("new any with value: %v", err)
 	}
-	txBytes, err := (&sdktx.Tx{
+	sdkDepositTxBytes, err := (&sdktx.Tx{
 		Body: &sdktx.TxBody{
 			Messages: []*codectypes.Any{msgAny},
 		},
@@ -45,17 +48,7 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 		return nil, fmt.Errorf("marshal tx: %v", err)
 	}
 
-	// Unpack Cosmos txs from ethTxs.
-	cosmosTxs := bfttypes.ToTxs([][]byte{txBytes})
-	for _, txBytes := range txs[numDepositTxs:] {
-		var tx ethtypes.Transaction
-		if err := tx.UnmarshalBinary(txBytes); err != nil {
-			return nil, fmt.Errorf("unmarshal binary tx: %v", err)
-		}
-		cosmosTxs = append(cosmosTxs, tx.Data())
-	}
-
-	return cosmosTxs, nil
+	return bfttypes.ToTxs(slices.Insert(cosmosTxs, 0, sdkDepositTxBytes)), nil
 }
 
 func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, error) {
@@ -87,7 +80,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	for _, txBytes := range ethTxsBytes {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
-			break
+			return nil, fmt.Errorf("unmarshal tx binary: %v", err)
 		}
 		if !tx.IsDepositTx() {
 			return nil, errors.New("MsgL1Tx contains non-deposit tx")
