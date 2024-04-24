@@ -230,6 +230,10 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 	e.lock.RLock()
 	defer e.lock.RUnlock()
 
+	if e.payloadAttr == nil {
+		return nil, engine.InvalidParams.With(errors.New("engine payload is nil"))
+	}
+
 	if payloadID != *e.payloadAttr.ID() {
 		return nil, engine.InvalidParams.With(errors.New("payload is not current"))
 	}
