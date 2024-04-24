@@ -48,7 +48,7 @@ func TestRollbackToHeight(t *testing.T) {
 	}
 
 	newState := make(map[string]string)
-	for i := newHeight+1; i < height; i++ {
+	for i := newHeight + 1; i < height; i++ {
 		key, value := build(t, app, chainID, int64(i))
 		newState[key] = value
 	}
