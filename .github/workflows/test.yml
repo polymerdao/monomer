@@ -7,9 +7,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  simple:
-    # Tests will run on Ubuntu when we generate the coverage profile.
-    # The go-test-coverage action doesn't work on Mac.
+  short:
     runs-on: macos-latest
     steps:
         - uses: actions/checkout@v4
@@ -29,3 +27,15 @@ jobs:
         - uses: vladopajic/go-test-coverage@v2
           with:
             config: .testcoverage.yml
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+        - uses: actions/checkout@v4
+          with:
+            submodules: 'recursive'
+        - uses: actions/setup-go@v5
+          with:
+            go-version-file: go.mod
+        - uses: foundry-rs/foundry-toolchain@v1
+        - run: make e2e

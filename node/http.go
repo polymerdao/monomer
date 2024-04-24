@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/polymerdao/monomer/utils"
 	"github.com/sourcegraph/conc"
 )
 
@@ -37,7 +38,7 @@ func (h *httpService) Run(parentCtx context.Context) error {
 		}
 	})
 	<-ctx.Done()
-	if cause := cancelCause(ctx); cause != nil {
+	if cause := utils.Cause(ctx); cause != nil {
 		return cause
 	}
 	if err := h.srv.Shutdown(context.Background()); err != nil {
