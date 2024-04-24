@@ -1,11 +1,6 @@
 profile: cover.out
 local-prefix: github.com/polymerdao/monomer
 threshold:
-  package: 65
-  total: 70
 exclude:
   paths:
     - \.pb\.go$
-    - ^app
-    - ^x/rollup
-    - ^engine
