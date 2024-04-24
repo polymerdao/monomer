@@ -12,4 +12,6 @@ From the [OP stack](https://specs.optimism.io/protocol/overview.html#components)
 
 ## Development
 
-You'll need `go` 1.22. The Makefile includes commands for running unit tests and generating coverage profiles.
+We use Go 1.22. To run the e2e tests, you'll need the `foundry` tools and the submodules (`git submodule update --init --recursive`).
+
+The Makefile includes commands for running tests and generating coverage profiles.

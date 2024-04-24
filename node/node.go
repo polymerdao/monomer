@@ -2,7 +2,6 @@ package node
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"net"
 
@@ -18,6 +17,7 @@ import (
 	"github.com/polymerdao/monomer/eth"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/mempool"
+	"github.com/polymerdao/monomer/utils"
 	"github.com/sourcegraph/conc"
 )
 
@@ -54,7 +54,7 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 
 	blockdb := tmdb.NewMemDB()
 	defer func() {
-		err = runAndWrapOnError(err, "close block db", blockdb.Close)
+		err = utils.RunAndWrapOnError(err, "close block db", blockdb.Close)
 	}()
 	blockStore := store.NewBlockStore(blockdb)
 
@@ -64,13 +64,13 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 
 	txdb := tmdb.NewMemDB()
 	defer func() {
-		err = runAndWrapOnError(err, "close tx db", txdb.Close)
+		err = utils.RunAndWrapOnError(err, "close tx db", txdb.Close)
 	}()
 	txStore := txstore.NewTxStore(txdb)
 
 	mempooldb := tmdb.NewMemDB()
 	defer func() {
-		err = runAndWrapOnError(err, "close mempool db", mempooldb.Close)
+		err = utils.RunAndWrapOnError(err, "close mempool db", mempooldb.Close)
 	}()
 	mpool := mempool.New(mempooldb)
 
@@ -79,7 +79,7 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 		return fmt.Errorf("start event bus: %v", err)
 	}
 	defer func() {
-		err = runAndWrapOnError(err, "stop event bus", eventBus.Stop)
+		err = utils.RunAndWrapOnError(err, "stop event bus", eventBus.Stop)
 	}()
 
 	rpcServer := rpc.NewServer()
@@ -127,26 +127,7 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 	})
 
 	<-ctx.Done()
-	return cancelCause(ctx)
-}
-
-func cancelCause(ctx context.Context) error {
-	cause := context.Cause(ctx)
-	if errors.Is(cause, ctx.Err()) {
-		return nil
-	}
-	return cause
-}
-
-func runAndWrapOnError(existingErr error, msg string, fn func() error) error {
-	if runErr := fn(); runErr != nil {
-		runErr = fmt.Errorf("%s: %v", msg, runErr)
-		if existingErr == nil {
-			return runErr
-		}
-		return fmt.Errorf("operation failed: %v, previous error: %w", runErr, existingErr)
-	}
-	return existingErr
+	return utils.Cause(ctx)
 }
 
 func prepareBlockStoreAndApp(g *genesis.Genesis, blockStore store.BlockStore, app monomer.Application) error {
