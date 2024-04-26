@@ -228,7 +228,7 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 	defer e.lock.RUnlock()
 
 	if e.currentPayloadAttributes == nil {
-		return nil, engine.InvalidParams.With(errors.New("engine payload is nil"))
+		return nil, engine.InvalidParams.With(errors.New("payload not found"))
 	}
 
 	if payloadID != *e.currentPayloadAttributes.ID() {
