@@ -200,7 +200,6 @@ func hashDataAsBinary(h hash.Hash, data any) {
 	}
 }
 
-// ToExecutionPayloadEnvelope converts a Payload to an ExecutionPayload.
 func (p *PayloadAttributes) ToExecutionPayloadEnvelope(blockHash common.Hash) *opeth.ExecutionPayloadEnvelope {
 	return &opeth.ExecutionPayloadEnvelope{
 		ExecutionPayload: &opeth.ExecutionPayload{
