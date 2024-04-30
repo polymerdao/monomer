@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const QueryPath = "/testapp.v1.GetService/Get"
+
 func NewTest(t *testing.T, chainID string) *App {
 	appdb := tmdb.NewMemDB()
 	t.Cleanup(func() {
@@ -93,7 +95,7 @@ func (a *App) StateContains(t *testing.T, height uint64, kvs map[string]string) 
 		}).Marshal()
 		require.NoError(t, err)
 		resp := a.Query(abcitypes.RequestQuery{
-			Path:   "/testapp.v1.GetService/Get",
+			Path:   QueryPath,
 			Data:   requestBytes,
 			Height: int64(height),
 		})
