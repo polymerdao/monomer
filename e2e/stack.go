@@ -35,7 +35,8 @@ type EventListener interface {
 
 type Stack struct {
 	anvilURL         *url.URL
-	monomerURL       *url.URL
+	monomerEngineURL *url.URL
+	monomerCometURL  *url.URL
 	opNodeURL        *url.URL
 	contractsRootDir string
 	eventListener    EventListener
@@ -43,10 +44,19 @@ type Stack struct {
 }
 
 // New assumes all ports are available and that all paths exist and are valid.
-func New(anvilURL, monomerURL, opNodeURL *url.URL, contractsRootDir string, l1BlockTime time.Duration, eventListener EventListener) *Stack {
+func New(
+	anvilURL,
+	monomerEngineURL,
+	monomerCometURL,
+	opNodeURL *url.URL,
+	contractsRootDir string,
+	l1BlockTime time.Duration,
+	eventListener EventListener,
+) *Stack {
 	return &Stack{
 		anvilURL:         anvilURL,
-		monomerURL:       monomerURL,
+		monomerEngineURL: monomerEngineURL,
+		monomerCometURL:  monomerCometURL,
 		opNodeURL:        opNodeURL,
 		contractsRootDir: contractsRootDir,
 		eventListener:    eventListener,
@@ -118,10 +128,10 @@ func (s *Stack) Run(parentCtx context.Context) (err error) {
 	wg.Go(func() {
 		cancel(s.runMonomer(ctx, latestL1Block.Time(), l2ChainID))
 	})
-	if !s.monomerURL.IsReachable(ctx) {
+	if !s.monomerEngineURL.IsReachable(ctx) {
 		return nil
 	}
-	monomerRPCClient, err := rpc.DialContext(ctx, s.monomerURL.String())
+	monomerRPCClient, err := rpc.DialContext(ctx, s.monomerEngineURL.String())
 	if err != nil {
 		return fmt.Errorf("dial monomer: %v", err)
 	}
@@ -152,7 +162,7 @@ func (s *Stack) Run(parentCtx context.Context) (err error) {
 
 	opStack := NewOPStack(
 		s.anvilURL,
-		s.monomerURL,
+		s.monomerEngineURL,
 		s.opNodeURL,
 		l1Deployments.L2OutputOracleProxy,
 		privKey,
@@ -192,13 +202,17 @@ func (s *Stack) runCmd(ctx context.Context, name string, args ...string) error {
 }
 
 func (s *Stack) runMonomer(ctx context.Context, genesisTime, chainIDU64 uint64) error {
-	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
+	engineHTTP, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return fmt.Errorf("set up monomer http listener: %v", err)
+		return fmt.Errorf("set up monomer engine http listener: %v", err)
 	}
-	wsListener, err := net.Listen("tcp", s.monomerURL.Host())
+	engineWS, err := net.Listen("tcp", s.monomerEngineURL.Host())
 	if err != nil {
-		return fmt.Errorf("set up monomer ws listener: %v", err)
+		return fmt.Errorf("set up monomer engine ws listener: %v", err)
+	}
+	cometListener, err := net.Listen("tcp", s.monomerCometURL.Host())
+	if err != nil {
+		return fmt.Errorf("set up monomer comet listener: %v", err)
 	}
 	chainID := monomer.ChainID(chainIDU64)
 	app := testapp.New(tmdb.NewMemDB(), chainID.String())
@@ -206,7 +220,7 @@ func (s *Stack) runMonomer(ctx context.Context, genesisTime, chainIDU64 uint64) 
 		AppState: app.DefaultGenesis(),
 		ChainID:  chainID,
 		Time:     genesisTime,
-	}, httpListener, wsListener, rolluptypes.AdaptCosmosTxsToEthTxs, rolluptypes.AdaptPayloadTxsToCosmosTxs)
+	}, engineHTTP, engineWS, cometListener, rolluptypes.AdaptCosmosTxsToEthTxs, rolluptypes.AdaptPayloadTxsToCosmosTxs)
 	if err := n.Run(ctx); err != nil {
 		return fmt.Errorf("run monomer: %v", err)
 	}
