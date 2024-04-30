@@ -200,7 +200,7 @@ func hashDataAsBinary(h hash.Hash, data any) {
 	}
 }
 
-func (p *PayloadAttributes) ToExecutionPayloadEnvelope(block Block) *opeth.ExecutionPayloadEnvelope {
+func (p *PayloadAttributes) ToExecutionPayloadEnvelope(block *Block) *opeth.ExecutionPayloadEnvelope {
 	transactions := make([]hexutil.Bytes, len(block.Txs))
 
 	for i, tx := range block.Txs {

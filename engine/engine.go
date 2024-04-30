@@ -247,7 +247,7 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 		log.Panicf("failed to commit block: %v", err) // TODO error handling. An error here is potentially a big problem.
 	}
 
-	payloadEnvelope := e.currentPayloadAttributes.ToExecutionPayloadEnvelope(*block)
+	payloadEnvelope := e.currentPayloadAttributes.ToExecutionPayloadEnvelope(block)
 
 	// remove payload
 	e.currentPayloadAttributes = nil
