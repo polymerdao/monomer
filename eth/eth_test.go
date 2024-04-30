@@ -77,7 +77,7 @@ func TestGetBlockByNumber(t *testing.T) {
 				"exclude txs": false,
 			} {
 				t.Run(description, func(t *testing.T) {
-					s := eth.NewBlockByNumber(blockStore, rolluptypes.AdaptCosmosTxsToEthTxs)
+					s := eth.NewBlock(blockStore, rolluptypes.AdaptCosmosTxsToEthTxs)
 					got, err := s.GetBlockByNumber(test.id, includeTxs)
 					if test.want == nil {
 						require.ErrorIs(t, err, ethereum.NotFound)
@@ -111,7 +111,7 @@ func TestGetBlockByHash(t *testing.T) {
 	} {
 		t.Run(description, func(t *testing.T) {
 			t.Run("block hash 1 exists", func(t *testing.T) {
-				e := eth.NewBlockByHash(blockStore, rolluptypes.AdaptCosmosTxsToEthTxs)
+				e := eth.NewBlock(blockStore, rolluptypes.AdaptCosmosTxsToEthTxs)
 				got, err := e.GetBlockByHash(block.Header.Hash, inclTx)
 				require.NoError(t, err)
 				require.Equal(t, block.ToEthLikeBlock(ethTxs(t, block.Txs), inclTx), got)
@@ -123,7 +123,7 @@ func TestGetBlockByHash(t *testing.T) {
 				"exclude txs": false,
 			} {
 				t.Run(description, func(t *testing.T) {
-					e := eth.NewBlockByHash(blockStore, rolluptypes.AdaptCosmosTxsToEthTxs)
+					e := eth.NewBlock(blockStore, rolluptypes.AdaptCosmosTxsToEthTxs)
 					got, err := e.GetBlockByHash(common.Hash{}, inclTx)
 					require.Nil(t, got)
 					require.ErrorIs(t, err, ethereum.NotFound)
