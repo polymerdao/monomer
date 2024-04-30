@@ -49,10 +49,11 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, err)
 
 	l1URL := newURL(t, "ws://127.0.0.1:8888")
-	monomerURL := newURL(t, "ws://127.0.0.1:8889")
-	opNodeURL := newURL(t, "http://127.0.0.1:8890")
+	monomerEngineURL := newURL(t, "ws://127.0.0.1:8889")
+	monomerCometURL := newURL(t, "http://127.0.0.1:8890")
+	opNodeURL := newURL(t, "http://127.0.0.1:8891")
 
-	stack := e2e.New(l1URL, monomerURL, opNodeURL, contractsRootDir, l1BlockTime, &e2e.SelectiveListener{
+	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, contractsRootDir, l1BlockTime, &e2e.SelectiveListener{
 		OPLogWithPrefixCb: func(prefix string, r *log.Record) {
 			if prefix != "node" && !verbose {
 				return
@@ -98,8 +99,8 @@ func TestE2E(t *testing.T) {
 	})
 	// To avoid flaky tests, hang until the Monomer server is ready.
 	// We rely on the `go test` timeout to ensure the tests don't hang forever (default is 10 minutes).
-	require.True(t, monomerURL.IsReachable(ctx))
-	monomerRPCClient, err := rpc.DialContext(ctx, monomerURL.String())
+	require.True(t, monomerEngineURL.IsReachable(ctx))
+	monomerRPCClient, err := rpc.DialContext(ctx, monomerEngineURL.String())
 	require.NoError(t, err)
 	monomerClient := e2e.NewMonomerClient(monomerRPCClient)
 
