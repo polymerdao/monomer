@@ -94,7 +94,7 @@ type Payload struct {
 	NoTxPool  bool
 }
 
-func (b *Builder) Build(payload *Payload) error {
+func (b *Builder) Build(payload *Payload) (*monomer.Block, error) {
 	txs := slices.Clone(payload.InjectedTransactions) // Shallow clone is ok, we just don't want to modify the slice itself.
 	if !payload.NoTxPool {
 		for {
@@ -121,7 +121,7 @@ func (b *Builder) Build(payload *Payload) error {
 	currentHeight := info.GetLastBlockHeight()
 	currentHead := b.blockStore.BlockByNumber(currentHeight)
 	if currentHead == nil {
-		return fmt.Errorf("block not found at height: %d", currentHeight)
+		return nil, fmt.Errorf("block not found at height: %d", currentHeight)
 	}
 	header := &monomer.Header{
 		ChainID:    b.chainID,
@@ -142,7 +142,7 @@ func (b *Builder) Build(payload *Payload) error {
 			Tx: tx,
 		})
 		if resp.IsErr() {
-			return fmt.Errorf("deliver tx: %v", resp.GetLog())
+			return nil, fmt.Errorf("deliver tx: %v", resp.GetLog())
 		}
 		txResults = append(txResults, &abcitypes.TxResult{
 			Height: currentHeight + 1,
@@ -163,15 +163,15 @@ func (b *Builder) Build(payload *Payload) error {
 	})
 	// Index txs.
 	if err := b.txStore.Add(txResults); err != nil {
-		return fmt.Errorf("add tx results: %v", err)
+		return nil, fmt.Errorf("add tx results: %v", err)
 	}
 	// Publish events.
 	for _, txResult := range txResults {
 		if err := b.eventBus.PublishEventTx(bfttypes.EventDataTx{
 			TxResult: *txResult,
 		}); err != nil {
-			return fmt.Errorf("publish event tx: %v", err)
+			return nil, fmt.Errorf("publish event tx: %v", err)
 		}
 	}
-	return nil
+	return b.blockStore.HeadBlock(), nil
 }
