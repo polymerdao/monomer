@@ -50,7 +50,10 @@ func New(
 
 func (n *Node) Run(parentCtx context.Context) (err error) {
 	ctx, cancel := context.WithCancelCause(parentCtx)
-	defer cancel(nil)
+	defer func() {
+		cancel(err)
+		err = utils.Cause(ctx)
+	}()
 
 	blockdb := tmdb.NewMemDB()
 	defer func() {
@@ -125,7 +128,7 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 	})
 
 	<-ctx.Done()
-	return utils.Cause(ctx)
+	return nil
 }
 
 func prepareBlockStoreAndApp(g *genesis.Genesis, blockStore store.BlockStore, app monomer.Application) error {
