@@ -128,10 +128,10 @@ func TestBuild(t *testing.T) {
 			)
 
 			payload := &builder.Payload{
-				Transactions: bfttypes.ToTxs(inclusionListTxs),
-				GasLimit:     0,
-				Timestamp:    g.Time + 1,
-				NoTxPool:     test.noTxPool,
+				InjectedTransactions: bfttypes.ToTxs(inclusionListTxs),
+				GasLimit:             0,
+				Timestamp:            g.Time + 1,
+				NoTxPool:             test.noTxPool,
 			}
 			preBuildInfo := app.Info(abcitypes.RequestInfo{})
 			require.NoError(t, b.Build(payload))
@@ -246,8 +246,8 @@ func TestRollback(t *testing.T) {
 		"test": "test",
 	}
 	require.NoError(t, b.Build(&builder.Payload{
-		Timestamp:    g.Time + 1,
-		Transactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs)),
+		Timestamp:            g.Time + 1,
+		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs)),
 	}))
 	block := blockStore.HeadBlock()
 	require.NotNil(t, block)

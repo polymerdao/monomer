@@ -238,10 +238,10 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 	// TODO: handle time slot based block production
 	// for now assume block is sealed by this call
 	if err := e.builder.Build(&builder.Payload{
-		Transactions: e.currentPayloadAttributes.CosmosTxs,
-		GasLimit:     e.currentPayloadAttributes.GasLimit,
-		Timestamp:    e.currentPayloadAttributes.Timestamp,
-		NoTxPool:     e.currentPayloadAttributes.NoTxPool,
+		InjectedTransactions: e.currentPayloadAttributes.CosmosTxs,
+		GasLimit:             e.currentPayloadAttributes.GasLimit,
+		Timestamp:            e.currentPayloadAttributes.Timestamp,
+		NoTxPool:             e.currentPayloadAttributes.NoTxPool,
 	}); err != nil {
 		log.Panicf("failed to commit block: %v", err) // TODO error handling. An error here is potentially a big problem.
 	}

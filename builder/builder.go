@@ -85,8 +85,9 @@ func (b *Builder) Rollback(head, safe, finalized common.Hash) error {
 }
 
 type Payload struct {
-	// Transactions functions as an inclusion list.
-	Transactions bfttypes.Txs
+	// InjectedTransactions functions as an inclusion list. It contains transactions
+	// from the consensus layer that must be included in the block.
+	InjectedTransactions bfttypes.Txs
 	// TODO: make the gas limit actually be enforced. Need to translate between cosmos and op gas limit.
 	GasLimit  uint64
 	Timestamp uint64
@@ -94,7 +95,7 @@ type Payload struct {
 }
 
 func (b *Builder) Build(payload *Payload) error {
-	txs := slices.Clone(payload.Transactions) // Shallow clone is ok, we just don't want to modify the slice itself.
+	txs := slices.Clone(payload.InjectedTransactions) // Shallow clone is ok, we just don't want to modify the slice itself.
 	if !payload.NoTxPool {
 		for {
 			// TODO there is risk of losing txs if mempool db fails.
