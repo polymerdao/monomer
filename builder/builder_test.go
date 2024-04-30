@@ -134,7 +134,8 @@ func TestBuild(t *testing.T) {
 				NoTxPool:             test.noTxPool,
 			}
 			preBuildInfo := app.Info(abcitypes.RequestInfo{})
-			require.NoError(t, b.Build(payload))
+			_, err = b.Build(payload)
+			require.NoError(t, err)
 			postBuildInfo := app.Info(abcitypes.RequestInfo{})
 
 			// Application.
@@ -245,11 +246,11 @@ func TestRollback(t *testing.T) {
 	kvs := map[string]string{
 		"test": "test",
 	}
-	require.NoError(t, b.Build(&builder.Payload{
+	block, err := b.Build(&builder.Payload{
 		Timestamp:            g.Time + 1,
 		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs)),
-	}))
-	block := blockStore.HeadBlock()
+	})
+	require.NoError(t, err)
 	require.NotNil(t, block)
 	require.NoError(t, blockStore.UpdateLabel(eth.Unsafe, block.Hash()))
 	require.NoError(t, blockStore.UpdateLabel(eth.Safe, block.Hash()))
