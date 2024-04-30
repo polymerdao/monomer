@@ -143,7 +143,7 @@ func (b *Block) ToEthLikeBlock(txs ethtypes.Transactions, inclTxs bool) map[stri
 	return result
 }
 
-type Payload struct {
+type PayloadAttributes struct {
 	Timestamp             uint64
 	PrevRandao            [32]byte
 	SuggestedFeeRecipient common.Address
@@ -161,7 +161,7 @@ type Payload struct {
 // ID returns a PaylodID (a hash) from a PayloadAttributes when it's applied to a head block.
 // Hashing does not conform to go-ethereum/miner/payload_building.go
 // PayloadID is only calculated once, and cached for future calls.
-func (p *Payload) ID() *engine.PayloadID {
+func (p *PayloadAttributes) ID() *engine.PayloadID {
 	if p.id != nil {
 		return p.id
 	}
@@ -200,8 +200,7 @@ func hashDataAsBinary(h hash.Hash, data any) {
 	}
 }
 
-// ToExecutionPayloadEnvelope converts a Payload to an ExecutionPayload.
-func (p *Payload) ToExecutionPayloadEnvelope(blockHash common.Hash) *opeth.ExecutionPayloadEnvelope {
+func (p *PayloadAttributes) ToExecutionPayloadEnvelope(blockHash common.Hash) *opeth.ExecutionPayloadEnvelope {
 	return &opeth.ExecutionPayloadEnvelope{
 		ExecutionPayload: &opeth.ExecutionPayload{
 			ParentHash:   p.ParentHash,
