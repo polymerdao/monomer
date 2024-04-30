@@ -97,12 +97,10 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 			Namespace: "eth",
 			Service: struct {
 				*eth.ChainID
-				*eth.BlockByNumber
-				*eth.BlockByHash
+				*eth.Block
 			}{
-				ChainID:       eth.NewChainID(n.genesis.ChainID.HexBig()),
-				BlockByNumber: eth.NewBlockByNumber(blockStore, n.adaptCosmosTxsToEthTxs),
-				BlockByHash:   eth.NewBlockByHash(blockStore, n.adaptCosmosTxsToEthTxs),
+				ChainID: eth.NewChainID(n.genesis.ChainID.HexBig()),
+				Block:   eth.NewBlock(blockStore, n.adaptCosmosTxsToEthTxs),
 			},
 		},
 	} {
