@@ -172,5 +172,6 @@ func (b *Builder) Build(payload *Payload) error {
 			return fmt.Errorf("publish event tx: %v", err)
 		}
 	}
+	// TODO publish other things like new blocks.
 	return nil
 }

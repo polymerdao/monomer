@@ -10,6 +10,7 @@ import (
 	"time"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
+	bftbytes "github.com/cometbft/cometbft/libs/bytes"
 	bfttypes "github.com/cometbft/cometbft/types"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -141,6 +142,17 @@ func (b *Block) ToEthLikeBlock(txs ethtypes.Transactions, inclTxs bool) map[stri
 		result["transactions"] = txs
 	}
 	return result
+}
+
+func (b *Block) ToCometLikeBlock() *bfttypes.Block {
+	return &bfttypes.Block{
+		Header: bfttypes.Header{
+			ChainID: b.Header.ChainID.String(),
+			Time:    time.Unix(int64(b.Header.Time), 0),
+			Height:  b.Header.Height,
+			AppHash: bftbytes.HexBytes(b.Header.AppHash),
+		},
+	}
 }
 
 type PayloadAttributes struct {
