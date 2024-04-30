@@ -156,11 +156,13 @@ func (b *Builder) Build(payload *Payload) (*monomer.Block, error) {
 	})
 	b.app.Commit()
 
-	// Append block.
-	b.blockStore.AddBlock(&monomer.Block{
+	block := &monomer.Block{
 		Header: header,
 		Txs:    txs,
-	})
+	}
+
+	// Append block.
+	b.blockStore.AddBlock(block)
 	// Index txs.
 	if err := b.txStore.Add(txResults); err != nil {
 		return nil, fmt.Errorf("add tx results: %v", err)
@@ -173,5 +175,5 @@ func (b *Builder) Build(payload *Payload) (*monomer.Block, error) {
 			return nil, fmt.Errorf("publish event tx: %v", err)
 		}
 	}
-	return b.blockStore.HeadBlock(), nil
+	return block, nil
 }
