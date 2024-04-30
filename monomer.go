@@ -200,17 +200,23 @@ func hashDataAsBinary(h hash.Hash, data any) {
 	}
 }
 
-func (p *PayloadAttributes) ToExecutionPayloadEnvelope(blockHash common.Hash) *opeth.ExecutionPayloadEnvelope {
+func (p *PayloadAttributes) ToExecutionPayloadEnvelope(block Block) *opeth.ExecutionPayloadEnvelope {
+	transactions := make([]hexutil.Bytes, len(block.Txs))
+
+	for i, tx := range block.Txs {
+		transactions[i] = hexutil.Bytes(tx)
+	}
+
 	return &opeth.ExecutionPayloadEnvelope{
 		ExecutionPayload: &opeth.ExecutionPayload{
 			ParentHash:   p.ParentHash,
 			BlockNumber:  hexutil.Uint64(p.Height),
-			BlockHash:    blockHash,
+			BlockHash:    block.Hash(),
 			FeeRecipient: p.SuggestedFeeRecipient,
 			Timestamp:    hexutil.Uint64(p.Timestamp),
 			PrevRandao:   p.PrevRandao,
 			Withdrawals:  p.Withdrawals,
-			Transactions: p.Transactions,
+			Transactions: transactions,
 			GasLimit:     hexutil.Uint64(p.GasLimit),
 		},
 	}
