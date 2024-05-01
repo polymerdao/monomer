@@ -209,6 +209,8 @@ func (p *PayloadAttributes) ToExecutionPayloadEnvelope(block *Block) *opeth.Exec
 		mempoolTxs = append(mempoolTxs, hexutil.Bytes(tx))
 	}
 
+	combinedTxs := append(p.Transactions, mempoolTxs...)
+
 	return &opeth.ExecutionPayloadEnvelope{
 		ExecutionPayload: &opeth.ExecutionPayload{
 			ParentHash:   p.ParentHash,
@@ -218,7 +220,7 @@ func (p *PayloadAttributes) ToExecutionPayloadEnvelope(block *Block) *opeth.Exec
 			Timestamp:    hexutil.Uint64(p.Timestamp),
 			PrevRandao:   p.PrevRandao,
 			Withdrawals:  p.Withdrawals,
-			Transactions: append(p.Transactions, mempoolTxs...),
+			Transactions: combinedTxs,
 			GasLimit:     hexutil.Uint64(p.GasLimit),
 		},
 	}
