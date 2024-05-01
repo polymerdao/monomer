@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/polymerdao/monomer/utils"
 	"github.com/sourcegraph/conc"
 )
 
@@ -27,22 +26,23 @@ func makeHTTPService(handler http.Handler, listener net.Listener) *httpService {
 	}
 }
 
-func (h *httpService) Run(parentCtx context.Context) error {
-	ctx, cancel := context.WithCancelCause(parentCtx)
-	defer cancel(nil)
+func (h *httpService) Run(ctx context.Context) error {
+	errCh := make(chan error)
+	defer close(errCh)
 	var wg conc.WaitGroup
 	defer wg.Wait()
 	wg.Go(func() {
 		if err := h.srv.Serve(h.listener); !errors.Is(err, http.ErrServerClosed) {
-			cancel(fmt.Errorf("serve http: %v", err))
+			errCh <- fmt.Errorf("serve: %v", err)
 		}
 	})
-	<-ctx.Done()
-	if cause := utils.Cause(ctx); cause != nil {
-		return cause
-	}
-	if err := h.srv.Shutdown(context.Background()); err != nil {
-		return fmt.Errorf("shutdown http server: %v", err)
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		if err := h.srv.Shutdown(context.Background()); err != nil {
+			return fmt.Errorf("shutdown: %v", err)
+		}
 	}
 	return nil
 }

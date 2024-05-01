@@ -26,8 +26,8 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer/e2e/url"
+	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/utils"
-	"github.com/sourcegraph/conc"
 )
 
 type OPEventListener interface {
@@ -35,8 +35,6 @@ type OPEventListener interface {
 	// The prefix will never be empty and r will never be nil.
 	// It is only used to fulfill log interfaces defined by third-party OP Stack components.
 	LogWithPrefix(prefix string, r *log.Record)
-	AfterStartup()
-	BeforeShutdown()
 }
 
 type OPStack struct {
@@ -71,26 +69,16 @@ func NewOPStack(
 	}
 }
 
-func (op *OPStack) Run(parentCtx context.Context) (err error) {
-	var wg conc.WaitGroup
-	defer wg.Wait()
-	ctx, cancel := context.WithCancelCause(parentCtx)
-	defer func() {
-		op.eventListener.BeforeShutdown()
-		cancel(err)
-		err = utils.Cause(ctx)
-	}()
-
+func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 	anvilRPCClient, err := rpc.DialContext(ctx, op.l1URL.String())
 	if err != nil {
 		return fmt.Errorf("dial anvil: %v", err)
 	}
 	anvil := NewAnvilClient(anvilRPCClient)
 
-	// Run op-node.
-	wg.Go(func() {
-		cancel(op.runNode(ctx))
-	})
+	if err := op.runNode(ctx, env); err != nil {
+		return err
+	}
 
 	// Use the same tx manager config for the op-proposer and op-batcher.
 	defaults := txmgr.DefaultBatcherFlagValues
@@ -113,20 +101,17 @@ func (op *OPStack) Run(parentCtx context.Context) (err error) {
 		},
 	}
 
-	wg.Go(func() {
-		cancel(op.runProposer(ctx, anvil, txManagerConfig))
-	})
+	if err := op.runProposer(ctx, env, anvil, txManagerConfig); err != nil {
+		return err
+	}
 
-	wg.Go(func() {
-		cancel(op.runBatcher(ctx, anvil, txManagerConfig))
-	})
-
-	op.eventListener.AfterStartup()
-	<-ctx.Done()
+	if err := op.runBatcher(ctx, env, anvil, txManagerConfig); err != nil {
+		return err
+	}
 	return nil
 }
 
-func (op *OPStack) runNode(ctx context.Context) (err error) {
+func (op *OPStack) runNode(ctx context.Context, env *environment.Env) error {
 	opNode, err := opnode.New(ctx, &opnode.Config{
 		L1: &opnode.L1EndpointConfig{
 			L1NodeAddr:     op.l1URL.String(),
@@ -157,27 +142,27 @@ func (op *OPStack) runNode(ctx context.Context) (err error) {
 	if err := opNode.Start(ctx); err != nil {
 		return fmt.Errorf("start node: %v", err)
 	}
-	defer func() {
-		err = utils.RunAndWrapOnError(err, "stop node", func() error {
-			return opNode.Stop(context.Background())
-		})
-	}()
-	<-ctx.Done()
+	env.DeferErr("stop node", func() error {
+		return opNode.Stop(context.Background())
+	})
 	return nil
 }
 
-func (op *OPStack) runProposer(ctx context.Context, l1Client proposer.L1Client, txManagerConfig *txmgr.Config) (err error) {
+func (op *OPStack) runProposer(ctx context.Context, env *environment.Env, l1Client proposer.L1Client, txManagerConfig *txmgr.Config) error {
 	metrics := opproposermetrics.NoopMetrics
+
 	txManager, err := txmgr.NewSimpleTxManagerFromConfig("proposer", op.newLogger("proposer tx manager"), metrics, *txManagerConfig)
 	if err != nil {
 		return fmt.Errorf("new simple tx manager: %v", err)
 	}
-	defer txManager.Close()
+	env.Defer(txManager.Close)
+
 	rollupProvider, err := dial.NewStaticL2RollupProvider(ctx, op.newLogger("proposer dialer"), op.nodeURL.String())
 	if err != nil {
 		return fmt.Errorf("new static l2 rollup provider: %v", err)
 	}
-	defer rollupProvider.Close()
+	env.Defer(rollupProvider.Close)
+
 	outputSubmitter, err := proposer.NewL2OutputSubmitter(proposer.DriverSetup{
 		Log:  op.newLogger("proposer"),
 		Metr: metrics,
@@ -196,20 +181,19 @@ func (op *OPStack) runProposer(ctx context.Context, l1Client proposer.L1Client, 
 	if err := outputSubmitter.StartL2OutputSubmitting(); err != nil {
 		return fmt.Errorf("start l2 output submitting: %v", err)
 	}
-	defer func() {
-		err = utils.RunAndWrapOnError(err, "stop l2 output submitting", outputSubmitter.StopL2OutputSubmitting)
-	}()
-	<-ctx.Done()
+	env.DeferErr("stop l2 output submitting", outputSubmitter.StopL2OutputSubmitting)
 	return nil
 }
 
-func (op *OPStack) runBatcher(ctx context.Context, l1Client batcher.L1Client, txManagerConfig *txmgr.Config) error {
+func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Client batcher.L1Client, txManagerConfig *txmgr.Config) error {
 	metrics := opbatchermetrics.NoopMetrics
+
 	txManager, err := txmgr.NewSimpleTxManagerFromConfig("batcher", op.newLogger("batcher tx manager"), metrics, *txManagerConfig)
 	if err != nil {
 		return fmt.Errorf("new simple tx manager: %v", err)
 	}
-	defer txManager.Close()
+	env.Defer(txManager.Close)
+
 	endpointProvider, err := dial.NewStaticL2EndpointProvider(
 		ctx,
 		op.newLogger("batcher dialer"),
@@ -219,6 +203,8 @@ func (op *OPStack) runBatcher(ctx context.Context, l1Client batcher.L1Client, tx
 	if err != nil {
 		return fmt.Errorf("new static l2 endpoint provider: %v", err)
 	}
+	env.Defer(endpointProvider.Close)
+
 	batchSubmitter := batcher.NewBatchSubmitter(batcher.DriverSetup{
 		Log:          op.newLogger("batcher"),
 		Metr:         metrics,
@@ -250,13 +236,10 @@ func (op *OPStack) runBatcher(ctx context.Context, l1Client batcher.L1Client, tx
 	/*
 		There appears to be a deadlock in StopBatchSubmitting.
 		This was most likely fixed in a more recent OP-stack version, based on the significant diff.
-		defer func() {
-			err = utils.RunAndWrapOnError(err, "stop batch submitting", func() error {
-				return batchSubmitter.StopBatchSubmitting(ctx)
-			})
-		}()
+		env.DeferErr( "stop batch submitting", func() error {
+			return batchSubmitter.StopBatchSubmitting(ctx)
+		})
 	*/
-	<-ctx.Done()
 	return nil
 }
 

@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"fmt"
-	"io"
 	"net"
 	"os/exec"
 	"path/filepath"
@@ -16,21 +15,21 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e/url"
+	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testutil/testapp"
-	"github.com/polymerdao/monomer/utils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
-	"github.com/sourcegraph/conc"
 )
 
 const oneETH = uint64(1e18)
 
 type EventListener interface {
 	OPEventListener
+	node.EventListener
 
-	OnCmdStart(programName string, stdout, stderr io.Reader)
-	OnCmdStopped(programName string, err error)
+	// err will never be nil.
+	OnAnvilErr(err error)
 }
 
 type Stack struct {
@@ -64,26 +63,24 @@ func New(
 	}
 }
 
-func (s *Stack) Run(parentCtx context.Context) (err error) {
-	var wg conc.WaitGroup
-	defer wg.Wait()
-	ctx, cancel := context.WithCancelCause(parentCtx)
-	defer func() {
-		cancel(err)
-		err = utils.Cause(ctx)
-	}()
-
+func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	// Run anvil.
-	wg.Go(func() {
-		cancel(s.runCmd(
-			ctx,
-			"anvil",
-			"--port", s.anvilURL.Port(),
-			"--order", "fifo",
-			"--disable-block-gas-limit",
-			"--gas-price", "0",
-			"--block-time", fmt.Sprint(s.l1BlockTime.Seconds()),
-		))
+	anvilCmd := exec.CommandContext( //nolint:gosec
+		ctx,
+		"anvil",
+		"--port", s.anvilURL.Port(),
+		"--order", "fifo",
+		"--disable-block-gas-limit",
+		"--gas-price", "0",
+		"--block-time", fmt.Sprint(s.l1BlockTime.Seconds()),
+	)
+	if err := anvilCmd.Start(); err != nil {
+		return fmt.Errorf("start %s: %v", anvilCmd, err)
+	}
+	env.Go(func() {
+		if err := anvilCmd.Wait(); err != nil {
+			s.eventListener.OnAnvilErr(fmt.Errorf("run %s: %v", anvilCmd, err))
+		}
 	})
 	// NOTE: should we set a timeout on the context? Might not be worth the complexity.
 	if !s.anvilURL.IsReachable(ctx) {
@@ -105,7 +102,7 @@ func (s *Stack) Run(parentCtx context.Context) (err error) {
 	}
 
 	// Deploy the OP L1 contracts.
-	if err := s.runCmd(
+	forgeCmd := exec.CommandContext( //nolint:gosec
 		ctx,
 		"forge",
 		"script",
@@ -115,8 +112,12 @@ func (s *Stack) Run(parentCtx context.Context) (err error) {
 		"--rpc-url", s.anvilURL.String(),
 		"--broadcast",
 		"--private-key", common.Bytes2Hex(crypto.FromECDSA(privKey)),
-	); err != nil {
-		return fmt.Errorf("deploy op l1 contracts: %v", err)
+	)
+	if err := forgeCmd.Start(); err != nil {
+		return fmt.Errorf("start %s: %v", forgeCmd, err)
+	}
+	if err := forgeCmd.Wait(); err != nil {
+		return fmt.Errorf("run %s: %v", forgeCmd, err)
 	}
 	latestL1Block, err := anvil.BlockByNumber(ctx, nil)
 	if err != nil {
@@ -125,9 +126,9 @@ func (s *Stack) Run(parentCtx context.Context) (err error) {
 
 	// Run Monomer.
 	const l2ChainID = 901
-	wg.Go(func() {
-		cancel(s.runMonomer(ctx, latestL1Block.Time(), l2ChainID))
-	})
+	if err := s.runMonomer(ctx, env, latestL1Block.Time(), l2ChainID); err != nil {
+		return err
+	}
 	if !s.monomerEngineURL.IsReachable(ctx) {
 		return nil
 	}
@@ -169,39 +170,13 @@ func (s *Stack) Run(parentCtx context.Context) (err error) {
 		rollupConfig,
 		s.eventListener,
 	)
-	wg.Go(func() {
-		err := opStack.Run(ctx)
-		if err != nil {
-			err = fmt.Errorf("run the op stack: %v", err)
-		}
-		cancel(err)
-	})
-
-	<-ctx.Done()
+	if err := opStack.Run(ctx, env); err != nil {
+		return fmt.Errorf("run the op stack: %v", err)
+	}
 	return nil
 }
 
-func (s *Stack) runCmd(ctx context.Context, name string, args ...string) error {
-	cmd := exec.CommandContext(ctx, name, args...)
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("create stdout pipe on %s: %v", name, err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("create stderr pipe on %s: %v", name, err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start %s: %v", name, err)
-	}
-	defer func() {
-		s.eventListener.OnCmdStopped(name, cmd.Wait())
-	}()
-	s.eventListener.OnCmdStart(name, stdout, stderr)
-	return nil
-}
-
-func (s *Stack) runMonomer(ctx context.Context, genesisTime, chainIDU64 uint64) error {
+func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTime, chainIDU64 uint64) error {
 	engineHTTP, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return fmt.Errorf("set up monomer engine http listener: %v", err)
@@ -220,8 +195,8 @@ func (s *Stack) runMonomer(ctx context.Context, genesisTime, chainIDU64 uint64) 
 		AppState: app.DefaultGenesis(),
 		ChainID:  chainID,
 		Time:     genesisTime,
-	}, engineHTTP, engineWS, cometListener, rolluptypes.AdaptCosmosTxsToEthTxs, rolluptypes.AdaptPayloadTxsToCosmosTxs)
-	if err := n.Run(ctx); err != nil {
+	}, engineHTTP, engineWS, cometListener, rolluptypes.AdaptCosmosTxsToEthTxs, rolluptypes.AdaptPayloadTxsToCosmosTxs, s.eventListener)
+	if err := n.Run(ctx, env); err != nil {
 		return fmt.Errorf("run monomer: %v", err)
 	}
 	return nil
