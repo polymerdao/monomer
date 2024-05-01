@@ -39,6 +39,9 @@ type Node struct {
 	engineHTTP                 net.Listener
 	engineWS                   net.Listener
 	cometHTTPAndWS             net.Listener
+	blockdb                    tmdb.DB
+	txdb                       tmdb.DB
+	mempooldb                  tmdb.DB
 	adaptCosmosTxsToEthTxs     monomer.CosmosTxAdapter
 	adaptPayloadTxsToCosmosTxs monomer.PayloadTxAdapter
 	eventListener              EventListener
@@ -50,6 +53,9 @@ func New(
 	engineHTTP net.Listener,
 	engineWS net.Listener,
 	cometHTTPAndWS net.Listener,
+	blockdb,
+	txdb,
+	mempooldb tmdb.DB,
 	adaptCosmosTxsToEthTxs monomer.CosmosTxAdapter,
 	adaptPayloadTxsToCosmosTxs monomer.PayloadTxAdapter,
 	eventListener EventListener,
@@ -60,6 +66,9 @@ func New(
 		engineHTTP:                 engineHTTP,
 		engineWS:                   engineWS,
 		cometHTTPAndWS:             cometHTTPAndWS,
+		blockdb:                    blockdb,
+		txdb:                       txdb,
+		mempooldb:                  mempooldb,
 		adaptCosmosTxsToEthTxs:     adaptCosmosTxsToEthTxs,
 		adaptPayloadTxsToCosmosTxs: adaptPayloadTxsToCosmosTxs,
 		eventListener:              eventListener,
@@ -67,21 +76,12 @@ func New(
 }
 
 func (n *Node) Run(ctx context.Context, env *environment.Env) error {
-	blockdb := tmdb.NewMemDB()
-	env.DeferErr("close block db", blockdb.Close)
-	blockStore := store.NewBlockStore(blockdb)
-
+	blockStore := store.NewBlockStore(n.blockdb)
 	if err := prepareBlockStoreAndApp(n.genesis, blockStore, n.app); err != nil {
 		return err
 	}
-
-	txdb := tmdb.NewMemDB()
-	env.DeferErr("close tx db", txdb.Close)
-	txStore := txstore.NewTxStore(txdb)
-
-	mempooldb := tmdb.NewMemDB()
-	env.DeferErr("close mempool db", mempooldb.Close)
-	mpool := mempool.New(mempooldb)
+	txStore := txstore.NewTxStore(n.txdb)
+	mpool := mempool.New(n.mempooldb)
 
 	eventBus := bfttypes.NewEventBus()
 	if err := eventBus.Start(); err != nil {

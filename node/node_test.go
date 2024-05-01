@@ -5,6 +5,7 @@ import (
 	"net"
 	"testing"
 
+	tmdb "github.com/cometbft/cometbft-db"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
@@ -25,20 +26,40 @@ func TestRun(t *testing.T) {
 	cometListener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	app := testapp.NewTest(t, chainID.String())
-	n := node.New(app, &genesis.Genesis{
-		ChainID:  chainID,
-		AppState: testapp.MakeGenesisAppState(t, app),
-	}, engineHTTP, engineWS, cometListener, rolluptypes.AdaptCosmosTxsToEthTxs, rolluptypes.AdaptPayloadTxsToCosmosTxs, &node.SelectiveListener{
-		OnEngineHTTPServeErrCb: func(err error) {
-			require.NoError(t, err)
+	blockdb := tmdb.NewMemDB()
+	defer func() {
+		require.NoError(t, blockdb.Close())
+	}()
+	txdb := tmdb.NewMemDB()
+	defer func() {
+		require.NoError(t, txdb.Close())
+	}()
+	mempooldb := tmdb.NewMemDB()
+	defer func() {
+		require.NoError(t, mempooldb.Close())
+	}()
+	n := node.New(
+		app,
+		&genesis.Genesis{
+			ChainID:  chainID,
+			AppState: testapp.MakeGenesisAppState(t, app),
 		},
-		OnEngineWebsocketServeErrCb: func(err error) {
-			require.NoError(t, err)
-		},
-		OnCometServeErrCb: func(err error) {
-			require.NoError(t, err)
-		},
-	})
+		engineHTTP,
+		engineWS,
+		cometListener,
+		blockdb,
+		txdb,
+		mempooldb,
+		rolluptypes.AdaptCosmosTxsToEthTxs,
+		rolluptypes.AdaptPayloadTxsToCosmosTxs,
+		&node.SelectiveListener{
+			OnEngineHTTPServeErrCb: func(err error) {
+				require.NoError(t, err)
+			},
+			OnEngineWebsocketServeErrCb: func(err error) {
+				require.NoError(t, err)
+			},
+		})
 
 	env := environment.New()
 	defer func() {
