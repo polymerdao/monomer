@@ -201,15 +201,21 @@ func hashDataAsBinary(h hash.Hash, data any) {
 }
 
 func (p *PayloadAttributes) ToExecutionPayloadEnvelope(block *Block) *opeth.ExecutionPayloadEnvelope {
-	mempoolTxs := []hexutil.Bytes{}
-
 	payloadTxCount := len(p.Transactions)
 
-	for _, tx := range block.Txs[payloadTxCount:] {
-		mempoolTxs = append(mempoolTxs, hexutil.Bytes(tx))
+	// The block's first payloadTxCount transactions are conversions
+	// from the supplied payloadAttributes struct.
+	//
+	// The remaining recorded transactions are mempool transactions.
+	mempoolTxs := block.Txs[payloadTxCount:]
+
+	convertedMempoolTxs := make([]hexutil.Bytes, len(mempoolTxs))
+
+	for i, tx := range mempoolTxs {
+		convertedMempoolTxs[i] = hexutil.Bytes(tx)
 	}
 
-	combinedTxs := append(p.Transactions, mempoolTxs...)
+	combinedTxs := append(p.Transactions, convertedMempoolTxs...)
 
 	return &opeth.ExecutionPayloadEnvelope{
 		ExecutionPayload: &opeth.ExecutionPayload{
