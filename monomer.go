@@ -37,6 +37,11 @@ type Application interface {
 	RollbackToHeight(uint64) error
 }
 
+type DuplexAdapter struct {
+	CosmosToEth CosmosTxAdapter
+	EthToCosmos PayloadTxAdapter
+}
+
 // CosmosTxAdapter transforms Cosmos transactions into Ethereum transactions.
 //
 // In practice, this will use msg types from Monomer's rollup module, but importing the rollup module here would create a circular module
