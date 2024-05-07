@@ -4,7 +4,6 @@ import (
 	"context"
 	"testing"
 
-	tmdb "github.com/cometbft/cometbft-db"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cmtpubsub "github.com/cometbft/cometbft/libs/pubsub"
 	bfttypes "github.com/cometbft/cometbft/types"
@@ -15,6 +14,7 @@ import (
 	"github.com/polymerdao/monomer/builder"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/mempool"
+	"github.com/polymerdao/monomer/testutil"
 	"github.com/polymerdao/monomer/testutil/testapp"
 	"github.com/stretchr/testify/require"
 )
@@ -78,26 +78,12 @@ func TestBuild(t *testing.T) {
 			inclusionListTxs := testapp.ToTxs(t, test.inclusionList)
 			mempoolTxs := testapp.ToTxs(t, test.mempool)
 
-			mempooldb := tmdb.NewMemDB()
-			t.Cleanup(func() {
-				require.NoError(t, mempooldb.Close())
-			})
-			pool := mempool.New(mempooldb)
+			pool := mempool.New(testutil.NewMemDB(t))
 			for _, tx := range mempoolTxs {
 				require.NoError(t, pool.Enqueue(tx))
 			}
-
-			blockdb := tmdb.NewMemDB()
-			t.Cleanup(func() {
-				require.NoError(t, blockdb.Close())
-			})
-			blockStore := store.NewBlockStore(blockdb)
-
-			txdb := tmdb.NewMemDB()
-			t.Cleanup(func() {
-				require.NoError(t, txdb.Close())
-			})
-			txStore := txstore.NewTxStore(txdb)
+			blockStore := store.NewBlockStore(testutil.NewMemDB(t))
+			txStore := txstore.NewTxStore(testutil.NewMemDB(t))
 
 			var chainID monomer.ChainID
 			app := testapp.NewTest(t, chainID.String())
@@ -200,23 +186,9 @@ func TestBuild(t *testing.T) {
 }
 
 func TestRollback(t *testing.T) {
-	mempooldb := tmdb.NewMemDB()
-	t.Cleanup(func() {
-		require.NoError(t, mempooldb.Close())
-	})
-	pool := mempool.New(mempooldb)
-
-	blockdb := tmdb.NewMemDB()
-	t.Cleanup(func() {
-		require.NoError(t, blockdb.Close())
-	})
-	blockStore := store.NewBlockStore(blockdb)
-
-	txdb := tmdb.NewMemDB()
-	t.Cleanup(func() {
-		require.NoError(t, txdb.Close())
-	})
-	txStore := txstore.NewTxStore(txdb)
+	pool := mempool.New(testutil.NewMemDB(t))
+	blockStore := store.NewBlockStore(testutil.NewMemDB(t))
+	txStore := txstore.NewTxStore(testutil.NewMemDB(t))
 
 	var chainID monomer.ChainID
 	app := testapp.NewTest(t, chainID.String())

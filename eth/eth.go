@@ -25,19 +25,19 @@ func (e *ChainID) ChainId() *hexutil.Big { //nolint:stylecheck
 	return e.chainID
 }
 
-type BlockByNumber struct {
+type Block struct {
 	blockStore store.BlockStoreReader
 	adapter    monomer.CosmosTxAdapter
 }
 
-func NewBlockByNumber(blockStore store.BlockStoreReader, adapter monomer.CosmosTxAdapter) *BlockByNumber {
-	return &BlockByNumber{
+func NewBlock(blockStore store.BlockStoreReader, adapter monomer.CosmosTxAdapter) *Block {
+	return &Block{
 		blockStore: blockStore,
 		adapter:    adapter,
 	}
 }
 
-func (e *BlockByNumber) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error) {
+func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error) {
 	b := id.Get(e.blockStore)
 	if b == nil {
 		return nil, ethereum.NotFound
@@ -49,19 +49,7 @@ func (e *BlockByNumber) GetBlockByNumber(id BlockID, inclTx bool) (map[string]an
 	return b.ToEthLikeBlock(txs, inclTx), nil
 }
 
-type BlockByHash struct {
-	blockStore store.BlockStoreReader
-	adapter    monomer.CosmosTxAdapter
-}
-
-func NewBlockByHash(blockStore store.BlockStoreReader, adapter monomer.CosmosTxAdapter) *BlockByHash {
-	return &BlockByHash{
-		blockStore: blockStore,
-		adapter:    adapter,
-	}
-}
-
-func (e *BlockByHash) GetBlockByHash(hash common.Hash, inclTx bool) (map[string]any, error) {
+func (e *Block) GetBlockByHash(hash common.Hash, inclTx bool) (map[string]any, error) {
 	block := e.blockStore.BlockByHash(hash)
 	if block == nil {
 		return nil, ethereum.NotFound

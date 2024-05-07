@@ -18,15 +18,17 @@ import (
 
 func TestRun(t *testing.T) {
 	chainID := monomer.ChainID(0)
-	httpListener, err := net.Listen("tcp", "127.0.0.1:0")
+	engineHTTP, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	wsListener, err := net.Listen("tcp", "127.0.0.1:0")
+	engineWS, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	cometListener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	app := testapp.NewTest(t, chainID.String())
 	n := node.New(app, &genesis.Genesis{
 		ChainID:  chainID,
 		AppState: testapp.MakeGenesisAppState(t, app),
-	}, httpListener, wsListener, rolluptypes.AdaptCosmosTxsToEthTxs, rolluptypes.AdaptPayloadTxsToCosmosTxs)
+	}, engineHTTP, engineWS, cometListener, rolluptypes.AdaptCosmosTxsToEthTxs, rolluptypes.AdaptPayloadTxsToCosmosTxs)
 
 	var wg conc.WaitGroup
 	defer wg.Wait()
@@ -36,10 +38,19 @@ func TestRun(t *testing.T) {
 		require.NoError(t, n.Run(ctx))
 	})
 
-	client, err := rpc.DialContext(ctx, "http://"+httpListener.Addr().String())
+	client, err := rpc.DialContext(ctx, "http://"+engineHTTP.Addr().String())
 	require.NoError(t, err)
+	defer client.Close()
 	ethClient := ethclient.NewClient(client)
 	chainIDBig, err := ethClient.ChainID(ctx)
 	require.NoError(t, err)
 	require.Equal(t, uint64(chainID), chainIDBig.Uint64())
+
+	cometClient, err := rpc.DialContext(ctx, "http://"+cometListener.Addr().String())
+	require.NoError(t, err)
+	defer cometClient.Close()
+	want := "hello, world"
+	var msg string
+	require.NoError(t, cometClient.Call(&msg, "echo", want))
+	require.Equal(t, want, msg)
 }

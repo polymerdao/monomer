@@ -175,5 +175,7 @@ func (b *Builder) Build(payload *Payload) (*monomer.Block, error) {
 			return nil, fmt.Errorf("publish event tx: %v", err)
 		}
 	}
+
+  // TODO publish other things like new blocks.
 	return block, nil
 }
