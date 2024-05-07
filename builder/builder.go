@@ -176,6 +176,6 @@ func (b *Builder) Build(payload *Payload) (*monomer.Block, error) {
 		}
 	}
 
-  // TODO publish other things like new blocks.
+	// TODO publish other things like new blocks.
 	return block, nil
 }
