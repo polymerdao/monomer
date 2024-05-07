@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/builder"
@@ -26,7 +27,7 @@ type EngineAPI struct {
 	txValidator              TxValidator
 	blockStore               BlockStore
 	currentPayloadAttributes *monomer.PayloadAttributes
-	adapter                  monomer.PayloadTxAdapter
+	adapter                  monomer.DuplexAdapter
 	lock                     sync.RWMutex
 }
 
@@ -34,7 +35,7 @@ type TxValidator interface {
 	CheckTx(abci.RequestCheckTx) abci.ResponseCheckTx
 }
 
-func NewEngineAPI(b *builder.Builder, txValidator TxValidator, adapter monomer.PayloadTxAdapter, blockStore BlockStore) *EngineAPI {
+func NewEngineAPI(b *builder.Builder, txValidator TxValidator, adapter monomer.DuplexAdapter, blockStore BlockStore) *EngineAPI {
 	return &EngineAPI{
 		txValidator: txValidator,
 		blockStore:  blockStore,
@@ -159,7 +160,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("gas limit not provided"))
 	}
 
-	cosmosTxs, err := e.adapter(pa.Transactions)
+	cosmosTxs, err := e.adapter.EthToCosmos(pa.Transactions)
 	if err != nil {
 		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
 	}
@@ -247,8 +248,34 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 		log.Panicf("failed to commit block: %v", err) // TODO error handling. An error here is potentially a big problem.
 	}
 
-	payloadEnvelope := e.currentPayloadAttributes.ToExecutionPayloadEnvelope(block)
+	txs, err := e.adapter.CosmosToEth(block.Txs)
+	if err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("convert cosmos txs to eth txs: %v", err))
+	}
 
+	txBytes := make([]hexutil.Bytes, len(txs))
+	for i, tx := range txs {
+		// return deposit transactions directly from the received payload attributes
+		if i < len(e.currentPayloadAttributes.Transactions) {
+			txBytes[i] = e.currentPayloadAttributes.Transactions[i]
+		} else {
+			txBytes[i] = tx.Data()
+		}
+	}
+
+	payloadEnvelope := &eth.ExecutionPayloadEnvelope{
+		ExecutionPayload: &eth.ExecutionPayload{
+			ParentHash:   e.currentPayloadAttributes.ParentHash,
+			BlockNumber:  hexutil.Uint64(e.currentPayloadAttributes.Height),
+			BlockHash:    block.Hash(),
+			FeeRecipient: e.currentPayloadAttributes.SuggestedFeeRecipient,
+			Timestamp:    hexutil.Uint64(e.currentPayloadAttributes.Timestamp),
+			PrevRandao:   e.currentPayloadAttributes.PrevRandao,
+			Withdrawals:  e.currentPayloadAttributes.Withdrawals,
+			Transactions: txBytes,
+			GasLimit:     hexutil.Uint64(e.currentPayloadAttributes.GasLimit),
+		},
+	}
 	// remove payload
 	e.currentPayloadAttributes = nil
 

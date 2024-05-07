@@ -89,7 +89,10 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 			Service: engine.NewEngineAPI(
 				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID),
 				n.app,
-				n.adaptPayloadTxsToCosmosTxs,
+				monomer.DuplexAdapter{
+					EthToCosmos: n.adaptPayloadTxsToCosmosTxs,
+					CosmosToEth: n.adaptCosmosTxsToEthTxs,
+				},
 				blockStore,
 			),
 		},
