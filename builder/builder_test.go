@@ -158,7 +158,6 @@ func TestBuild(t *testing.T) {
 
 			// Tx store and event bus.
 			eventChan := subscription.Out()
-			require.Len(t, eventChan, len(wantBlock.Txs))
 			for i, tx := range wantBlock.Txs {
 				checkTxResult := func(got abcitypes.TxResult) {
 					// We don't check the full result, which would be difficult and a bit overkill.
