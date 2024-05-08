@@ -36,7 +36,13 @@ type TxValidator interface {
 	CheckTx(abci.RequestCheckTx) abci.ResponseCheckTx
 }
 
-func NewEngineAPI(b *builder.Builder, txValidator TxValidator, ethCosmosAdapter monomer.PayloadTxAdapter, cosmosEthAdapter monomer.CosmosTxAdapter, blockStore BlockStore) *EngineAPI {
+func NewEngineAPI(
+	b *builder.Builder,
+	txValidator TxValidator,
+	ethCosmosAdapter monomer.PayloadTxAdapter,
+	cosmosEthAdapter monomer.CosmosTxAdapter,
+	blockStore BlockStore,
+) *EngineAPI {
 	return &EngineAPI{
 		txValidator:      txValidator,
 		blockStore:       blockStore,
