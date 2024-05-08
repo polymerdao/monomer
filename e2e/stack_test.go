@@ -3,7 +3,6 @@ package e2e_test
 import (
 	"context"
 	"fmt"
-	"io"
 	"math/big"
 	"net/url"
 	"os"
@@ -15,26 +14,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer/e2e"
 	e2eurl "github.com/polymerdao/monomer/e2e/url"
-	"github.com/sourcegraph/conc"
+	"github.com/polymerdao/monomer/environment"
+	"github.com/polymerdao/monomer/node"
 	"github.com/stretchr/testify/require"
 )
-
-type logWriter struct {
-	t           *testing.T
-	programName string
-}
-
-func newLogWriter(t *testing.T, programName string) *logWriter {
-	return &logWriter{
-		t:           t,
-		programName: programName,
-	}
-}
-
-func (w *logWriter) Write(data []byte) (int, error) {
-	w.t.Log(w.programName + ": " + string(data))
-	return len(data), nil
-}
 
 func TestE2E(t *testing.T) {
 	if testing.Short() {
@@ -61,42 +44,29 @@ func TestE2E(t *testing.T) {
 			r.Msg = prefix + ": " + r.Msg
 			t.Log(string(log.TerminalFormat(false).Format(r)))
 		},
-		AfterOPStartupCb: func() {
-			t.Log("started op stack")
+		OnAnvilErrCb: func(err error) {
+			t.Log(err)
 		},
-		BeforeOPShutdownCb: func() {
-			t.Log("shutting down op stack")
-		},
-		OnCmdStartCb: func(programName string, stdout, stderr io.Reader) {
-			t.Log("started " + programName)
-			if verbose {
-				out := newLogWriter(t, programName)
-				go func() {
-					_, err := io.Copy(out, stdout)
-					require.NoError(t, err)
-				}()
-				go func() {
-					_, err := io.Copy(out, stderr)
-					require.NoError(t, err)
-				}()
-			}
-		},
-		OnCmdStoppedCb: func(programName string, err error) {
-			if err == nil {
-				t.Log("successfully stopped " + programName)
-			} else {
-				t.Logf("stopped %s with: %v", programName, err)
-			}
+		NodeSelectiveListener: &node.SelectiveListener{
+			OnEngineHTTPServeErrCb: func(err error) {
+				require.NoError(t, err)
+			},
+			OnEngineWebsocketServeErrCb: func(err error) {
+				require.NoError(t, err)
+			},
+			OnCometServeErrCb: func(err error) {
+				require.NoError(t, err)
+			},
 		},
 	})
 
-	var wg conc.WaitGroup
-	defer wg.Wait()
+	env := environment.New()
+	defer func() {
+		require.NoError(t, env.Close())
+	}()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	wg.Go(func() {
-		require.NoError(t, stack.Run(ctx))
-	})
+	require.NoError(t, stack.Run(ctx, env))
 	// To avoid flaky tests, hang until the Monomer server is ready.
 	// We rely on the `go test` timeout to ensure the tests don't hang forever (default is 10 minutes).
 	require.True(t, monomerEngineURL.IsReachable(ctx))

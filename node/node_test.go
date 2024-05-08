@@ -8,11 +8,11 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
+	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testutil/testapp"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
-	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,15 +28,25 @@ func TestRun(t *testing.T) {
 	n := node.New(app, &genesis.Genesis{
 		ChainID:  chainID,
 		AppState: testapp.MakeGenesisAppState(t, app),
-	}, engineHTTP, engineWS, cometListener, rolluptypes.AdaptCosmosTxsToEthTxs, rolluptypes.AdaptPayloadTxsToCosmosTxs)
+	}, engineHTTP, engineWS, cometListener, rolluptypes.AdaptCosmosTxsToEthTxs, rolluptypes.AdaptPayloadTxsToCosmosTxs, &node.SelectiveListener{
+		OnEngineHTTPServeErrCb: func(err error) {
+			require.NoError(t, err)
+		},
+		OnEngineWebsocketServeErrCb: func(err error) {
+			require.NoError(t, err)
+		},
+		OnCometServeErrCb: func(err error) {
+			require.NoError(t, err)
+		},
+	})
 
-	var wg conc.WaitGroup
-	defer wg.Wait()
+	env := environment.New()
+	defer func() {
+		require.NoError(t, env.Close())
+	}()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	wg.Go(func() {
-		require.NoError(t, n.Run(ctx))
-	})
+	require.NoError(t, n.Run(ctx, env))
 
 	client, err := rpc.DialContext(ctx, "http://"+engineHTTP.Addr().String())
 	require.NoError(t, err)

@@ -1,18 +1,18 @@
 package e2e
 
 import (
-	"io"
-
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/polymerdao/monomer/node"
 )
 
-type SelectiveListener struct {
-	OPLogWithPrefixCb  func(prefix string, r *log.Record)
-	AfterOPStartupCb   func()
-	BeforeOPShutdownCb func()
+// NodeSelectiveListener aliases node.SelectiveListener to avoid name collisions.
+type NodeSelectiveListener = node.SelectiveListener
 
-	OnCmdStartCb   func(programName string, stdout, stderr io.Reader)
-	OnCmdStoppedCb func(programName string, err error)
+type SelectiveListener struct {
+	*NodeSelectiveListener
+
+	OPLogWithPrefixCb func(prefix string, r *log.Record)
+	OnAnvilErrCb      func(error)
 }
 
 func (s *SelectiveListener) LogWithPrefix(prefix string, r *log.Record) {
@@ -21,26 +21,8 @@ func (s *SelectiveListener) LogWithPrefix(prefix string, r *log.Record) {
 	}
 }
 
-func (s *SelectiveListener) AfterStartup() {
-	if s.AfterOPStartupCb != nil {
-		s.AfterOPStartupCb()
-	}
-}
-
-func (s *SelectiveListener) BeforeShutdown() {
-	if s.BeforeOPShutdownCb != nil {
-		s.BeforeOPShutdownCb()
-	}
-}
-
-func (s *SelectiveListener) OnCmdStart(programName string, stdout, stderr io.Reader) {
-	if s.OnCmdStartCb != nil {
-		s.OnCmdStartCb(programName, stdout, stderr)
-	}
-}
-
-func (s *SelectiveListener) OnCmdStopped(programName string, err error) {
-	if s.OnCmdStartCb != nil {
-		s.OnCmdStoppedCb(programName, err)
+func (s *SelectiveListener) OnAnvilErr(err error) {
+	if s.OnAnvilErrCb != nil {
+		s.OnAnvilErrCb(err)
 	}
 }

@@ -20,12 +20,18 @@ import (
 	"github.com/polymerdao/monomer/builder"
 	"github.com/polymerdao/monomer/comet"
 	"github.com/polymerdao/monomer/engine"
+	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/eth"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/mempool"
-	"github.com/polymerdao/monomer/utils"
 	"github.com/sourcegraph/conc"
 )
+
+type EventListener interface {
+	OnEngineHTTPServeErr(error)
+	OnEngineWebsocketServeErr(error)
+	OnCometServeErr(error)
+}
 
 type Node struct {
 	app                        monomer.Application
@@ -35,6 +41,7 @@ type Node struct {
 	cometHTTPAndWS             net.Listener
 	adaptCosmosTxsToEthTxs     monomer.CosmosTxAdapter
 	adaptPayloadTxsToCosmosTxs monomer.PayloadTxAdapter
+	eventListener              EventListener
 }
 
 func New(
@@ -45,6 +52,7 @@ func New(
 	cometHTTPAndWS net.Listener,
 	adaptCosmosTxsToEthTxs monomer.CosmosTxAdapter,
 	adaptPayloadTxsToCosmosTxs monomer.PayloadTxAdapter,
+	eventListener EventListener,
 ) *Node {
 	return &Node{
 		app:                        app,
@@ -54,45 +62,32 @@ func New(
 		cometHTTPAndWS:             cometHTTPAndWS,
 		adaptCosmosTxsToEthTxs:     adaptCosmosTxsToEthTxs,
 		adaptPayloadTxsToCosmosTxs: adaptPayloadTxsToCosmosTxs,
+		eventListener:              eventListener,
 	}
 }
 
-func (n *Node) Run(parentCtx context.Context) (err error) {
-	ctx, cancel := context.WithCancelCause(parentCtx)
-	defer func() {
-		cancel(err)
-		err = utils.Cause(ctx)
-	}()
-
+func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	blockdb := tmdb.NewMemDB()
-	defer func() {
-		err = utils.RunAndWrapOnError(err, "close block db", blockdb.Close)
-	}()
+	env.DeferErr("close block db", blockdb.Close)
 	blockStore := store.NewBlockStore(blockdb)
 
-	if err = prepareBlockStoreAndApp(n.genesis, blockStore, n.app); err != nil {
+	if err := prepareBlockStoreAndApp(n.genesis, blockStore, n.app); err != nil {
 		return err
 	}
 
 	txdb := tmdb.NewMemDB()
-	defer func() {
-		err = utils.RunAndWrapOnError(err, "close tx db", txdb.Close)
-	}()
+	env.DeferErr("close tx db", txdb.Close)
 	txStore := txstore.NewTxStore(txdb)
 
 	mempooldb := tmdb.NewMemDB()
-	defer func() {
-		err = utils.RunAndWrapOnError(err, "close mempool db", mempooldb.Close)
-	}()
+	env.DeferErr("close mempool db", mempooldb.Close)
 	mpool := mempool.New(mempooldb)
 
 	eventBus := bfttypes.NewEventBus()
 	if err := eventBus.Start(); err != nil {
 		return fmt.Errorf("start event bus: %v", err)
 	}
-	defer func() {
-		err = utils.RunAndWrapOnError(err, "stop event bus", eventBus.Stop)
-	}()
+	env.DeferErr("stop event bus", eventBus.Stop)
 
 	rpcServer := rpc.NewServer()
 	for _, api := range []rpc.API{
@@ -121,18 +116,17 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 		}
 	}
 
-	httpServer := makeHTTPService(rpcServer, n.engineHTTP)
-	var wg conc.WaitGroup
-	wg.Go(func() {
-		if err := httpServer.Run(ctx); err != nil {
-			cancel(fmt.Errorf("start engine http server: %v", err))
+	engineHTTP := makeHTTPService(rpcServer, n.engineHTTP)
+	env.Go(func() {
+		if err := engineHTTP.Run(ctx); err != nil {
+			n.eventListener.OnEngineHTTPServeErr(fmt.Errorf("run engine http server: %v", err))
 		}
 	})
 
-	wsServer := makeHTTPService(rpcServer.WebsocketHandler([]string{}), n.engineWS)
-	wg.Go(func() {
-		if err := wsServer.Run(ctx); err != nil {
-			cancel(fmt.Errorf("start engine websocket server: %v", err))
+	engineWS := makeHTTPService(rpcServer.WebsocketHandler([]string{}), n.engineWS)
+	env.Go(func() {
+		if err := engineWS.Run(ctx); err != nil {
+			n.eventListener.OnEngineWebsocketServeErr(fmt.Errorf("run engine ws server: %v", err))
 		}
 	})
 
@@ -142,7 +136,7 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 	broadcastAPI := comet.NewBroadcastTx(n.app, mpool)
 	txAPI := comet.NewTx(txStore)
 	subscribeWg := conc.NewWaitGroup()
-	defer subscribeWg.Wait()
+	env.Defer(subscribeWg.Wait)
 	subscribeAPI := comet.NewSubscriber(eventBus, subscribeWg, &comet.SelectiveListener{})
 	blockAPI := comet.NewBlock(blockStore)
 	// https://docs.cometbft.com/main/rpc/
@@ -178,13 +172,12 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 	mux.HandleFunc("/websocket", cometserver.NewWebsocketManager(routes).WebsocketHandler)
 
 	cometServer := makeHTTPService(mux, n.cometHTTPAndWS)
-	wg.Go(func() {
+	env.Go(func() {
 		if err := cometServer.Run(ctx); err != nil {
-			cancel(fmt.Errorf("start comet server: %v", err))
+			n.eventListener.OnCometServeErr(fmt.Errorf("run comet server: %v", err))
 		}
 	})
 
-	<-ctx.Done()
 	return nil
 }
 
