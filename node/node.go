@@ -101,10 +101,8 @@ func (n *Node) Run(parentCtx context.Context) (err error) {
 			Service: engine.NewEngineAPI(
 				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID),
 				n.app,
-				monomer.DuplexAdapter{
-					EthToCosmos: n.adaptPayloadTxsToCosmosTxs,
-					CosmosToEth: n.adaptCosmosTxsToEthTxs,
-				},
+				n.adaptPayloadTxsToCosmosTxs,
+				n.adaptCosmosTxsToEthTxs,
 				blockStore,
 			),
 		},
