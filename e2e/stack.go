@@ -191,11 +191,29 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	}
 	chainID := monomer.ChainID(chainIDU64)
 	app := testapp.New(tmdb.NewMemDB(), chainID.String())
-	n := node.New(app, &genesis.Genesis{
-		AppState: app.DefaultGenesis(),
-		ChainID:  chainID,
-		Time:     genesisTime,
-	}, engineHTTP, engineWS, cometListener, rolluptypes.AdaptCosmosTxsToEthTxs, rolluptypes.AdaptPayloadTxsToCosmosTxs, s.eventListener)
+	blockdb := tmdb.NewMemDB()
+	env.DeferErr("close block db", blockdb.Close)
+	txdb := tmdb.NewMemDB()
+	env.DeferErr("close tx db", txdb.Close)
+	mempooldb := tmdb.NewMemDB()
+	env.DeferErr("close mempool db", mempooldb.Close)
+	n := node.New(
+		app,
+		&genesis.Genesis{
+			AppState: app.DefaultGenesis(),
+			ChainID:  chainID,
+			Time:     genesisTime,
+		},
+		engineHTTP,
+		engineWS,
+		cometListener,
+		blockdb,
+		txdb,
+		mempooldb,
+		rolluptypes.AdaptCosmosTxsToEthTxs,
+		rolluptypes.AdaptPayloadTxsToCosmosTxs,
+		s.eventListener,
+	)
 	if err := n.Run(ctx, env); err != nil {
 		return fmt.Errorf("run monomer: %v", err)
 	}
