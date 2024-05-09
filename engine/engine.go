@@ -263,11 +263,10 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 
 	txBytes := make([]hexutil.Bytes, len(txs))
 	for i, tx := range txs {
-		// return deposit transactions directly from the received payload attributes
-		if i < len(e.currentPayloadAttributes.Transactions) {
-			txBytes[i] = e.currentPayloadAttributes.Transactions[i]
-		} else {
-			txBytes[i] = tx.Data()
+		txBytes[i], err = tx.MarshalBinary()
+
+		if err != nil {
+			return nil, engine.GenericServerError.With(fmt.Errorf("marshal tx binary: %v", err))
 		}
 	}
 
