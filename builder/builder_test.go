@@ -114,13 +114,14 @@ func TestBuild(t *testing.T) {
 			)
 
 			payload := &builder.Payload{
-				Transactions: bfttypes.ToTxs(inclusionListTxs),
-				GasLimit:     0,
-				Timestamp:    g.Time + 1,
-				NoTxPool:     test.noTxPool,
+				InjectedTransactions: bfttypes.ToTxs(inclusionListTxs),
+				GasLimit:             0,
+				Timestamp:            g.Time + 1,
+				NoTxPool:             test.noTxPool,
 			}
 			preBuildInfo := app.Info(abcitypes.RequestInfo{})
-			require.NoError(t, b.Build(payload))
+			builtBlock, err := b.Build(payload)
+			require.NoError(t, err)
 			postBuildInfo := app.Info(abcitypes.RequestInfo{})
 
 			// Application.
@@ -154,6 +155,7 @@ func TestBuild(t *testing.T) {
 				Txs: bfttypes.ToTxs(allTxs),
 			}
 			wantBlock.Hash()
+			require.Equal(t, wantBlock, builtBlock)
 			require.Equal(t, wantBlock, gotBlock)
 
 			// Tx store and event bus.
@@ -216,11 +218,11 @@ func TestRollback(t *testing.T) {
 	kvs := map[string]string{
 		"test": "test",
 	}
-	require.NoError(t, b.Build(&builder.Payload{
-		Timestamp:    g.Time + 1,
-		Transactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs)),
-	}))
-	block := blockStore.HeadBlock()
+	block, err := b.Build(&builder.Payload{
+		Timestamp:            g.Time + 1,
+		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs)),
+	})
+	require.NoError(t, err)
 	require.NotNil(t, block)
 	require.NoError(t, blockStore.UpdateLabel(eth.Unsafe, block.Hash()))
 	require.NoError(t, blockStore.UpdateLabel(eth.Safe, block.Hash()))

@@ -97,6 +97,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID),
 				n.app,
 				n.adaptPayloadTxsToCosmosTxs,
+				n.adaptCosmosTxsToEthTxs,
 				blockStore,
 			),
 		},

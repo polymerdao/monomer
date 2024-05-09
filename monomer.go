@@ -212,22 +212,6 @@ func hashDataAsBinary(h hash.Hash, data any) {
 	}
 }
 
-func (p *PayloadAttributes) ToExecutionPayloadEnvelope(blockHash common.Hash) *opeth.ExecutionPayloadEnvelope {
-	return &opeth.ExecutionPayloadEnvelope{
-		ExecutionPayload: &opeth.ExecutionPayload{
-			ParentHash:   p.ParentHash,
-			BlockNumber:  hexutil.Uint64(p.Height),
-			BlockHash:    blockHash,
-			FeeRecipient: p.SuggestedFeeRecipient,
-			Timestamp:    hexutil.Uint64(p.Timestamp),
-			PrevRandao:   p.PrevRandao,
-			Withdrawals:  p.Withdrawals,
-			Transactions: p.Transactions,
-			GasLimit:     hexutil.Uint64(p.GasLimit),
-		},
-	}
-}
-
 // ValidForkchoiceUpdateResult returns a valid ForkchoiceUpdateResult with given head block hash.
 func ValidForkchoiceUpdateResult(headBlockHash *common.Hash, id *engine.PayloadID) *opeth.ForkchoiceUpdatedResult {
 	return &opeth.ForkchoiceUpdatedResult{

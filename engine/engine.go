@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/builder"
@@ -26,7 +27,8 @@ type EngineAPI struct {
 	txValidator              TxValidator
 	blockStore               BlockStore
 	currentPayloadAttributes *monomer.PayloadAttributes
-	adapter                  monomer.PayloadTxAdapter
+	ethCosmosAdapter         monomer.PayloadTxAdapter
+	cosmosEthAdapter         monomer.CosmosTxAdapter
 	lock                     sync.RWMutex
 }
 
@@ -34,12 +36,19 @@ type TxValidator interface {
 	CheckTx(abci.RequestCheckTx) abci.ResponseCheckTx
 }
 
-func NewEngineAPI(b *builder.Builder, txValidator TxValidator, adapter monomer.PayloadTxAdapter, blockStore BlockStore) *EngineAPI {
+func NewEngineAPI(
+	b *builder.Builder,
+	txValidator TxValidator,
+	ethCosmosAdapter monomer.PayloadTxAdapter,
+	cosmosEthAdapter monomer.CosmosTxAdapter,
+	blockStore BlockStore,
+) *EngineAPI {
 	return &EngineAPI{
-		txValidator: txValidator,
-		blockStore:  blockStore,
-		builder:     b,
-		adapter:     adapter,
+		txValidator:      txValidator,
+		blockStore:       blockStore,
+		builder:          b,
+		ethCosmosAdapter: ethCosmosAdapter,
+		cosmosEthAdapter: cosmosEthAdapter,
 	}
 }
 
@@ -159,7 +168,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("gas limit not provided"))
 	}
 
-	cosmosTxs, err := e.adapter(pa.Transactions)
+	cosmosTxs, err := e.ethCosmosAdapter(pa.Transactions)
 	if err != nil {
 		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
 	}
@@ -237,16 +246,42 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 
 	// TODO: handle time slot based block production
 	// for now assume block is sealed by this call
-	if err := e.builder.Build(&builder.Payload{
-		Transactions: e.currentPayloadAttributes.CosmosTxs,
-		GasLimit:     e.currentPayloadAttributes.GasLimit,
-		Timestamp:    e.currentPayloadAttributes.Timestamp,
-		NoTxPool:     e.currentPayloadAttributes.NoTxPool,
-	}); err != nil {
+	block, err := e.builder.Build(&builder.Payload{
+		InjectedTransactions: e.currentPayloadAttributes.CosmosTxs,
+		GasLimit:             e.currentPayloadAttributes.GasLimit,
+		Timestamp:            e.currentPayloadAttributes.Timestamp,
+		NoTxPool:             e.currentPayloadAttributes.NoTxPool,
+	})
+	if err != nil {
 		log.Panicf("failed to commit block: %v", err) // TODO error handling. An error here is potentially a big problem.
 	}
-	payloadEnvelope := e.currentPayloadAttributes.ToExecutionPayloadEnvelope(e.blockStore.HeadBlock().Hash())
 
+	txs, err := e.cosmosEthAdapter(block.Txs)
+	if err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("convert cosmos txs to eth txs: %v", err))
+	}
+
+	txBytes := make([]hexutil.Bytes, len(txs))
+	for i, tx := range txs {
+		txBytes[i], err = tx.MarshalBinary()
+		if err != nil {
+			return nil, engine.GenericServerError.With(fmt.Errorf("marshal tx binary: %v", err))
+		}
+	}
+
+	payloadEnvelope := &eth.ExecutionPayloadEnvelope{
+		ExecutionPayload: &eth.ExecutionPayload{
+			ParentHash:   e.currentPayloadAttributes.ParentHash,
+			BlockNumber:  hexutil.Uint64(e.currentPayloadAttributes.Height),
+			BlockHash:    block.Hash(),
+			FeeRecipient: e.currentPayloadAttributes.SuggestedFeeRecipient,
+			Timestamp:    hexutil.Uint64(e.currentPayloadAttributes.Timestamp),
+			PrevRandao:   e.currentPayloadAttributes.PrevRandao,
+			Withdrawals:  e.currentPayloadAttributes.Withdrawals,
+			Transactions: txBytes,
+			GasLimit:     hexutil.Uint64(e.currentPayloadAttributes.GasLimit),
+		},
+	}
 	// remove payload
 	e.currentPayloadAttributes = nil
 
