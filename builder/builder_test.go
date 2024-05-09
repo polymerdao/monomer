@@ -120,7 +120,7 @@ func TestBuild(t *testing.T) {
 				NoTxPool:             test.noTxPool,
 			}
 			preBuildInfo := app.Info(abcitypes.RequestInfo{})
-			_, err = b.Build(payload)
+			builtBlock, err := b.Build(payload)
 			require.NoError(t, err)
 			postBuildInfo := app.Info(abcitypes.RequestInfo{})
 
@@ -155,6 +155,7 @@ func TestBuild(t *testing.T) {
 				Txs: bfttypes.ToTxs(allTxs),
 			}
 			wantBlock.Hash()
+			require.Equal(t, wantBlock, builtBlock)
 			require.Equal(t, wantBlock, gotBlock)
 
 			// Tx store and event bus.
