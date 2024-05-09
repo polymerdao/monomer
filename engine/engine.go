@@ -264,7 +264,6 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 	txBytes := make([]hexutil.Bytes, len(txs))
 	for i, tx := range txs {
 		txBytes[i], err = tx.MarshalBinary()
-
 		if err != nil {
 			return nil, engine.GenericServerError.With(fmt.Errorf("marshal tx binary: %v", err))
 		}
