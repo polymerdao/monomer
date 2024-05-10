@@ -89,6 +89,11 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, put.Code, "put.Code is not OK")
 
+	badTx := []byte("malformed")
+	badPut, err := client.BroadcastTxAsync(ctx, badTx)
+	require.NoError(t, err) // no API error - failure encoded in response
+	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
+
 	checkTicker := time.NewTicker(l1BlockTime)
 	defer checkTicker.Stop()
 	for range checkTicker.C {
