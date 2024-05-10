@@ -86,13 +86,13 @@ func TestE2E(t *testing.T) {
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
 
-	put, err := client.BroadcastTxAsync(ctx, txBytes)
+	putTx, err := client.BroadcastTxAsync(ctx, txBytes)
 	require.NoError(t, err)
-	require.Equal(t, abcitypes.CodeTypeOK, put.Code, "put.Code is not OK")
-	require.EqualValues(t, bftTx.Hash(), put.Hash, "put.Hash does not match local hash")
+	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
+	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash does not match local hash")
 
-	badTx := []byte("malformed")
-	badPut, err := client.BroadcastTxAsync(ctx, badTx)
+	badPutTx := []byte("malformed")
+	badPut, err := client.BroadcastTxAsync(ctx, badPutTx)
 	require.NoError(t, err) // no API error - failure encoded in response
 	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
 
@@ -107,13 +107,13 @@ func TestE2E(t *testing.T) {
 	}
 	t.Log("Monomer can sync")
 
-	get, err := client.Tx(ctx, bftTx.Hash(), false)
+	getTx, err := client.Tx(ctx, bftTx.Hash(), false)
 
 	require.NoError(t, err)
-	require.Equal(t, abcitypes.CodeTypeOK, get.TxResult.Code, "txResult.Code is not OK")
-	require.Equal(t, bftTx, get.Tx, "txBytes do not match")
+	require.Equal(t, abcitypes.CodeTypeOK, getTx.TxResult.Code, "txResult.Code is not OK")
+	require.Equal(t, bftTx, getTx.Tx, "txBytes do not match")
 
-	txBlock, err := monomerClient.BlockByNumber(ctx, big.NewInt(get.Height))
+	txBlock, err := monomerClient.BlockByNumber(ctx, big.NewInt(getTx.Height))
 	require.NoError(t, err)
 	require.Len(t, txBlock.Transactions(), 2)
 
