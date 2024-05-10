@@ -84,10 +84,12 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, err, "failed to create Comet client")
 
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
+	bftTx := bfttypes.Tx(txBytes)
 
 	put, err := client.BroadcastTxAsync(ctx, txBytes)
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, put.Code, "put.Code is not OK")
+	require.EqualValues(t, bftTx.Hash(), put.Hash, "put.Hash does not match local hash")
 
 	badTx := []byte("malformed")
 	badPut, err := client.BroadcastTxAsync(ctx, badTx)
@@ -105,7 +107,6 @@ func TestE2E(t *testing.T) {
 	}
 	t.Log("Monomer can sync")
 
-	bftTx := bfttypes.Tx(txBytes)
 	get, err := client.Tx(ctx, bftTx.Hash(), false)
 	txHeight := get.Height
 
