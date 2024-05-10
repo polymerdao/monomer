@@ -10,12 +10,16 @@ import (
 	"testing"
 	"time"
 
+	abcitypes "github.com/cometbft/cometbft/abci/types"
+	cosclient "github.com/cometbft/cometbft/rpc/client/http"
+	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer/e2e"
 	e2eurl "github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/node"
+	"github.com/polymerdao/monomer/testutil/testapp"
 	"github.com/stretchr/testify/require"
 )
 
@@ -76,6 +80,15 @@ func TestE2E(t *testing.T) {
 
 	const targetHeight = 5
 
+	client, err := cosclient.New(monomerCometURL.String(), monomerCometURL.String())
+	require.NoError(t, err, "failed to create Comet client")
+
+	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
+
+	put, err := client.BroadcastTxAsync(ctx, txBytes)
+	require.NoError(t, err)
+	require.Equal(t, abcitypes.CodeTypeOK, put.Code, "put.Code is not OK")
+
 	checkTicker := time.NewTicker(l1BlockTime)
 	defer checkTicker.Stop()
 	for range checkTicker.C {
@@ -87,11 +100,25 @@ func TestE2E(t *testing.T) {
 	}
 	t.Log("Monomer can sync")
 
+	bftTx := bfttypes.Tx(txBytes)
+	get, err := client.Tx(ctx, bftTx.Hash(), false)
+	txHeight := get.Height
+
+	require.NoError(t, err)
+	require.Equal(t, abcitypes.CodeTypeOK, get.TxResult.Code, "txResult.Code is not OK")
+	require.Equal(t, bftTx, get.Tx, "txBytes do not match")
+
+	txBlock, err := monomerClient.BlockByNumber(ctx, big.NewInt(get.Height))
+	require.NoError(t, err)
+	require.Len(t, txBlock.Transactions(), 2)
+
 	for i := uint64(2); i < targetHeight; i++ {
 		block, err := monomerClient.BlockByNumber(ctx, new(big.Int).SetUint64(i))
 		require.NoError(t, err)
 		txs := block.Transactions()
-		require.Len(t, txs, 1)
+		if i != uint64(txHeight) {
+			require.Len(t, txs, 1, "expected 1 tx in block")
+		}
 		if tx := txs[0]; !tx.IsDepositTx() {
 			txBytes, err := tx.MarshalJSON()
 			require.NoError(t, err)
