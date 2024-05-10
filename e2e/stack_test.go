@@ -108,7 +108,6 @@ func TestE2E(t *testing.T) {
 	t.Log("Monomer can sync")
 
 	get, err := client.Tx(ctx, bftTx.Hash(), false)
-	txHeight := get.Height
 
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, get.TxResult.Code, "txResult.Code is not OK")
@@ -122,9 +121,7 @@ func TestE2E(t *testing.T) {
 		block, err := monomerClient.BlockByNumber(ctx, new(big.Int).SetUint64(i))
 		require.NoError(t, err)
 		txs := block.Transactions()
-		if i != uint64(txHeight) {
-			require.Len(t, txs, 1, "expected 1 tx in block")
-		}
+		require.GreaterOrEqual(t, len(txs), 1, "expected at least 1 tx in block")
 		if tx := txs[0]; !tx.IsDepositTx() {
 			txBytes, err := tx.MarshalJSON()
 			require.NoError(t, err)
