@@ -8,7 +8,7 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/testutil/testapp"
+	"github.com/polymerdao/monomer/testapp"
 	"github.com/stretchr/testify/require"
 )
 

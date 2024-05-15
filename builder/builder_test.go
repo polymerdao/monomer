@@ -14,8 +14,8 @@ import (
 	"github.com/polymerdao/monomer/builder"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/mempool"
+	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testutil"
-	"github.com/polymerdao/monomer/testutil/testapp"
 	"github.com/stretchr/testify/require"
 )
 

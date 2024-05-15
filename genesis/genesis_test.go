@@ -10,8 +10,8 @@ import (
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/genesis"
-	"github.com/polymerdao/monomer/testutil/testapp"
-	"github.com/polymerdao/monomer/testutil/testapp/x/testmodule"
+	"github.com/polymerdao/monomer/testapp"
+	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/stretchr/testify/require"
 )
 
