@@ -19,10 +19,10 @@ import (
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/comet"
+	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/mempool"
 	"github.com/polymerdao/monomer/testutil"
 	"github.com/polymerdao/monomer/testutil/testapp"
-	testappv1 "github.com/polymerdao/monomer/testutil/testapp/gen/testapp/v1"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/require"
 )
@@ -63,7 +63,7 @@ func TestABCI(t *testing.T) {
 	infoResult, err := abci.Info(nil)
 	require.NoError(t, err)
 	require.Equal(t, height, infoResult.Response.LastBlockHeight) // We trust that the other fields are set properly.
-	requestBytes, err := (&testappv1.GetRequest{
+	requestBytes, err := (&testapp_v1.GetRequest{
 		Key: k,
 	}).Marshal()
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestABCI(t *testing.T) {
 	// Query.
 	queryResult, err := abci.Query(nil, testapp.QueryPath, requestBytes, height, false)
 	require.NoError(t, err)
-	var val testappv1.GetResponse
+	var val testapp_v1.GetResponse
 	require.NoError(t, (&val).Unmarshal(queryResult.Response.GetValue()))
 	require.Equal(t, v, val.GetValue())
 }

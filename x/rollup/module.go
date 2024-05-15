@@ -2,7 +2,6 @@ package rollup
 
 import (
 	"encoding/json"
-	"fmt"
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -12,6 +11,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/spf13/cobra"
@@ -40,35 +40,29 @@ func (AppModuleBasic) Name() string {
 	return types.ModuleName
 }
 
-func (AppModuleBasic) RegisterCodec(cdc *codec.LegacyAmino) {
-	types.RegisterCodec(cdc)
+func (AppModuleBasic) RegisterCodec(_ *codec.LegacyAmino) {
 }
 
-func (AppModuleBasic) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {
-	types.RegisterCodec(cdc)
+func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {
 }
 
 // RegisterInterfaces registers the module's interface types
 func (a AppModuleBasic) RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
-	types.RegisterInterfaces(reg)
+	rollup_v1.RegisterInterfaces(reg)
 }
 
 // DefaultGenesis returns the capability module's default genesis state.
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
-	return cdc.MustMarshalJSON(&types.GenesisState{})
+	return json.RawMessage(`{}`)
 }
 
 // ValidateGenesis performs genesis state validation for the capability module.
 func (AppModuleBasic) ValidateGenesis(
-	cdc codec.JSONCodec,
-	config client.TxEncodingConfig,
-	bz json.RawMessage,
+	_ codec.JSONCodec,
+	_ client.TxEncodingConfig,
+	_ json.RawMessage,
 ) error {
-	var genState types.GenesisState
-	if err := cdc.UnmarshalJSON(bz, &genState); err != nil {
-		return fmt.Errorf("failed to unmarshal %s genesis state: %w", types.ModuleName, err)
-	}
-	return genState.Validate()
+	return nil
 }
 
 // RegisterRESTRoutes registers the capability module's REST service handlers.
@@ -120,8 +114,8 @@ func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 // RegisterServices registers a GRPC query service to respond to the
 // module-specific GRPC queries.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
-	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
-	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
+	rollup_v1.RegisterMsgServiceServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	rollup_v1.RegisterQueryServiceServer(cfg.QueryServer(), am.keeper)
 }
 
 // RegisterInvariants registers the capability module's invariants.
@@ -134,15 +128,12 @@ func (am AppModule) InitGenesis(
 	cdc codec.JSONCodec,
 	gs json.RawMessage,
 ) []abci.ValidatorUpdate {
-	var genState types.GenesisState
-	// Initialize global index to index in genesis state
-	cdc.MustUnmarshalJSON(gs, &genState)
 	return []abci.ValidatorUpdate{}
 }
 
 // ExportGenesis returns the capability module's exported genesis state as raw JSON bytes.
 func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawMessage { //nolint:gocritic
-	return cdc.MustMarshalJSON(&types.GenesisState{})
+	return json.RawMessage(`{}`)
 }
 
 // ConsensusVersion implements ConsensusVersion.

@@ -1,10 +1,5 @@
 package keeper
 
-/**
- Keeper methods here are not invoked by regular SDK tx msgs, but instead triggered by L1 txs on both sequencer and
-verifier nodes without using a cosmos account.
-*/
-
 import (
 	"context"
 	"encoding/json"
@@ -16,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
 )
@@ -26,14 +22,14 @@ type msgServer struct {
 
 // NewMsgServerImpl returns an implementation of the MsgServer interface
 // for the provided Keeper.
-func NewMsgServerImpl(keeper *Keeper) types.MsgServer {
+func NewMsgServerImpl(keeper *Keeper) rollup_v1.MsgServiceServer {
 	return &msgServer{Keeper: keeper}
 }
 
-var _ types.MsgServer = msgServer{}
+var _ rollup_v1.MsgServiceServer = msgServer{}
 
 // ApplyL1Txs implements types.MsgServer.
-func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgL1Txs) (*types.MsgL1TxsResponse, error) {
+func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollup_v1.ApplyL1TxsRequest) (*rollup_v1.ApplyL1TxsResponse, error) {
 	if msg.TxBytes == nil || len(msg.TxBytes) < 1 {
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "must have at least one L1 Info Deposit tx")
 	}
@@ -106,7 +102,7 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgL1Txs) (*types.
 			return nil, types.WrapError(types.ErrMintETH, "failed to mint ETH", "polymerAddress", cosmAddr, "err", err)
 		}
 	}
-	return &types.MsgL1TxsResponse{}, nil
+	return &rollup_v1.ApplyL1TxsResponse{}, nil
 }
 
 // MintETH mints ETH to an account where the amount is in wei, the smallest unit of ETH

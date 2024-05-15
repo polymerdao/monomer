@@ -9,16 +9,16 @@ require (
 	github.com/cosmos/gogoproto v1.4.10
 	github.com/ethereum-optimism/optimism v1.4.2
 	github.com/ethereum/go-ethereum v1.13.5
-	github.com/golang/protobuf v1.5.4
+	github.com/gogo/protobuf v1.3.2
 	github.com/gorilla/mux v1.8.0
 	github.com/grpc-ecosystem/grpc-gateway v1.16.0
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/samber/lo v1.39.0
 	github.com/sourcegraph/conc v0.3.0
 	github.com/spf13/cobra v1.8.0
 	github.com/stretchr/testify v1.8.4
 	google.golang.org/genproto/googleapis/api v0.0.0-20240123012728-ef4313101c80
 	google.golang.org/grpc v1.62.1
-	gopkg.in/yaml.v2 v2.4.0
 	tailscale.com v1.64.2
 )
 
@@ -99,10 +99,10 @@ require (
 	github.com/godbus/dbus/v5 v5.1.1-0.20230522191255-76236955d466 // indirect
 	github.com/gofrs/flock v0.8.1 // indirect
 	github.com/gogo/googleapis v1.4.1 // indirect
-	github.com/gogo/protobuf v1.3.2 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/golang/glog v1.2.0 // indirect
 	github.com/golang/mock v1.6.0 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/btree v1.1.2 // indirect
 	github.com/google/go-cmp v0.6.0 // indirect
@@ -119,7 +119,6 @@ require (
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-bexpr v0.1.11 // indirect
 	github.com/hashicorp/go-immutable-radix v1.3.1 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/hashicorp/go-uuid v1.0.2 // indirect
 	github.com/hashicorp/golang-lru v1.0.2 // indirect
 	github.com/hashicorp/golang-lru/arc/v2 v2.0.5 // indirect

@@ -9,6 +9,7 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/polymerdao/monomer/gen/rollup/v1"
 )
 
 func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
@@ -30,7 +31,7 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 		txs = append(txs, txBytes)
 	}
 
-	msgAny, err := codectypes.NewAnyWithValue(&MsgL1Txs{
+	msgAny, err := codectypes.NewAnyWithValue(&rollup_v1.ApplyL1TxsRequest{
 		TxBytes: txs,
 	})
 	if err != nil {
@@ -76,7 +77,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	if num := len(msgs); num != 1 {
 		return nil, fmt.Errorf("unexpected number of msgs in Eth Cosmos tx: want 1, got %d", num)
 	}
-	msg := new(MsgL1Txs)
+	msg := new(rollup_v1.ApplyL1TxsRequest)
 	if err := msg.Unmarshal(msgs[0].GetValue()); err != nil {
 		return nil, fmt.Errorf("unmarshal MsgL1Txs smsg: %v", err)
 	}

@@ -9,7 +9,7 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
-	testappv1 "github.com/polymerdao/monomer/testutil/testapp/gen/testapp/v1"
+	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/testutil/testapp/x/testmodule"
 	"github.com/stretchr/testify/require"
 )
@@ -46,7 +46,7 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 }
 
 func ToTx(t *testing.T, k, v string) []byte {
-	msgAny, err := codectypes.NewAnyWithValue(&testappv1.SetRequest{
+	msgAny, err := codectypes.NewAnyWithValue(&testapp_v1.SetRequest{
 		Key:   k,
 		Value: v,
 	})
@@ -90,7 +90,7 @@ func (a *App) StateContains(t *testing.T, height uint64, kvs map[string]string) 
 	}
 	gotState := make(map[string]string, len(kvs))
 	for k := range kvs {
-		requestBytes, err := (&testappv1.GetRequest{
+		requestBytes, err := (&testapp_v1.GetRequest{
 			Key: k,
 		}).Marshal()
 		require.NoError(t, err)
@@ -99,7 +99,7 @@ func (a *App) StateContains(t *testing.T, height uint64, kvs map[string]string) 
 			Data:   requestBytes,
 			Height: int64(height),
 		})
-		var val testappv1.GetResponse
+		var val testapp_v1.GetResponse
 		require.NoError(t, (&val).Unmarshal(resp.GetValue()))
 		gotState[k] = val.GetValue()
 	}
@@ -112,7 +112,7 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 		return
 	}
 	for k := range kvs {
-		requestBytes, err := (&testappv1.GetRequest{
+		requestBytes, err := (&testapp_v1.GetRequest{
 			Key: k,
 		}).Marshal()
 		require.NoError(t, err)
@@ -121,7 +121,7 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 			Data:   requestBytes,
 			Height: int64(height),
 		})
-		var val testappv1.GetResponse
+		var val testapp_v1.GetResponse
 		require.NoError(t, (&val).Unmarshal(resp.GetValue()))
 		require.Empty(t, val.GetValue())
 	}

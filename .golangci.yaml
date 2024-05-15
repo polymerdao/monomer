@@ -125,6 +125,7 @@ issues:
       source: "^//go:generate "
   exclude-dirs:
     - app # This code is left over and will be changed soon.
+    - gen # Protobuf generated files and helpers.
 
 run:
   timeout: 5m
