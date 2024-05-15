@@ -21,7 +21,17 @@ import (
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testutil/testapp"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/slog"
 )
+
+type logWriter struct {
+	t *testing.T
+}
+
+func (w *logWriter) Write(data []byte) (int, error) {
+	w.t.Log(string(data))
+	return len(data), nil
+}
 
 func TestE2E(t *testing.T) {
 	if testing.Short() {
@@ -40,13 +50,16 @@ func TestE2E(t *testing.T) {
 	monomerCometURL := newURL(t, "http://127.0.0.1:8890")
 	opNodeURL := newURL(t, "http://127.0.0.1:8891")
 
+	logHandler := log.NewTerminalHandler(&logWriter{
+		t: t,
+	}, false)
 	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, contractsRootDir, l1BlockTime, &e2e.SelectiveListener{
-		OPLogWithPrefixCb: func(prefix string, r *log.Record) {
+		OPLogWithPrefixCb: func(prefix string, r *slog.Record) {
 			if prefix != "node" && !verbose {
 				return
 			}
-			r.Msg = prefix + ": " + r.Msg
-			t.Log(string(log.TerminalFormat(false).Format(r)))
+			require.NotNil(t, r)
+			require.NoError(t, logHandler.Handle(context.Background(), *r))
 		},
 		OnAnvilErrCb: func(err error) {
 			t.Log(err)

@@ -133,36 +133,35 @@ func (k *Keeper) MintETH(ctx *sdk.Context, addr sdk.AccAddress, amount sdkmath.I
 //
 // Persisted data conforms to optimism specs on L1 attributes:
 // https://github.com/ethereum-optimism/optimism/blob/develop/specs/deposits.md#l1-attributes-predeployed-contract
-func (k *Keeper) SetL1BlockInfo(rollupCfg *rollup.Config, ctx *sdk.Context, l1blockInfo derive.L1BlockInfo) error { //nolint:gocritic
-	bz, err := derive.L1BlockInfoToBytes(rollupCfg, 0, l1blockInfo)
+func (k *Keeper) SetL1BlockInfo(rollupCfg *rollup.Config, ctx *sdk.Context, info derive.L1BlockInfo) error { //nolint:gocritic
+	infoBytes, err := json.Marshal(info)
 	if err != nil {
-		return types.WrapError(err, "failed to marshal L1 block info to binary bytes")
+		return types.WrapError(err, "marshal L1 block info")
 	}
-	ctx.KVStore(k.storeKey).Set([]byte(types.KeyL1BlockInfo), bz)
+	ctx.KVStore(k.storeKey).Set([]byte(types.KeyL1BlockInfo), infoBytes)
 	return nil
 }
 
 // GetL1BlockInfo gets the L1 block info from the app state
-func (k *Keeper) GetL1BlockInfo(rollupCfg *rollup.Config, ctx *sdk.Context) (derive.L1BlockInfo, error) {
-	bz := ctx.KVStore(k.storeKey).Get([]byte(types.KeyL1BlockInfo))
-	if bz == nil {
-		return derive.L1BlockInfo{}, types.WrapError(types.ErrL1BlockInfo, "not found")
+func (k *Keeper) GetL1BlockInfo(rollupCfg *rollup.Config, ctx *sdk.Context) (*derive.L1BlockInfo, error) {
+	infoBytes := ctx.KVStore(k.storeKey).Get([]byte(types.KeyL1BlockInfo))
+	if infoBytes == nil {
+		return nil, types.WrapError(types.ErrL1BlockInfo, "not found")
 	}
-
-	if l1blockInfo, err := derive.L1BlockInfoFromBytes(rollupCfg, 0, bz); err != nil {
-		return derive.L1BlockInfo{}, types.WrapError(err, "failed to unmarshal from binary bytes")
-	} else {
-		return *l1blockInfo, nil
+	info := new(derive.L1BlockInfo)
+	if err := json.Unmarshal(infoBytes, &info); err != nil {
+		return nil, types.WrapError(err, "unmarshal L1 block info")
 	}
+	return info, nil
 }
 
 // SetL1BlockHistory sets the L1 block info to the app state, with the key being the blockhash, so we can look it up easily later.
-func (k *Keeper) SetL1BlockHistory(rollupCfg *rollup.Config, ctx *sdk.Context, l1blockInfo *derive.L1BlockInfo) error {
-	bz, err := derive.L1BlockInfoToBytes(rollupCfg, 0, *l1blockInfo)
+func (k *Keeper) SetL1BlockHistory(rollupCfg *rollup.Config, ctx *sdk.Context, info *derive.L1BlockInfo) error {
+	infoBytes, err := json.Marshal(info)
 	if err != nil {
-		return types.WrapError(err, "failed to marshal L1 block info to binary bytes")
+		return types.WrapError(err, "marshal L1 block info")
 	}
-	ctx.KVStore(k.storeKey).Set(l1blockInfo.BlockHash.Bytes(), bz)
+	ctx.KVStore(k.storeKey).Set(info.BlockHash.Bytes(), infoBytes)
 
 	return nil
 }
