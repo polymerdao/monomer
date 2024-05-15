@@ -1,7 +1,8 @@
 version: v1
 deps:
-  - buf.build/gogo/protobuf
+  - buf.build/cosmos/gogo-proto
   - buf.build/googleapis/googleapis
+  - buf.build/cosmos/cosmos-sdk
 breaking:
   use:
     - FILE

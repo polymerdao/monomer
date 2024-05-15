@@ -19,7 +19,7 @@ import (
 	e2eurl "github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/node"
-	"github.com/polymerdao/monomer/testutil/testapp"
+	"github.com/polymerdao/monomer/testapp"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slog"
 )

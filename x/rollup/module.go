@@ -3,19 +3,52 @@ package rollup
 import (
 	"encoding/json"
 
-	abci "github.com/cometbft/cometbft/abci/types"
+	"cosmossdk.io/core/appmodule"
+	"cosmossdk.io/core/store"
+	"cosmossdk.io/depinject"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
+	"github.com/polymerdao/monomer/gen/rollup/module/v1"
 	"github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/spf13/cobra"
 )
+
+type ModuleInputs struct {
+	depinject.In
+
+	Codec        codec.Codec
+	StoreService store.KVStoreService
+	MintKeeper   mintkeeper.Keeper
+	BankKeeper   bankkeeper.Keeper
+}
+
+type ModuleOutputs struct {
+	depinject.Out
+
+	Keeper *keeper.Keeper
+	Module appmodule.AppModule
+}
+
+func init() { //nolint:gochecknoinits
+	appmodule.Register(&modulev1.Module{}, appmodule.Provide(ProvideModule))
+}
+
+func ProvideModule(in ModuleInputs) ModuleOutputs { //nolint:gocritic
+	k := keeper.NewKeeper(in.Codec, in.StoreService, &in.MintKeeper, in.BankKeeper)
+	return ModuleOutputs{
+		Keeper: k,
+		Module: NewAppModule(in.Codec, k),
+	}
+}
 
 var (
 	_ module.AppModule      = AppModule{}
@@ -48,7 +81,7 @@ func (AppModuleBasic) RegisterLegacyAminoCodec(_ *codec.LegacyAmino) {
 
 // RegisterInterfaces registers the module's interface types
 func (a AppModuleBasic) RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
-	rollup_v1.RegisterInterfaces(reg)
+	rollupv1.RegisterInterfaces(reg)
 }
 
 // DefaultGenesis returns the capability module's default genesis state.
@@ -103,6 +136,10 @@ func NewAppModule(
 	}
 }
 
+func (am AppModule) IsAppModule() {}
+
+func (am AppModule) IsOnePerModuleType() {}
+
 // Name returns the capability module's name.
 func (am AppModule) Name() string {
 	return am.AppModuleBasic.Name()
@@ -114,22 +151,12 @@ func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 // RegisterServices registers a GRPC query service to respond to the
 // module-specific GRPC queries.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
-	rollup_v1.RegisterMsgServiceServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
-	rollup_v1.RegisterQueryServiceServer(cfg.QueryServer(), am.keeper)
+	rollupv1.RegisterMsgServiceServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	rollupv1.RegisterQueryServiceServer(cfg.QueryServer(), am.keeper)
 }
 
 // RegisterInvariants registers the capability module's invariants.
 func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
-
-// InitGenesis performs the capability module's genesis initialization It returns
-// no validator updates.
-func (am AppModule) InitGenesis(
-	ctx sdk.Context, //nolint:gocritic
-	cdc codec.JSONCodec,
-	gs json.RawMessage,
-) []abci.ValidatorUpdate {
-	return []abci.ValidatorUpdate{}
-}
 
 // ExportGenesis returns the capability module's exported genesis state as raw JSON bytes.
 func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawMessage { //nolint:gocritic

@@ -1,6 +1,7 @@
 GOBIN ?= $$(go env GOPATH)/bin
 COVER_OUT ?= cover.out
 COVER_HTML ?= cover.html
+PULSAR_PATHS ?= proto/rollup/module,testapp/proto/testapp/module
 
 .PHONY: test
 test:
@@ -22,6 +23,11 @@ install-golangci-lint:
 lint:
 	${GOBIN}/golangci-lint run
 	${GOBIN}/buf lint
+
+.PHONY: gen-proto
+gen-proto:
+	${GOBIN}/buf generate --template buf.gen.gocosmos.yaml --exclude-path $(PULSAR_PATHS)
+	${GOBIN}/buf generate --template buf.gen.pulsar.yaml --path $(PULSAR_PATHS)
 
 .PHONY: install-gofumpt
 install-gofumpt:

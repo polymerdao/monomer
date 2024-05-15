@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"testing"
 
-	tmdb "github.com/cometbft/cometbft-db"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/eth"
+	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -59,11 +59,7 @@ func TestBlockIDUnmarshalValidJSON(t *testing.T) {
 }
 
 func TestBlockIDGet(t *testing.T) {
-	memdb := tmdb.NewMemDB()
-	defer func() {
-		require.NoError(t, memdb.Close())
-	}()
-	blockStore := store.NewBlockStore(memdb)
+	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	block := &monomer.Block{
 		Header: &monomer.Header{
 			Hash: common.Hash{1},

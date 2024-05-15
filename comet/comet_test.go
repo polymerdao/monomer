@@ -30,7 +30,7 @@ import (
 func TestABCI(t *testing.T) {
 	chainID := "0"
 	app := testapp.NewTest(t, chainID)
-	app.InitChain(abcitypes.RequestInitChain{
+	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
 		ChainId: chainID,
 		AppStateBytes: func() []byte {
 			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
@@ -38,6 +38,7 @@ func TestABCI(t *testing.T) {
 			return appStateBytes
 		}(),
 	})
+	require.NoError(t, err)
 
 	// data to store and retrieve
 	k := "k1"
@@ -45,33 +46,29 @@ func TestABCI(t *testing.T) {
 
 	// Build bock with tx.
 	height := int64(1)
-	app.BeginBlock(abcitypes.RequestBeginBlock{
-		Header: *(&bfttypes.Header{
-			ChainID: chainID,
-			Height:  height,
-		}).ToProto(),
+	_, err = app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
+		Txs:    [][]byte{testapp.ToTx(t, k, v)},
+		Height: height,
 	})
-	app.DeliverTx(abcitypes.RequestDeliverTx{
-		Tx: testapp.ToTx(t, k, v),
-	})
-	app.EndBlock(abcitypes.RequestEndBlock{})
-	app.Commit()
+	require.NoError(t, err)
+	_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
+	require.NoError(t, err)
 
 	abci := comet.NewABCI(app)
 
 	// Info.
-	infoResult, err := abci.Info(nil)
+	infoResult, err := abci.Info(&jsonrpctypes.Context{})
 	require.NoError(t, err)
 	require.Equal(t, height, infoResult.Response.LastBlockHeight) // We trust that the other fields are set properly.
-	requestBytes, err := (&testapp_v1.GetRequest{
+	requestBytes, err := (&testappv1.GetRequest{
 		Key: k,
 	}).Marshal()
 	require.NoError(t, err)
 
 	// Query.
-	queryResult, err := abci.Query(nil, testapp.QueryPath, requestBytes, height, false)
+	queryResult, err := abci.Query(&jsonrpctypes.Context{}, testapp.QueryPath, requestBytes, height, false)
 	require.NoError(t, err)
-	var val testapp_v1.GetResponse
+	var val testappv1.GetResponse
 	require.NoError(t, (&val).Unmarshal(queryResult.Response.GetValue()))
 	require.Equal(t, v, val.GetValue())
 }
@@ -91,7 +88,7 @@ func TestStatus(t *testing.T) {
 		},
 	}
 	statusAPI := comet.NewStatus(blockStore, startBlock)
-	result, err := statusAPI.Status(nil)
+	result, err := statusAPI.Status(&jsonrpctypes.Context{})
 	require.NoError(t, err)
 	require.Equal(t, &rpctypes.ResultStatus{
 		NodeInfo: p2p.DefaultNodeInfo{
@@ -129,7 +126,7 @@ func TestBroadcastTx(t *testing.T) {
 
 	// Succuss case.
 	tx := testapp.ToTx(t, "k1", "v1")
-	result, err := broadcastAPI.BroadcastTx(nil, tx)
+	result, err := broadcastAPI.BroadcastTx(&jsonrpctypes.Context{}, tx)
 	require.NoError(t, err)
 	// We trust that the other fields are set correctly.
 	require.Equal(t, uint32(0), result.Code)
@@ -145,7 +142,7 @@ func TestBroadcastTx(t *testing.T) {
 	startLen, err := mpool.Len()
 	require.NoError(t, err)
 
-	result, err = broadcastAPI.BroadcastTx(nil, badTx)
+	result, err = broadcastAPI.BroadcastTx(&jsonrpctypes.Context{}, badTx)
 	// API does not error, but returns a non-zero error code.
 	require.NoError(t, err)
 	require.NotEqual(t, uint32(0), result.Code)
@@ -293,9 +290,9 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 }
 
 func TestTx(t *testing.T) {
-	txStore := txstore.NewTxStore(testutils.NewMemDB(t))
+	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
 	txAPI := comet.NewTx(txStore)
-	_, err := txAPI.ByHash(nil, []byte{}, true)
+	_, err := txAPI.ByHash(&jsonrpctypes.Context{}, []byte{}, true)
 	require.ErrorContains(t, err, "proving is not supported")
 	wsConn := newMockWSConnection(t, nil)
 	_, err = txAPI.Search(&jsonrpctypes.Context{
@@ -315,7 +312,7 @@ func TestTx(t *testing.T) {
 	}
 	require.NoError(t, txStore.Add([]*abcitypes.TxResult{txResult1, txResult2}))
 
-	resultTx, err := txAPI.ByHash(nil, bfttypes.Tx(txResult1.GetTx()).Hash(), false)
+	resultTx, err := txAPI.ByHash(&jsonrpctypes.Context{}, bfttypes.Tx(txResult1.GetTx()).Hash(), false)
 	require.NoError(t, err)
 	// We trust that the other fields are set properly.
 	require.Equal(t, txResult1.Height, resultTx.Height)
@@ -359,11 +356,11 @@ func TestBlock(t *testing.T) {
 	blockStore.AddBlock(block)
 
 	blockAPI := comet.NewBlock(blockStore)
-	resultBlock, err := blockAPI.ByHeight(nil, block.Header.Height)
+	resultBlock, err := blockAPI.ByHeight(&jsonrpctypes.Context{}, block.Header.Height)
 	require.NoError(t, err)
 	require.Equal(t, want, resultBlock)
 
-	resultBlock, err = blockAPI.ByHash(nil, block.Hash().Bytes())
+	resultBlock, err = blockAPI.ByHash(&jsonrpctypes.Context{}, block.Hash().Bytes())
 	require.NoError(t, err)
 	require.Equal(t, want, resultBlock)
 }

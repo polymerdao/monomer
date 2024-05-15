@@ -1,6 +1,7 @@
 package builder
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -47,7 +48,7 @@ func New(
 // assumptions:
 //   - all hashes exist in the block store.
 //   - finalized.Height <= safe.Height <= head.Height
-func (b *Builder) Rollback(head, safe, finalized common.Hash) error {
+func (b *Builder) Rollback(ctx context.Context, head, safe, finalized common.Hash) error {
 	headBlock := b.blockStore.HeadBlock()
 	if headBlock == nil {
 		return errors.New("head block not found")
@@ -77,7 +78,7 @@ func (b *Builder) Rollback(head, safe, finalized common.Hash) error {
 		return fmt.Errorf("rollback tx store: %v", err)
 	}
 
-	if err := b.app.RollbackToHeight(uint64(targetHeight)); err != nil {
+	if err := b.app.RollbackToHeight(ctx, uint64(targetHeight)); err != nil {
 		return fmt.Errorf("rollback app: %v", err)
 	}
 
@@ -94,7 +95,7 @@ type Payload struct {
 	NoTxPool  bool
 }
 
-func (b *Builder) Build(payload *Payload) (*monomer.Block, error) {
+func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, error) {
 	txs := slices.Clone(payload.InjectedTransactions) // Shallow clone is ok, we just don't want to modify the slice itself.
 	if !payload.NoTxPool {
 		for {
@@ -117,7 +118,10 @@ func (b *Builder) Build(payload *Payload) (*monomer.Block, error) {
 	}
 
 	// Build header.
-	info := b.app.Info(abcitypes.RequestInfo{})
+	info, err := b.app.Info(ctx, &abcitypes.RequestInfo{})
+	if err != nil {
+		return nil, fmt.Errorf("info: %v", err)
+	}
 	currentHeight := info.GetLastBlockHeight()
 	currentHead := b.blockStore.BlockByNumber(currentHeight)
 	if currentHead == nil {
@@ -132,29 +136,22 @@ func (b *Builder) Build(payload *Payload) (*monomer.Block, error) {
 		GasLimit:   payload.GasLimit,
 	}
 
-	// BeginBlock, DeliverTx, EndBlock, Commit
-	b.app.BeginBlock(abcitypes.RequestBeginBlock{
-		Header: *header.ToComet().ToProto(),
+	cometHeader := header.ToComet()
+	resp, err := b.app.FinalizeBlock(ctx, &abcitypes.RequestFinalizeBlock{
+		Txs:                txs.ToSliceOfBytes(),
+		Hash:               cometHeader.Hash(),
+		Height:             cometHeader.Height,
+		Time:               cometHeader.Time,
+		NextValidatorsHash: cometHeader.NextValidatorsHash,
+		ProposerAddress:    cometHeader.ProposerAddress,
 	})
-	var txResults []*abcitypes.TxResult
-	for i, tx := range txs {
-		resp := b.app.DeliverTx(abcitypes.RequestDeliverTx{
-			Tx: tx,
-		})
-		if resp.IsErr() {
-			return nil, fmt.Errorf("deliver tx: %v", resp.GetLog())
-		}
-		txResults = append(txResults, &abcitypes.TxResult{
-			Height: currentHeight + 1,
-			Tx:     tx,
-			Index:  uint32(i),
-			Result: resp,
-		})
+	if err != nil {
+		return nil, fmt.Errorf("finalize block: %v", err)
 	}
-	b.app.EndBlock(abcitypes.RequestEndBlock{
-		Height: info.GetLastBlockHeight() + 1,
-	})
-	b.app.Commit()
+	_, err = b.app.Commit(ctx, &abcitypes.RequestCommit{})
+	if err != nil {
+		return nil, fmt.Errorf("commit: %v", err)
+	}
 
 	block := &monomer.Block{
 		Header: header,
@@ -163,6 +160,19 @@ func (b *Builder) Build(payload *Payload) (*monomer.Block, error) {
 
 	// Append block.
 	b.blockStore.AddBlock(block)
+
+	execTxResults := resp.GetTxResults()
+	txResults := make([]*abcitypes.TxResult, 0, len(execTxResults))
+	for i, execTxResult := range execTxResults {
+		txResults = append(txResults, &abcitypes.TxResult{
+			Height: header.Height,
+			Index:  uint32(i),
+			// This should work https://docs.cometbft.com/v0.38/spec/abci/abci++_methods#finalizeblock
+			// The application shouldn't return the execTxResults in a different order than the corresponding txs.
+			Tx:     txs[i],
+			Result: *execTxResult,
+		})
+	}
 	// Index txs.
 	if err := b.txStore.Add(txResults); err != nil {
 		return nil, fmt.Errorf("add tx results: %v", err)

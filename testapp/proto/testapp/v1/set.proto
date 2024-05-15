@@ -2,9 +2,14 @@ syntax = "proto3";
 
 package testapp.v1;
 
+import "cosmos/msg/v1/msg.proto";
+
 message SetRequest {
-    string key = 1;
-    string value = 2;
+    option (cosmos.msg.v1.signer) = "from_address";
+
+    string from_address = 1;
+    string key = 2;
+    string value = 3;
 }
 
 message SetResponse {}

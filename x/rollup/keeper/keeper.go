@@ -1,37 +1,33 @@
 package keeper
 
 import (
+	"cosmossdk.io/core/store"
 	"github.com/cosmos/cosmos-sdk/codec"
-	storetypes "github.com/cosmos/cosmos-sdk/store/types"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 )
 
 type Keeper struct {
-	cdc        codec.BinaryCodec
-	storeKey   storetypes.StoreKey
-	memKey     storetypes.StoreKey
-	rollupCfg  *rollup.Config
-	mintKeeper *mintkeeper.Keeper
-	bankkeeper bankkeeper.Keeper
+	cdc          codec.BinaryCodec
+	storeService store.KVStoreService
+	rollupCfg    *rollup.Config
+	mintKeeper   *mintkeeper.Keeper
+	bankkeeper   bankkeeper.Keeper
 }
 
-// NewKeeper create a new polyibc core keeper instance
 func NewKeeper(
 	cdc codec.BinaryCodec,
-	storeKey,
-	memKey storetypes.StoreKey,
+	storeService store.KVStoreService,
 	// dependencies
 	mintKeeper *mintkeeper.Keeper,
 	bankKeeper bankkeeper.Keeper,
 ) *Keeper {
 	return &Keeper{
-		cdc:        cdc,
-		storeKey:   storeKey,
-		memKey:     memKey,
-		mintKeeper: mintKeeper,
-		bankkeeper: bankKeeper,
-		rollupCfg:  &rollup.Config{},
+		cdc:          cdc,
+		storeService: storeService,
+		mintKeeper:   mintKeeper,
+		bankkeeper:   bankKeeper,
+		rollupCfg:    &rollup.Config{},
 	}
 }

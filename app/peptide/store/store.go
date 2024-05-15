@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	dbm "github.com/cometbft/cometbft-db"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/polymerdao/monomer"
