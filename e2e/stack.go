@@ -18,7 +18,7 @@ import (
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
-	"github.com/polymerdao/monomer/testutil/testapp"
+	"github.com/polymerdao/monomer/testapp"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 

@@ -21,8 +21,8 @@ import (
 	"github.com/polymerdao/monomer/comet"
 	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/mempool"
+	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testutil"
-	"github.com/polymerdao/monomer/testutil/testapp"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/require"
 )

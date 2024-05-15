@@ -10,7 +10,7 @@ import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/polymerdao/monomer/gen/testapp/v1"
-	"github.com/polymerdao/monomer/testutil/testapp/x/testmodule"
+	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/stretchr/testify/require"
 )
 
