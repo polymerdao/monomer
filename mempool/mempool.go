@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
-	dbm "github.com/cometbft/cometbft-db"
 	comettypes "github.com/cometbft/cometbft/types"
+	dbm "github.com/cosmos/cosmos-db"
 )
 
 const (

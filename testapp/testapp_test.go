@@ -2,11 +2,11 @@ package testapp_test
 
 import (
 	"encoding/json"
+	"context"
 	"fmt"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/stretchr/testify/require"
@@ -15,7 +15,7 @@ import (
 func TestRollbackToHeight(t *testing.T) {
 	chainID := monomer.ChainID(0).String()
 	app := testapp.NewTest(t, chainID)
-	app.InitChain(abcitypes.RequestInitChain{
+	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
 		ChainId: chainID,
 		AppStateBytes: func() []byte {
 			got, err := json.Marshal(app.DefaultGenesis())
@@ -24,7 +24,9 @@ func TestRollbackToHeight(t *testing.T) {
 		}(),
 		InitialHeight: 1,
 	})
-	app.Commit()
+	require.NoError(t, err)
+	_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
+	require.NoError(t, err)
 
 	height := 10
 	newHeight := height / 2
@@ -38,12 +40,13 @@ func TestRollbackToHeight(t *testing.T) {
 		}
 	}
 
-	require.NoError(t, app.RollbackToHeight(uint64(newHeight)))
+	require.NoError(t, app.RollbackToHeight(context.Background(), uint64(newHeight)))
 	app.StateContains(t, uint64(newHeight), notReorgedState)
 	app.StateDoesNotContain(t, uint64(newHeight), reorgedState)
 
 	{
-		reorgInfo := app.Info(abcitypes.RequestInfo{})
+		reorgInfo, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
+		require.NoError(t, err)
 		require.Equal(t, int64(newHeight), reorgInfo.GetLastBlockHeight())
 	}
 
@@ -53,7 +56,8 @@ func TestRollbackToHeight(t *testing.T) {
 		newState[key] = value
 	}
 	{
-		info := app.Info(abcitypes.RequestInfo{})
+		info, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
+		require.NoError(t, err)
 		require.Equal(t, int64(height-1), info.GetLastBlockHeight())
 	}
 	app.StateContains(t, uint64(height-1), notReorgedState)
@@ -61,19 +65,14 @@ func TestRollbackToHeight(t *testing.T) {
 }
 
 func build(t *testing.T, app *testapp.App, chainID string, height int64) (string, string) {
-	app.BeginBlock(abcitypes.RequestBeginBlock{
-		Header: *(&bfttypes.Header{
-			Height:  height,
-			ChainID: chainID,
-		}).ToProto(),
-	})
 	key := fmt.Sprintf("k%d", height)
 	value := fmt.Sprintf("v%d", height)
-	resp := app.DeliverTx(abcitypes.RequestDeliverTx{
-		Tx: testapp.ToTx(t, key, value),
+	_, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
+		Txs:    [][]byte{testapp.ToTx(t, key, value)},
+		Height: height,
 	})
-	require.True(t, resp.IsOK())
-	app.EndBlock(abcitypes.RequestEndBlock{})
-	app.Commit()
+	require.NoError(t, err)
+	_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
+	require.NoError(t, err)
 	return key, value
 }

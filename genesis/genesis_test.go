@@ -1,11 +1,12 @@
 package genesis_test
 
 import (
+	"context"
 	"encoding/json"
 	"testing"
 
-	tmdb "github.com/cometbft/cometbft-db"
 	abci "github.com/cometbft/cometbft/abci/types"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
@@ -41,15 +42,16 @@ func TestCommit(t *testing.T) {
 			app := testapp.NewTest(t, test.genesis.ChainID.String())
 			test.genesis.AppState = testapp.MakeGenesisAppState(t, app, test.kvs...)
 
-			blockstoredb := tmdb.NewMemDB()
+			blockstoredb := dbm.NewMemDB()
 			t.Cleanup(func() {
 				require.NoError(t, blockstoredb.Close())
 			})
 			blockStore := store.NewBlockStore(blockstoredb)
 
-			require.NoError(t, test.genesis.Commit(app, blockStore))
+			require.NoError(t, test.genesis.Commit(context.Background(), app, blockStore))
 
-			info := app.Info(abci.RequestInfo{})
+			info, err := app.Info(context.Background(), &abci.RequestInfo{})
+			require.NoError(t, err)
 
 			// Application.
 			require.Equal(t, int64(1), info.GetLastBlockHeight()) // This means that the genesis height was set correctly.

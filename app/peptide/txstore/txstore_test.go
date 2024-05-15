@@ -18,7 +18,7 @@ func dummyTxs(height int64, count int) []*abcitypes.TxResult {
 		result[i] = &abcitypes.TxResult{
 			Height: height,
 			Tx:     []byte(fmt.Sprintf("h:%v|i:%v", height, i)),
-			Result: abcitypes.ResponseDeliverTx{},
+			Result: abcitypes.ExecTxResult{},
 		}
 	}
 	return result

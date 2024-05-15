@@ -6,13 +6,14 @@ import (
 	"net"
 	"net/http"
 
-	tmdb "github.com/cometbft/cometbft-db"
+	cometdb "github.com/cometbft/cometbft-db"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/libs/log"
 	rpctypes "github.com/cometbft/cometbft/rpc/core/types"
 	cometserver "github.com/cometbft/cometbft/rpc/jsonrpc/server"
 	jsonrpctypes "github.com/cometbft/cometbft/rpc/jsonrpc/types"
 	bfttypes "github.com/cometbft/cometbft/types"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
@@ -39,9 +40,9 @@ type Node struct {
 	engineHTTP                 net.Listener
 	engineWS                   net.Listener
 	cometHTTPAndWS             net.Listener
-	blockdb                    tmdb.DB
-	txdb                       tmdb.DB
-	mempooldb                  tmdb.DB
+	blockdb                    dbm.DB
+	txdb                       cometdb.DB
+	mempooldb                  dbm.DB
 	adaptCosmosTxsToEthTxs     monomer.CosmosTxAdapter
 	adaptPayloadTxsToCosmosTxs monomer.PayloadTxAdapter
 	eventListener              EventListener
@@ -54,8 +55,8 @@ func New(
 	engineWS net.Listener,
 	cometHTTPAndWS net.Listener,
 	blockdb,
-	txdb,
-	mempooldb tmdb.DB,
+	mempooldb dbm.DB,
+	txdb cometdb.DB,
 	adaptCosmosTxsToEthTxs monomer.CosmosTxAdapter,
 	adaptPayloadTxsToCosmosTxs monomer.PayloadTxAdapter,
 	eventListener EventListener,
@@ -77,7 +78,7 @@ func New(
 
 func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	blockStore := store.NewBlockStore(n.blockdb)
-	if err := prepareBlockStoreAndApp(n.genesis, blockStore, n.app); err != nil {
+	if err := prepareBlockStoreAndApp(ctx, n.genesis, blockStore, n.app); err != nil {
 		return err
 	}
 	txStore := txstore.NewTxStore(n.txdb)
@@ -182,19 +183,22 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	return nil
 }
 
-func prepareBlockStoreAndApp(g *genesis.Genesis, blockStore store.BlockStore, app monomer.Application) error {
+func prepareBlockStoreAndApp(ctx context.Context, g *genesis.Genesis, blockStore store.BlockStore, app monomer.Application) error {
 	// Get blockStoreHeight and appHeight.
 	var blockStoreHeight uint64
 	if headBlock := blockStore.HeadBlock(); headBlock != nil {
 		blockStoreHeight = uint64(headBlock.Header.Height)
 	}
-	info := app.Info(abcitypes.RequestInfo{})
+	info, err := app.Info(ctx, &abcitypes.RequestInfo{})
+	if err != nil {
+		return fmt.Errorf("info: %v", err)
+	}
 	appHeight := uint64(info.GetLastBlockHeight())
 
 	// Ensure appHeight == blockStoreHeight.
 	if appHeight == blockStoreHeight+1 {
 		// There is a possibility that we committed to the app and Monomer crashed before committing to the block store.
-		if err := app.RollbackToHeight(blockStoreHeight); err != nil {
+		if err := app.RollbackToHeight(ctx, blockStoreHeight); err != nil {
 			return fmt.Errorf("rollback app: %v", err)
 		}
 	} else if appHeight > blockStoreHeight {
@@ -205,7 +209,7 @@ func prepareBlockStoreAndApp(g *genesis.Genesis, blockStore store.BlockStore, ap
 
 	// Commit genesis.
 	if blockStoreHeight == 0 { // We know appHeight == blockStoreHeight at this point.
-		if err := g.Commit(app, blockStore); err != nil {
+		if err := g.Commit(ctx, app, blockStore); err != nil {
 			return fmt.Errorf("commit genesis: %v", err)
 		}
 	}

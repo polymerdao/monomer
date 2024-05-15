@@ -3,7 +3,6 @@ package eth_test
 import (
 	"testing"
 
-	dbm "github.com/cometbft/cometbft-db"
 	bfttypes "github.com/cometbft/cometbft/types"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum"
@@ -12,6 +11,7 @@ import (
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/eth"
+	"github.com/polymerdao/monomer/testutils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
@@ -26,11 +26,7 @@ func TestChainId(t *testing.T) {
 }
 
 func TestGetBlockByNumber(t *testing.T) {
-	db := dbm.NewMemDB()
-	defer func() {
-		require.NoError(t, db.Close())
-	}()
-	blockStore := store.NewBlockStore(db)
+	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	block := &monomer.Block{
 		Header: &monomer.Header{
 			Hash: common.Hash{1},
@@ -93,11 +89,7 @@ func TestGetBlockByNumber(t *testing.T) {
 }
 
 func TestGetBlockByHash(t *testing.T) {
-	db := dbm.NewMemDB()
-	defer func() {
-		require.NoError(t, db.Close())
-	}()
-	blockStore := store.NewBlockStore(db)
+	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	block := &monomer.Block{
 		Header: &monomer.Header{
 			Hash: common.Hash{1},

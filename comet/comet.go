@@ -24,8 +24,8 @@ import (
 var errProvingNotSupported = errors.New("proving is not supported")
 
 type AppABCI interface {
-	Info(abcitypes.RequestInfo) abcitypes.ResponseInfo
-	Query(abcitypes.RequestQuery) abcitypes.ResponseQuery
+	Info(context.Context, *abcitypes.RequestInfo) (*abcitypes.ResponseInfo, error)
+	Query(context.Context, *abcitypes.RequestQuery) (*abcitypes.ResponseQuery, error)
 }
 
 type ABCI struct {
@@ -39,25 +39,33 @@ func NewABCI(app AppABCI) *ABCI {
 }
 
 func (s *ABCI) Query(
-	_ *jsonrpctypes.Context,
+	ctx *jsonrpctypes.Context,
 	path string,
 	data bftbytes.HexBytes,
 	height int64,
 	prove bool,
 ) (*rpctypes.ResultABCIQuery, error) {
+	resp, err := s.app.Query(ctx.Context(), &abcitypes.RequestQuery{
+		Path:   path,
+		Data:   data,
+		Height: height,
+		Prove:  prove,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("query: %v", err)
+	}
 	return &rpctypes.ResultABCIQuery{
-		Response: s.app.Query(abcitypes.RequestQuery{
-			Path:   path,
-			Data:   data,
-			Height: height,
-			Prove:  prove,
-		}),
+		Response: *resp,
 	}, nil
 }
 
-func (s *ABCI) Info(_ *jsonrpctypes.Context) (*rpctypes.ResultABCIInfo, error) {
+func (s *ABCI) Info(ctx *jsonrpctypes.Context) (*rpctypes.ResultABCIInfo, error) {
+	resp, err := s.app.Info(ctx.Context(), &abcitypes.RequestInfo{})
+	if err != nil {
+		return nil, fmt.Errorf("info: %v", err)
+	}
 	return &rpctypes.ResultABCIInfo{
-		Response: s.app.Info(abcitypes.RequestInfo{}),
+		Response: *resp,
 	}, nil
 }
 
@@ -116,7 +124,7 @@ func (s *Status) Status(_ *jsonrpctypes.Context) (*rpctypes.ResultStatus, error)
 }
 
 type AppMempool interface {
-	CheckTx(abcitypes.RequestCheckTx) abcitypes.ResponseCheckTx
+	CheckTx(context.Context, *abcitypes.RequestCheckTx) (*abcitypes.ResponseCheckTx, error)
 }
 
 type Mempool interface {
@@ -137,12 +145,15 @@ func NewBroadcastTx(app AppMempool, mempool Mempool) *BroadcastTx {
 
 // BroadcastTxSync returns with the response from CheckTx, but does not wait for DeliverTx (tx execution).
 // More: https://docs.cometbft.com/main/rpc/#/Tx/broadcast_tx_sync
-func (s *BroadcastTx) BroadcastTx(_ *jsonrpctypes.Context, tx bfttypes.Tx) (*rpctypes.ResultBroadcastTx, error) {
-	checkTxResp := s.app.CheckTx(abcitypes.RequestCheckTx{
+func (s *BroadcastTx) BroadcastTx(ctx *jsonrpctypes.Context, tx bfttypes.Tx) (*rpctypes.ResultBroadcastTx, error) {
+	checkTxResp, err := s.app.CheckTx(ctx.Context(), &abcitypes.RequestCheckTx{
 		Tx:   tx,
 		Type: abcitypes.CheckTxType_New,
 	})
-	if checkTxResp.Code == abcitypes.CodeTypeOK {
+	if err != nil {
+		return nil, fmt.Errorf("check tx: %v", err)
+	}
+	if checkTxResp.IsOK() {
 		if err := s.mempool.Enqueue(tx); err != nil {
 			return nil, fmt.Errorf("enqueue in mempool: %v", err)
 		}
@@ -223,7 +234,7 @@ func (s *Subscriber) Subscribe(ctx *jsonrpctypes.Context, query string) (*rpctyp
 					return
 				}
 				cancel()
-			case <-sub.Cancelled():
+			case <-sub.Canceled():
 				err = sub.Err()
 				if errors.Is(err, bftpubsub.ErrUnsubscribed) {
 					err = nil

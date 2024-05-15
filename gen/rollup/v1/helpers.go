@@ -1,4 +1,4 @@
-package rollup_v1
+package rollupv1
 
 import (
 	"errors"

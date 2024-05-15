@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -33,7 +34,7 @@ type EngineAPI struct {
 }
 
 type TxValidator interface {
-	CheckTx(abci.RequestCheckTx) abci.ResponseCheckTx
+	CheckTx(context.Context, *abci.RequestCheckTx) (*abci.ResponseCheckTx, error)
 }
 
 func NewEngineAPI(
@@ -53,22 +54,25 @@ func NewEngineAPI(
 }
 
 func (e *EngineAPI) ForkchoiceUpdatedV1(
+	ctx context.Context,
 	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	// TODO should this be called after Ecotone?
-	return e.ForkchoiceUpdatedV3(fcs, pa)
+	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
 
 func (e *EngineAPI) ForkchoiceUpdatedV2(
+	ctx context.Context,
 	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	// TODO should this be called after Ecotone?
-	return e.ForkchoiceUpdatedV3(fcs, pa)
+	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
 
 func (e *EngineAPI) ForkchoiceUpdatedV3(
+	ctx context.Context,
 	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
@@ -116,7 +120,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	// Because we assume we're the sole proposer, the CL should only give us a past block head hash when L1 reorgs.
 	// TODO Is reorg handling in the Engine API discussed in the OP Execution Engine spec?
 	if headBlock.Header.Height < e.blockStore.HeadBlock().Header.Height {
-		if err := e.builder.Rollback(fcs.HeadBlockHash, fcs.SafeBlockHash, fcs.FinalizedBlockHash); err != nil {
+		if err := e.builder.Rollback(ctx, fcs.HeadBlockHash, fcs.SafeBlockHash, fcs.FinalizedBlockHash); err != nil {
 			return nil, engine.GenericServerError.With(fmt.Errorf("rollback: %v", err))
 		}
 	}
@@ -182,10 +186,9 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	//   It must return STATUS_VALID if all of the transactions could be executed without error.
 	// TODO checktx doesn't actually run the tx, it only does basic validation.
 	for _, txBytes := range cosmosTxs {
-		resp := e.txValidator.CheckTx(abci.RequestCheckTx{
+		if _, err := e.txValidator.CheckTx(context.Background(), &abci.RequestCheckTx{
 			Tx: txBytes,
-		})
-		if resp.IsErr() {
+		}); err != nil {
 			return &eth.ForkchoiceUpdatedResult{
 				PayloadStatus: eth.PayloadStatusV1{
 					Status:          eth.ExecutionInvalid,
@@ -220,19 +223,19 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	return monomer.ValidForkchoiceUpdateResult(&fcs.HeadBlockHash, e.currentPayloadAttributes.ID()), nil
 }
 
-func (e *EngineAPI) GetPayloadV1(payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
+func (e *EngineAPI) GetPayloadV1(ctx context.Context, payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
 	// TODO should this be called after Ecotone?
-	return e.GetPayloadV3(payloadID)
+	return e.GetPayloadV3(ctx, payloadID)
 }
 
-func (e *EngineAPI) GetPayloadV2(payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
+func (e *EngineAPI) GetPayloadV2(ctx context.Context, payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
 	// TODO should this be called after Ecotone?
-	return e.GetPayloadV3(payloadID)
+	return e.GetPayloadV3(ctx, payloadID)
 }
 
 // GetPayloadV3 seals a payload that is currently being built (i.e. was introduced in the PayloadAttributes from a previous
 // ForkchoiceUpdated call).
-func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
+func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
 	e.lock.RLock()
 	defer e.lock.RUnlock()
 
@@ -246,7 +249,7 @@ func (e *EngineAPI) GetPayloadV3(payloadID engine.PayloadID) (*eth.ExecutionPayl
 
 	// TODO: handle time slot based block production
 	// for now assume block is sealed by this call
-	block, err := e.builder.Build(&builder.Payload{
+	block, err := e.builder.Build(ctx, &builder.Payload{
 		InjectedTransactions: e.currentPayloadAttributes.CosmosTxs,
 		GasLimit:             e.currentPayloadAttributes.GasLimit,
 		Timestamp:            e.currentPayloadAttributes.Timestamp,

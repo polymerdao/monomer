@@ -8,7 +8,8 @@ import (
 	"path/filepath"
 	"time"
 
-	tmdb "github.com/cometbft/cometbft-db"
+	cometdb "github.com/cometbft/cometbft-db"
+	dbm "github.com/cosmos/cosmos-db"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -190,12 +191,15 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		return fmt.Errorf("set up monomer comet listener: %v", err)
 	}
 	chainID := monomer.ChainID(chainIDU64)
-	app := testapp.New(tmdb.NewMemDB(), chainID.String())
-	blockdb := tmdb.NewMemDB()
+	app, err := testapp.New(dbm.NewMemDB(), chainID.String())
+	if err != nil {
+		return fmt.Errorf("new test app: %v", err)
+	}
+	blockdb := dbm.NewMemDB()
 	env.DeferErr("close block db", blockdb.Close)
-	txdb := tmdb.NewMemDB()
+	txdb := cometdb.NewMemDB()
 	env.DeferErr("close tx db", txdb.Close)
-	mempooldb := tmdb.NewMemDB()
+	mempooldb := dbm.NewMemDB()
 	env.DeferErr("close mempool db", mempooldb.Close)
 	n := node.New(
 		app,
@@ -208,8 +212,8 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		engineWS,
 		cometListener,
 		blockdb,
-		txdb,
 		mempooldb,
+		txdb,
 		rolluptypes.AdaptCosmosTxsToEthTxs,
 		rolluptypes.AdaptPayloadTxsToCosmosTxs,
 		s.eventListener,

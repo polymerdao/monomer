@@ -31,7 +31,7 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 		txs = append(txs, txBytes)
 	}
 
-	msgAny, err := codectypes.NewAnyWithValue(&rollup_v1.ApplyL1TxsRequest{
+	msgAny, err := codectypes.NewAnyWithValue(&rollupv1.ApplyL1TxsRequest{
 		TxBytes: txs,
 	})
 	if err != nil {
@@ -77,7 +77,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	if num := len(msgs); num != 1 {
 		return nil, fmt.Errorf("unexpected number of msgs in Eth Cosmos tx: want 1, got %d", num)
 	}
-	msg := new(rollup_v1.ApplyL1TxsRequest)
+	msg := new(rollupv1.ApplyL1TxsRequest)
 	if err := msg.Unmarshal(msgs[0].GetValue()); err != nil {
 		return nil, fmt.Errorf("unmarshal MsgL1Txs smsg: %v", err)
 	}

@@ -6,7 +6,6 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -22,14 +21,14 @@ type msgServer struct {
 
 // NewMsgServerImpl returns an implementation of the MsgServer interface
 // for the provided Keeper.
-func NewMsgServerImpl(keeper *Keeper) rollup_v1.MsgServiceServer {
+func NewMsgServerImpl(keeper *Keeper) rollupv1.MsgServiceServer {
 	return &msgServer{Keeper: keeper}
 }
 
-var _ rollup_v1.MsgServiceServer = msgServer{}
+var _ rollupv1.MsgServiceServer = msgServer{}
 
 // ApplyL1Txs implements types.MsgServer.
-func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollup_v1.ApplyL1TxsRequest) (*rollup_v1.ApplyL1TxsResponse, error) {
+func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollupv1.ApplyL1TxsRequest) (*rollupv1.ApplyL1TxsResponse, error) {
 	if msg.TxBytes == nil || len(msg.TxBytes) < 1 {
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "must have at least one L1 Info Deposit tx")
 	}
@@ -55,7 +54,7 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollup_v1.ApplyL1TxsRequ
 	}
 
 	// save L1 block info to AppState
-	if err := k.SetL1BlockInfo(k.rollupCfg, &ctx, *l1blockInfo); err != nil {
+	if err := k.SetL1BlockInfo(&ctx, *l1blockInfo); err != nil {
 		ctx.Logger().Error("failed to save L1 block info to AppState", "err", err)
 		return nil, types.WrapError(types.ErrL1BlockInfo, "save error: %v", err)
 	}
@@ -63,7 +62,7 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollup_v1.ApplyL1TxsRequ
 	ctx.Logger().Info("save L1 block info", "l1blockInfo", string(lo.Must(json.Marshal(l1blockInfo))))
 
 	// save L1 block History to AppState
-	if err := k.SetL1BlockHistory(k.rollupCfg, &ctx, l1blockInfo); err != nil {
+	if err := k.SetL1BlockHistory(&ctx, l1blockInfo); err != nil {
 		ctx.Logger().Error("failed to save L1 block history info to AppState", "err", err)
 		return nil, types.WrapError(types.ErrL1BlockInfo, "save error: %v", err)
 	}
@@ -102,7 +101,7 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollup_v1.ApplyL1TxsRequ
 			return nil, types.WrapError(types.ErrMintETH, "failed to mint ETH", "polymerAddress", cosmAddr, "err", err)
 		}
 	}
-	return &rollup_v1.ApplyL1TxsResponse{}, nil
+	return &rollupv1.ApplyL1TxsResponse{}, nil
 }
 
 // MintETH mints ETH to an account where the amount is in wei, the smallest unit of ETH
@@ -133,18 +132,24 @@ func (k *Keeper) MintETH(ctx *sdk.Context, addr sdk.AccAddress, amount sdkmath.I
 //
 // Persisted data conforms to optimism specs on L1 attributes:
 // https://github.com/ethereum-optimism/optimism/blob/develop/specs/deposits.md#l1-attributes-predeployed-contract
-func (k *Keeper) SetL1BlockInfo(rollupCfg *rollup.Config, ctx *sdk.Context, info derive.L1BlockInfo) error { //nolint:gocritic
+func (k *Keeper) SetL1BlockInfo(ctx *sdk.Context, info derive.L1BlockInfo) error { //nolint:gocritic
 	infoBytes, err := json.Marshal(info)
 	if err != nil {
 		return types.WrapError(err, "marshal L1 block info")
 	}
-	ctx.KVStore(k.storeKey).Set([]byte(types.KeyL1BlockInfo), infoBytes)
+	if err := k.storeService.OpenKVStore(ctx).Set([]byte(types.KeyL1BlockInfo), infoBytes); err != nil {
+		return types.WrapError(err, "set")
+	}
 	return nil
 }
 
 // GetL1BlockInfo gets the L1 block info from the app state
-func (k *Keeper) GetL1BlockInfo(rollupCfg *rollup.Config, ctx *sdk.Context) (*derive.L1BlockInfo, error) {
-	infoBytes := ctx.KVStore(k.storeKey).Get([]byte(types.KeyL1BlockInfo))
+func (k *Keeper) GetL1BlockInfo(ctx context.Context) (*derive.L1BlockInfo, error) {
+	// TODO get/set as protobuf
+	infoBytes, err := k.storeService.OpenKVStore(ctx).Get([]byte(types.KeyL1BlockInfo))
+	if err != nil {
+		return nil, types.WrapError(err, "get")
+	}
 	if infoBytes == nil {
 		return nil, types.WrapError(types.ErrL1BlockInfo, "not found")
 	}
@@ -156,13 +161,14 @@ func (k *Keeper) GetL1BlockInfo(rollupCfg *rollup.Config, ctx *sdk.Context) (*de
 }
 
 // SetL1BlockHistory sets the L1 block info to the app state, with the key being the blockhash, so we can look it up easily later.
-func (k *Keeper) SetL1BlockHistory(rollupCfg *rollup.Config, ctx *sdk.Context, info *derive.L1BlockInfo) error {
+func (k *Keeper) SetL1BlockHistory(ctx context.Context, info *derive.L1BlockInfo) error {
 	infoBytes, err := json.Marshal(info)
 	if err != nil {
 		return types.WrapError(err, "marshal L1 block info")
 	}
-	ctx.KVStore(k.storeKey).Set(info.BlockHash.Bytes(), infoBytes)
-
+	if err := k.storeService.OpenKVStore(ctx).Set(info.BlockHash.Bytes(), infoBytes); err != nil {
+		return types.WrapError(err, "set")
+	}
 	return nil
 }
 

@@ -83,7 +83,7 @@ func TestBuild(t *testing.T) {
 				require.NoError(t, pool.Enqueue(tx))
 			}
 			blockStore := store.NewBlockStore(testutils.NewMemDB(t))
-			txStore := txstore.NewTxStore(testutils.NewMemDB(t))
+			txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
 
 			var chainID monomer.ChainID
 			app := testapp.NewTest(t, chainID.String())
@@ -102,7 +102,7 @@ func TestBuild(t *testing.T) {
 			subscription, err := eventBus.Subscribe(context.Background(), "test", &queryAll{}, subChannelLen)
 			require.NoError(t, err)
 
-			require.NoError(t, g.Commit(app, blockStore))
+			require.NoError(t, g.Commit(context.Background(), app, blockStore))
 
 			b := builder.New(
 				pool,
@@ -119,10 +119,12 @@ func TestBuild(t *testing.T) {
 				Timestamp:            g.Time + 1,
 				NoTxPool:             test.noTxPool,
 			}
-			preBuildInfo := app.Info(abcitypes.RequestInfo{})
-			builtBlock, err := b.Build(payload)
+			preBuildInfo, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
 			require.NoError(t, err)
-			postBuildInfo := app.Info(abcitypes.RequestInfo{})
+			builtBlock, err := b.Build(context.Background(), payload)
+			require.NoError(t, err)
+			postBuildInfo, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
+			require.NoError(t, err)
 
 			// Application.
 			{
@@ -188,7 +190,7 @@ func TestBuild(t *testing.T) {
 func TestRollback(t *testing.T) {
 	pool := mempool.New(testutils.NewMemDB(t))
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
-	txStore := txstore.NewTxStore(testutils.NewMemDB(t))
+	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
 
 	var chainID monomer.ChainID
 	app := testapp.NewTest(t, chainID.String())
@@ -203,7 +205,7 @@ func TestRollback(t *testing.T) {
 		require.NoError(t, eventBus.Stop())
 	})
 
-	require.NoError(t, g.Commit(app, blockStore))
+	require.NoError(t, g.Commit(context.Background(), app, blockStore))
 	genesisBlock := blockStore.HeadBlock()
 
 	b := builder.New(
@@ -218,7 +220,7 @@ func TestRollback(t *testing.T) {
 	kvs := map[string]string{
 		"test": "test",
 	}
-	block, err := b.Build(&builder.Payload{
+	block, err := b.Build(context.Background(), &builder.Payload{
 		Timestamp:            g.Time + 1,
 		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs)),
 	})
@@ -228,13 +230,14 @@ func TestRollback(t *testing.T) {
 	require.NoError(t, blockStore.UpdateLabel(eth.Safe, block.Hash()))
 	require.NoError(t, blockStore.UpdateLabel(eth.Finalized, block.Hash()))
 
-	require.NoError(t, b.Rollback(genesisBlock.Hash(), genesisBlock.Hash(), genesisBlock.Hash()))
+	require.NoError(t, b.Rollback(context.Background(), genesisBlock.Hash(), genesisBlock.Hash(), genesisBlock.Hash()))
 
 	// Application.
 	for k := range kvs {
-		resp := app.Query(abcitypes.RequestQuery{
+		resp, err := app.Query(context.Background(), &abcitypes.RequestQuery{
 			Data: []byte(k),
 		})
+		require.NoError(t, err)
 		require.Empty(t, resp.GetValue()) // Value was removed from state.
 	}
 

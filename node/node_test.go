@@ -5,7 +5,8 @@ import (
 	"net"
 	"testing"
 
-	tmdb "github.com/cometbft/cometbft-db"
+	cometdb "github.com/cometbft/cometbft-db"
+	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
@@ -26,15 +27,15 @@ func TestRun(t *testing.T) {
 	cometListener, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	app := testapp.NewTest(t, chainID.String())
-	blockdb := tmdb.NewMemDB()
+	blockdb := dbm.NewMemDB()
 	defer func() {
 		require.NoError(t, blockdb.Close())
 	}()
-	txdb := tmdb.NewMemDB()
+	txdb := cometdb.NewMemDB()
 	defer func() {
 		require.NoError(t, txdb.Close())
 	}()
-	mempooldb := tmdb.NewMemDB()
+	mempooldb := dbm.NewMemDB()
 	defer func() {
 		require.NoError(t, mempooldb.Close())
 	}()
@@ -48,8 +49,8 @@ func TestRun(t *testing.T) {
 		engineWS,
 		cometListener,
 		blockdb,
-		txdb,
 		mempooldb,
+		txdb,
 		rolluptypes.AdaptCosmosTxsToEthTxs,
 		rolluptypes.AdaptPayloadTxsToCosmosTxs,
 		&node.SelectiveListener{

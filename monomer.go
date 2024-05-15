@@ -1,6 +1,7 @@
 package monomer
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -21,21 +22,16 @@ import (
 )
 
 type Application interface {
-	// Info/Query Connection
-	Info(abcitypes.RequestInfo) abcitypes.ResponseInfo // Return application info
-	Query(req abcitypes.RequestQuery) (res abcitypes.ResponseQuery)
+	Info(context.Context, *abcitypes.RequestInfo) (*abcitypes.ResponseInfo, error)
+	Query(context.Context, *abcitypes.RequestQuery) (*abcitypes.ResponseQuery, error)
 
-	// Mempool Connection
-	CheckTx(abcitypes.RequestCheckTx) abcitypes.ResponseCheckTx // Validate a tx for the mempool
+	CheckTx(context.Context, *abcitypes.RequestCheckTx) (*abcitypes.ResponseCheckTx, error)
 
-	// Consensus Connection
-	InitChain(abcitypes.RequestInitChain) abcitypes.ResponseInitChain    // Initialize blockchain w validators/other info from CometBFT
-	BeginBlock(abcitypes.RequestBeginBlock) abcitypes.ResponseBeginBlock // Signals the beginning of a block
-	DeliverTx(abcitypes.RequestDeliverTx) abcitypes.ResponseDeliverTx    // Deliver a tx for full processing
-	EndBlock(abcitypes.RequestEndBlock) abcitypes.ResponseEndBlock       // Signals the end of a block, returns changes to the validator set
-	Commit() abcitypes.ResponseCommit                                    // Commit the state and return the application Merkle root hash
+	InitChain(context.Context, *abcitypes.RequestInitChain) (*abcitypes.ResponseInitChain, error)
+	FinalizeBlock(context.Context, *abcitypes.RequestFinalizeBlock) (*abcitypes.ResponseFinalizeBlock, error)
+	Commit(context.Context, *abcitypes.RequestCommit) (*abcitypes.ResponseCommit, error)
 
-	RollbackToHeight(uint64) error
+	RollbackToHeight(context.Context, uint64) error
 }
 
 // CosmosTxAdapter transforms Cosmos transactions into Ethereum transactions.

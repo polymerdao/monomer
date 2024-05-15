@@ -1,12 +1,13 @@
 package testapp
 
 import (
+	"context"
 	"encoding/json"
 	"slices"
 	"testing"
 
-	tmdb "github.com/cometbft/cometbft-db"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
+	dbm "github.com/cosmos/cosmos-db"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/polymerdao/monomer/gen/testapp/v1"
@@ -17,11 +18,13 @@ import (
 const QueryPath = "/testapp.v1.GetService/Get"
 
 func NewTest(t *testing.T, chainID string) *App {
-	appdb := tmdb.NewMemDB()
+	appdb := dbm.NewMemDB()
 	t.Cleanup(func() {
 		require.NoError(t, appdb.Close())
 	})
-	return New(appdb, chainID)
+	app, err := New(appdb, chainID)
+	require.NoError(t, err)
+	return app
 }
 
 func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.RawMessage {
@@ -46,7 +49,11 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 }
 
 func ToTx(t *testing.T, k, v string) []byte {
-	msgAny, err := codectypes.NewAnyWithValue(&testapp_v1.SetRequest{
+	msgAny, err := codectypes.NewAnyWithValue(&testappv1.SetRequest{
+		// TODO use real addresses and enable the signature and gas checks.
+		// This is just a dummy address. The signature and gas checks are disabled in testapp.go,
+		// so this works for now.
+		FromAddress: "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
 		Key:   k,
 		Value: v,
 	})
@@ -54,6 +61,9 @@ func ToTx(t *testing.T, k, v string) []byte {
 	tx := &sdktx.Tx{
 		Body: &sdktx.TxBody{
 			Messages: []*codectypes.Any{msgAny},
+		},
+		AuthInfo: &sdktx.AuthInfo{
+			Fee: &sdktx.Fee{},
 		},
 	}
 	txBytes := make([]byte, tx.Size())
@@ -90,16 +100,17 @@ func (a *App) StateContains(t *testing.T, height uint64, kvs map[string]string) 
 	}
 	gotState := make(map[string]string, len(kvs))
 	for k := range kvs {
-		requestBytes, err := (&testapp_v1.GetRequest{
+		requestBytes, err := (&testappv1.GetRequest{
 			Key: k,
 		}).Marshal()
 		require.NoError(t, err)
-		resp := a.Query(abcitypes.RequestQuery{
+		resp, err := a.Query(context.Background(), &abcitypes.RequestQuery{
 			Path:   QueryPath,
 			Data:   requestBytes,
 			Height: int64(height),
 		})
-		var val testapp_v1.GetResponse
+		require.NoError(t, err)
+		var val testappv1.GetResponse
 		require.NoError(t, (&val).Unmarshal(resp.GetValue()))
 		gotState[k] = val.GetValue()
 	}
@@ -112,16 +123,17 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 		return
 	}
 	for k := range kvs {
-		requestBytes, err := (&testapp_v1.GetRequest{
+		requestBytes, err := (&testappv1.GetRequest{
 			Key: k,
 		}).Marshal()
 		require.NoError(t, err)
-		resp := a.Query(abcitypes.RequestQuery{
+		resp, err := a.Query(context.Background(), &abcitypes.RequestQuery{
 			Path:   "/testapp.v1.GetService/Get", // TODO is there a way to find this programmatically?
 			Data:   requestBytes,
 			Height: int64(height),
 		})
-		var val testapp_v1.GetResponse
+		require.NoError(t, err)
+		var val testappv1.GetResponse
 		require.NoError(t, (&val).Unmarshal(resp.GetValue()))
 		require.Empty(t, val.GetValue())
 	}

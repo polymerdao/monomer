@@ -3,16 +3,15 @@ package mempool_test
 import (
 	"testing"
 
-	dbm "github.com/cometbft/cometbft-db"
 	comettypes "github.com/cometbft/cometbft/types"
 	"github.com/polymerdao/monomer/mempool"
+	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 func TestMempool(t *testing.T) {
-	db := dbm.NewMemDB()
-	pool := mempool.New(db)
+	pool := mempool.New(testutils.NewMemDB(t))
 
 	t.Run("empty pool", func(t *testing.T) {
 		l, err := pool.Len()
