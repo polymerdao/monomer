@@ -28,13 +28,14 @@ import (
 	"github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/utils"
+	"golang.org/x/exp/slog"
 )
 
 type OPEventListener interface {
 	// LogWithPrefix is meant to be used as a general-purpose log function.
 	// The prefix will never be empty and r will never be nil.
 	// It is only used to fulfill log interfaces defined by third-party OP Stack components.
-	LogWithPrefix(prefix string, r *log.Record)
+	LogWithPrefix(prefix string, r *slog.Record)
 }
 
 type OPStack struct {
@@ -224,8 +225,7 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 			SubSafetyMargin:    4,
 			MaxFrameSize:       math.MaxUint64,
 			CompressorConfig: compressor.Config{
-				TargetFrameSize:  100_000,
-				TargetNumFrames:  1,
+				TargetOutputSize: 100_000,
 				ApproxComprRatio: 0.4,
 			},
 		},
@@ -244,10 +244,32 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 }
 
 func (op *OPStack) newLogger(prefix string) log.Logger {
-	logger := log.New()
-	logger.SetHandler(log.FuncHandler(func(r *log.Record) error {
-		op.eventListener.LogWithPrefix(prefix, r)
-		return nil
-	}))
-	return logger
+	return log.NewLogger(&logHandler{
+		prefix:        prefix,
+		eventListener: op.eventListener,
+	})
+}
+
+type logHandler struct {
+	prefix        string
+	eventListener OPEventListener
+}
+
+var _ slog.Handler = (*logHandler)(nil)
+
+func (h *logHandler) Enabled(_ context.Context, _ slog.Level) bool {
+	return true
+}
+
+func (h *logHandler) Handle(_ context.Context, r slog.Record) error { //nolint:gocritic // hugeParam
+	h.eventListener.LogWithPrefix(h.prefix, &r)
+	return nil
+}
+
+func (h *logHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return h
+}
+
+func (h *logHandler) WithGroup(name string) slog.Handler {
+	return h
 }
