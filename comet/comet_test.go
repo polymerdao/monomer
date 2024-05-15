@@ -22,7 +22,7 @@ import (
 	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/mempool"
 	"github.com/polymerdao/monomer/testapp"
-	"github.com/polymerdao/monomer/testutil"
+	"github.com/polymerdao/monomer/testutils"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/require"
 )
@@ -77,7 +77,7 @@ func TestABCI(t *testing.T) {
 }
 
 func TestStatus(t *testing.T) {
-	blockStore := store.NewBlockStore(testutil.NewMemDB(t))
+	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	headBlock := &monomer.Block{
 		Header: &monomer.Header{},
 	}
@@ -124,7 +124,7 @@ func TestStatus(t *testing.T) {
 func TestBroadcastTx(t *testing.T) {
 	chainID := "0"
 	app := testapp.NewTest(t, chainID)
-	mpool := mempool.New(testutil.NewMemDB(t))
+	mpool := mempool.New(testutils.NewMemDB(t))
 	broadcastAPI := comet.NewBroadcastTx(app, mpool)
 
 	// Succuss case.
@@ -293,7 +293,7 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 }
 
 func TestTx(t *testing.T) {
-	txStore := txstore.NewTxStore(testutil.NewMemDB(t))
+	txStore := txstore.NewTxStore(testutils.NewMemDB(t))
 	txAPI := comet.NewTx(txStore)
 	_, err := txAPI.ByHash(nil, []byte{}, true)
 	require.ErrorContains(t, err, "proving is not supported")
@@ -341,10 +341,8 @@ func TestTx(t *testing.T) {
 	require.Equal(t, txResult1.Tx, []byte(searchResult.Txs[1].Tx))
 }
 
-// TODO test pagination
-
 func TestBlock(t *testing.T) {
-	blockStore := store.NewBlockStore(testutil.NewMemDB(t))
+	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	block := &monomer.Block{
 		Header: &monomer.Header{
 			Height: 3,

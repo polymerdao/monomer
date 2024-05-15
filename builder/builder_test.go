@@ -15,7 +15,7 @@ import (
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/mempool"
 	"github.com/polymerdao/monomer/testapp"
-	"github.com/polymerdao/monomer/testutil"
+	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -78,12 +78,12 @@ func TestBuild(t *testing.T) {
 			inclusionListTxs := testapp.ToTxs(t, test.inclusionList)
 			mempoolTxs := testapp.ToTxs(t, test.mempool)
 
-			pool := mempool.New(testutil.NewMemDB(t))
+			pool := mempool.New(testutils.NewMemDB(t))
 			for _, tx := range mempoolTxs {
 				require.NoError(t, pool.Enqueue(tx))
 			}
-			blockStore := store.NewBlockStore(testutil.NewMemDB(t))
-			txStore := txstore.NewTxStore(testutil.NewMemDB(t))
+			blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+			txStore := txstore.NewTxStore(testutils.NewMemDB(t))
 
 			var chainID monomer.ChainID
 			app := testapp.NewTest(t, chainID.String())
@@ -186,9 +186,9 @@ func TestBuild(t *testing.T) {
 }
 
 func TestRollback(t *testing.T) {
-	pool := mempool.New(testutil.NewMemDB(t))
-	blockStore := store.NewBlockStore(testutil.NewMemDB(t))
-	txStore := txstore.NewTxStore(testutil.NewMemDB(t))
+	pool := mempool.New(testutils.NewMemDB(t))
+	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+	txStore := txstore.NewTxStore(testutils.NewMemDB(t))
 
 	var chainID monomer.ChainID
 	app := testapp.NewTest(t, chainID.String())
