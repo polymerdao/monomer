@@ -16,7 +16,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/polymerdao/monomer/testutil/testapp/gen/testapp/v1"
+	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/spf13/cobra"
 )
 
@@ -27,8 +27,8 @@ const (
 
 type Module struct {
 	key storetypes.StoreKey
-	testappv1.UnimplementedSetServiceServer
-	testappv1.UnimplementedGetServiceServer
+	testapp_v1.UnimplementedSetServiceServer
+	testapp_v1.UnimplementedGetServiceServer
 }
 
 var (
@@ -75,25 +75,25 @@ func (m *Module) ValidateGenesis(_ codec.JSONCodec, _ client.TxEncodingConfig, d
 	return nil
 }
 
-func (m *Module) Get(ctx context.Context, req *testappv1.GetRequest) (*testappv1.GetResponse, error) {
+func (m *Module) Get(ctx context.Context, req *testapp_v1.GetRequest) (*testapp_v1.GetResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	key := req.GetKey()
 	if key == "" {
 		return nil, errors.New("empty key")
 	}
-	return &testappv1.GetResponse{
+	return &testapp_v1.GetResponse{
 		Value: string(sdkCtx.KVStore(m.key).Get([]byte(key))),
 	}, nil
 }
 
-func (m *Module) Set(ctx context.Context, req *testappv1.SetRequest) (*testappv1.SetResponse, error) {
+func (m *Module) Set(ctx context.Context, req *testapp_v1.SetRequest) (*testapp_v1.SetResponse, error) {
 	sdkCtx := sdk.UnwrapSDKContext(ctx)
 	key := req.GetKey()
 	if key == "" {
 		return nil, errors.New("empty key")
 	}
 	sdkCtx.KVStore(m.key).Set([]byte(key), []byte(req.GetValue()))
-	return &testappv1.SetResponse{}, nil
+	return &testapp_v1.SetResponse{}, nil
 }
 
 func (*Module) GetQueryCmd() *cobra.Command {
@@ -118,12 +118,12 @@ func (*Module) RegisterRESTRoutes(clientCtx client.Context, rtr *mux.Router) {
 
 // RegisterInterfaces registers the module's interface types
 func (*Module) RegisterInterfaces(r codectypes.InterfaceRegistry) {
-	testappv1.RegisterInterfaces(r)
+	testapp_v1.RegisterInterfaces(r)
 }
 
 func (*Module) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {}
 
 func (m *Module) RegisterServices(cfg module.Configurator) {
-	testappv1.RegisterSetServiceServer(cfg.MsgServer(), m)
-	testappv1.RegisterGetServiceServer(cfg.QueryServer(), m)
+	testapp_v1.RegisterSetServiceServer(cfg.MsgServer(), m)
+	testapp_v1.RegisterGetServiceServer(cfg.QueryServer(), m)
 }

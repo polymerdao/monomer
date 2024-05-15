@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package rollup.v1;
+
+// MsgService defines all tx endpoints for the rollup module.
+service MsgService {
+  rpc ApplyL1Txs(ApplyL1TxsRequest) returns (ApplyL1TxsResponse);
+}
+
+// ApplyL1TxsRequest defines a message for all L1 system and user deposit txs
+message ApplyL1TxsRequest {
+  // Array of bytes where each bytes is a eth.Transaction.MarshalBinary tx.
+  // The first tx must be the L1 system deposit tx, and the rest are user txs if present.
+  repeated bytes tx_bytes = 1;
+}
+
+message ApplyL1TxsResponse {
+}

@@ -1,16 +1,18 @@
-package testappv1
+package testapp_v1
 
 import (
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/msgservice"
 )
 
-func (*SetRequest) ValidateBasic() error {
+var _ sdktypes.Msg = (*SetRequest)(nil)
+
+func (*SetRequest) GetSigners() []sdktypes.AccAddress {
 	return nil
 }
 
-func (*SetRequest) GetSigners() []sdk.AccAddress {
+func (m *SetRequest) ValidateBasic() error {
 	return nil
 }
 

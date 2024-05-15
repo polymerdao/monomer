@@ -21,10 +21,15 @@ install-golangci-lint:
 .PHONY: lint
 lint:
 	${GOBIN}/golangci-lint run
+	${GOBIN}/buf lint
 
 .PHONY: install-gofumpt
 install-gofumpt:
 	go install mvdan.cc/gofumpt@v0.6.0
+
+.PHONY: install-buf
+install-buf:
+	go install github.com/bufbuild/buf/cmd/buf@v1.31.0
 
 .PHONY: install-go-test-coverage
 install-go-test-coverage:
