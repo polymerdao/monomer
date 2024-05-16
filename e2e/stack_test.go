@@ -81,7 +81,7 @@ func TestE2E(t *testing.T) {
 	const targetHeight = 5
 
 	client, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
-	require.NoError(t, err, "failed to create Comet client")
+	require.NoError(t, err, "create Comet client")
 
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
