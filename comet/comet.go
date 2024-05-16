@@ -142,8 +142,10 @@ func (s *BroadcastTx) BroadcastTx(_ *jsonrpctypes.Context, tx bfttypes.Tx) (*rpc
 		Tx:   tx,
 		Type: abcitypes.CheckTxType_New,
 	})
-	if err := s.mempool.Enqueue(tx); err != nil {
-		return nil, fmt.Errorf("enqueue in mempool: %v", err)
+	if checkTxResp.Code == abcitypes.CodeTypeOK {
+		if err := s.mempool.Enqueue(tx); err != nil {
+			return nil, fmt.Errorf("enqueue in mempool: %v", err)
+		}
 	}
 	return &rpctypes.ResultBroadcastTx{
 		Code:      checkTxResp.GetCode(),
