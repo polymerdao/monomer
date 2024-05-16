@@ -11,7 +11,7 @@ import (
 	"time"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	cosclient "github.com/cometbft/cometbft/rpc/client/http"
+	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -80,7 +80,7 @@ func TestE2E(t *testing.T) {
 
 	const targetHeight = 5
 
-	client, err := cosclient.New(monomerCometURL.String(), monomerCometURL.String())
+	client, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
 	require.NoError(t, err, "failed to create Comet client")
 
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
