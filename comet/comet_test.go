@@ -126,6 +126,8 @@ func TestBroadcastTx(t *testing.T) {
 	app := testapp.NewTest(t, chainID)
 	mpool := mempool.New(testutil.NewMemDB(t))
 	broadcastAPI := comet.NewBroadcastTx(app, mpool)
+
+	// Succuss case.
 	tx := testapp.ToTx(t, "k1", "v1")
 	result, err := broadcastAPI.BroadcastTx(nil, tx)
 	require.NoError(t, err)
@@ -137,6 +139,21 @@ func TestBroadcastTx(t *testing.T) {
 	got, err := mpool.Dequeue()
 	require.NoError(t, err)
 	require.Equal(t, bfttypes.Tx(tx), got)
+
+	// Error case - malformed tx.
+	badTx := []byte{1, 2, 3}
+	startLen, err := mpool.Len()
+	require.NoError(t, err)
+
+	result, err = broadcastAPI.BroadcastTx(nil, badTx)
+	// API does not error, but returns a non-zero error code.
+	require.NoError(t, err)
+	require.NotEqual(t, uint32(0), result.Code)
+
+	endLen, err := mpool.Len()
+	require.NoError(t, err)
+	// assert no insertion to mempool
+	require.Equal(t, startLen, endLen)
 }
 
 type mockWSConnection struct {
