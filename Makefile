@@ -62,6 +62,7 @@ abis = ./e2e/optimism/packages/contracts-bedrock/snapshots/abi
 .PHONY: bindings
 bindings:
 	bash -c ' \
+	mkdir -p e2e/bindings; \
 	set -euxo pipefail; \
 	build_abi() { \
 		local lowercase=$$(echo "$$1" | awk '"'"'{print tolower($$0)}'"'"'); \
