@@ -1,2 +1,5 @@
 *.swp
 vendor/
+
+# Test artifacts
+e2e/artifacts/
