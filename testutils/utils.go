@@ -38,7 +38,6 @@ func ts() string {
 // LogProcess captures the stdout and stderr of a process and writes it to
 // a file.
 func LogProcess(name string, cmd *exec.Cmd) error {
-
 	cmdOut, err := cmd.StdoutPipe()
 	if err != nil {
 		return fmt.Errorf("pipe stderr: %v", err)
@@ -55,16 +54,16 @@ func LogProcess(name string, cmd *exec.Cmd) error {
 	stampedDest := fmt.Sprintf("./artifacts/%s_%s.log", name, now)
 	latestDest := fmt.Sprintf("./artifacts/%s_latest.log", name)
 
-	err = os.MkdirAll("./artifacts", 0755)
+	err = os.MkdirAll("./artifacts", 0o755)
 	if err != nil {
 		return fmt.Errorf("create artifacts dir: %v", err)
 	}
 
-	stampedFile, err := os.OpenFile(stampedDest, os.O_CREATE|os.O_WRONLY, 0644)
+	stampedFile, err := os.OpenFile(stampedDest, os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("open %s out file: %v", name, err)
 	}
-	latestFile, err := os.OpenFile(latestDest, os.O_CREATE|os.O_WRONLY, 0644)
+	latestFile, err := os.OpenFile(latestDest, os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {
 		return fmt.Errorf("open %s out file: %v", name, err)
 	}
