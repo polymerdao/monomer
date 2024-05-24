@@ -49,6 +49,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
+      - name: Install abigen
+        run: go install github.com/ethereum/go-ethereum/cmd/abigen@latest # pin?
       - name: Generate Bindings
         run: make bindings
       - name: Check for uncommitted changes
