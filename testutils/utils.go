@@ -52,33 +52,45 @@ func LogProcess(name string, cmd *exec.Cmd) error {
 	errScanner := bufio.NewScanner(cmdErr)
 
 	now := time.Now().Format("01-02-15h04m05")
-	dest := fmt.Sprintf("./artifacts/%s_%s.log", name, now)
+	stampedDest := fmt.Sprintf("./artifacts/%s_%s.log", name, now)
+	latestDest := fmt.Sprintf("./artifacts/%s_latest.log", name)
 
 	err = os.MkdirAll("./artifacts", 0755)
 	if err != nil {
 		return fmt.Errorf("create artifacts dir: %v", err)
 	}
 
-	destFile, err := os.OpenFile(dest, os.O_CREATE|os.O_WRONLY, 0644)
+	stampedFile, err := os.OpenFile(stampedDest, os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("open %s out file: %v", name, err)
+	}
+	latestFile, err := os.OpenFile(latestDest, os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return fmt.Errorf("open %s out file: %v", name, err)
 	}
 
-	destWriter := io.Writer(destFile)
+	stampedWriter := io.Writer(stampedFile)
+	latestWriter := io.Writer(latestFile)
 
 	go func() {
 		for outScanner.Scan() {
 			line := ts() + outScanner.Text() + "\n"
-			if _, err := destWriter.Write([]byte(line)); err != nil {
-				panic(fmt.Errorf("writing to %s: %v", dest, err))
+			if _, err := stampedWriter.Write([]byte(line)); err != nil {
+				panic(fmt.Errorf("writing to %s: %v", stampedDest, err))
+			}
+			if _, err := latestWriter.Write([]byte(line)); err != nil {
+				panic(fmt.Errorf("writing to %s: %v", latestDest, err))
 			}
 		}
 	}()
 	go func() {
 		for errScanner.Scan() {
 			line := ts() + "[stderr] " + outScanner.Text() + "\n"
-			if _, err := destWriter.Write([]byte(line)); err != nil {
-				panic(fmt.Errorf("writing to %s: %v", dest, err))
+			if _, err := stampedWriter.Write([]byte(line)); err != nil {
+				panic(fmt.Errorf("writing to %s: %v", stampedDest, err))
+			}
+			if _, err := latestWriter.Write([]byte(line)); err != nil {
+				panic(fmt.Errorf("writing to %s: %v", latestDest, err))
 			}
 		}
 	}()
