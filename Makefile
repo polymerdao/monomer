@@ -56,3 +56,20 @@ clean:
 	if [ -f $(COVER_OUT) ]; then rm $(COVER_OUT); fi
 	if [ -f $(COVER_HTML) ]; then rm $(COVER_HTML); fi
 	if [ -f e2e/artifacts ]; then rm -r e2e/artifacts; fi
+
+abis = ./e2e/optimism/packages/contracts-bedrock/snapshots/abi
+
+.PHONY: bindings
+bindings:
+	bash -c ' \
+	set -euxo pipefail; \
+	build_abi() { \
+		local lowercase=$$(echo "$$1" | awk '"'"'{print tolower($$0)}'"'"'); \
+		abigen \
+			--abi "$(abis)/$$1.json" \
+			--pkg bindings \
+			--out "e2e/bindings/$$lowercase.go" \
+			--type $$1; \
+	}; \
+	build_abi OptimismPortal \
+	'
