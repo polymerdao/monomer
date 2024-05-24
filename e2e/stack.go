@@ -20,6 +20,7 @@ import (
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
+	"github.com/polymerdao/monomer/testutils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
@@ -75,6 +76,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		"--gas-price", "0",
 		"--block-time", fmt.Sprint(s.l1BlockTime.Seconds()),
 	)
+	testutils.LogProcess("anvil", anvilCmd)
 	if err := anvilCmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %v", anvilCmd, err)
 	}
@@ -114,6 +116,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		"--broadcast",
 		"--private-key", common.Bytes2Hex(crypto.FromECDSA(privKey)),
 	)
+	testutils.LogProcess("forge", forgeCmd)
 	if err := forgeCmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %v", forgeCmd, err)
 	}
