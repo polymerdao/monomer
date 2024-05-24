@@ -76,7 +76,10 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		"--gas-price", "0",
 		"--block-time", fmt.Sprint(s.l1BlockTime.Seconds()),
 	)
-	testutils.LogProcess("anvil", anvilCmd)
+	err := testutils.LogProcess("anvil", anvilCmd)
+	if err != nil {
+		return fmt.Errorf("log anvil process: %v", err)
+	}
 	if err := anvilCmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %v", anvilCmd, err)
 	}
@@ -116,7 +119,10 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		"--broadcast",
 		"--private-key", common.Bytes2Hex(crypto.FromECDSA(privKey)),
 	)
-	testutils.LogProcess("forge", forgeCmd)
+	err = testutils.LogProcess("forge", forgeCmd)
+	if err != nil {
+		return fmt.Errorf("log forge process: %v", err)
+	}
 	if err := forgeCmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %v", forgeCmd, err)
 	}
