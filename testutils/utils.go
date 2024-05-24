@@ -55,8 +55,8 @@ func LogProcess(name string, cmd *exec.Cmd) error {
 	stampedDest := fmt.Sprintf("./artifacts/%s_%s.log", name, now)
 	latestDest := fmt.Sprintf("./artifacts/%s_latest.log", name)
 
-	fileMode := fs.FileMode(0o644)
-	dirMode := fs.FileMode(0o755)
+	fileMode := fs.FileMode(0o644) //nolint:gomnd
+	dirMode := fs.FileMode(0o755)  //nolint:gomnd
 
 	err = os.MkdirAll("./artifacts", dirMode)
 	if err != nil {
