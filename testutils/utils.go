@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"testing"
@@ -54,16 +55,19 @@ func LogProcess(name string, cmd *exec.Cmd) error {
 	stampedDest := fmt.Sprintf("./artifacts/%s_%s.log", name, now)
 	latestDest := fmt.Sprintf("./artifacts/%s_latest.log", name)
 
-	err = os.MkdirAll("./artifacts", 0o755)
+	fileMode := fs.FileMode(0o644)
+	dirMode := fs.FileMode(0o755)
+
+	err = os.MkdirAll("./artifacts", dirMode)
 	if err != nil {
 		return fmt.Errorf("create artifacts dir: %v", err)
 	}
 
-	stampedFile, err := os.OpenFile(stampedDest, os.O_CREATE|os.O_WRONLY, 0o644)
+	stampedFile, err := os.OpenFile(stampedDest, os.O_CREATE|os.O_WRONLY, fileMode)
 	if err != nil {
 		return fmt.Errorf("open %s out file: %v", name, err)
 	}
-	latestFile, err := os.OpenFile(latestDest, os.O_CREATE|os.O_WRONLY, 0o644)
+	latestFile, err := os.OpenFile(latestDest, os.O_CREATE|os.O_WRONLY, fileMode)
 	if err != nil {
 		return fmt.Errorf("open %s out file: %v", name, err)
 	}
