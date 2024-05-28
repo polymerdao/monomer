@@ -2,11 +2,13 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	cometdb "github.com/cometbft/cometbft-db"
@@ -78,11 +80,15 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		"--gas-price", "0",
 		"--block-time", fmt.Sprint(s.l1BlockTime.Seconds()),
 	)
+	anvilCmd.Cancel = func() error {
+		// Anvil can catch SIGTERMs. The exec package sends a SIGKILL by default.
+		return anvilCmd.Process.Signal(syscall.SIGTERM)
+	}
 	if err := s.startCmd(anvilCmd); err != nil {
 		return err
 	}
 	env.Go(func() {
-		if err := anvilCmd.Wait(); err != nil {
+		if err := anvilCmd.Wait(); err != nil && !errors.Is(err, ctx.Err()) {
 			s.eventListener.OnAnvilErr(fmt.Errorf("run %s: %v", anvilCmd, err))
 		}
 	})
