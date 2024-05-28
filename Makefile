@@ -55,4 +55,4 @@ $(COVER_HTML): $(COVER_OUT)
 clean:
 	if [ -f $(COVER_OUT) ]; then rm $(COVER_OUT); fi
 	if [ -f $(COVER_HTML) ]; then rm $(COVER_HTML); fi
-	if ls *.log 1> /dev/null 2>&1; then rm *.log; fi
+	if [ -f e2e/artifacts ]; then rm -r e2e/artifacts; fi

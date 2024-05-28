@@ -1,2 +1,2 @@
-*.swp
-vendor/
+# Ignore side effects from e2e tests.
+e2e/artifacts

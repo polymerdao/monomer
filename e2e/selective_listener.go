@@ -1,6 +1,8 @@
 package e2e
 
 import (
+	"io"
+
 	"github.com/polymerdao/monomer/node"
 	"golang.org/x/exp/slog"
 )
@@ -11,13 +13,21 @@ type NodeSelectiveListener = node.SelectiveListener
 type SelectiveListener struct {
 	*NodeSelectiveListener
 
-	OPLogWithPrefixCb func(prefix string, r *slog.Record)
+	OPLogCb func(slog.Record)
+
+	HandleCmdOutputCb func(path string, stdout, stderr io.Reader)
 	OnAnvilErrCb      func(error)
 }
 
-func (s *SelectiveListener) LogWithPrefix(prefix string, r *slog.Record) {
-	if s.OPLogWithPrefixCb != nil {
-		s.OPLogWithPrefixCb(prefix, r)
+func (s *SelectiveListener) HandleCmdOutput(path string, stdout, stderr io.Reader) {
+	if s.HandleCmdOutputCb != nil {
+		s.HandleCmdOutputCb(path, stdout, stderr)
+	}
+}
+
+func (s *SelectiveListener) Log(r slog.Record) { //nolint:gocritic // hugeParam
+	if s.OPLogCb != nil {
+		s.OPLogCb(r)
 	}
 }
 
