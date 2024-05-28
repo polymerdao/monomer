@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os/exec"
 	"path/filepath"
@@ -29,6 +30,8 @@ type EventListener interface {
 	OPEventListener
 	node.EventListener
 
+	// HandleCmdOutput must not block. It is called at most once for a command.
+	HandleCmdOutput(path string, stdout, stderr io.Reader)
 	// err will never be nil.
 	OnAnvilErr(err error)
 }
@@ -75,8 +78,8 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		"--gas-price", "0",
 		"--block-time", fmt.Sprint(s.l1BlockTime.Seconds()),
 	)
-	if err := anvilCmd.Start(); err != nil {
-		return fmt.Errorf("start %s: %v", anvilCmd, err)
+	if err := s.startCmd(anvilCmd); err != nil {
+		return err
 	}
 	env.Go(func() {
 		if err := anvilCmd.Wait(); err != nil {
@@ -114,8 +117,8 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		"--broadcast",
 		"--private-key", common.Bytes2Hex(crypto.FromECDSA(privKey)),
 	)
-	if err := forgeCmd.Start(); err != nil {
-		return fmt.Errorf("start %s: %v", forgeCmd, err)
+	if err := s.startCmd(forgeCmd); err != nil {
+		return err
 	}
 	if err := forgeCmd.Wait(); err != nil {
 		return fmt.Errorf("run %s: %v", forgeCmd, err)
@@ -173,6 +176,22 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	)
 	if err := opStack.Run(ctx, env); err != nil {
 		return fmt.Errorf("run the op stack: %v", err)
+	}
+	return nil
+}
+
+func (s *Stack) startCmd(cmd *exec.Cmd) error {
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("get stdout pipe for %s: %v", cmd, err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("get stderr pipe for %s: %v", cmd, err)
+	}
+	s.eventListener.HandleCmdOutput(cmd.Path, stdout, stderr)
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start %s: %v", cmd, err)
 	}
 	return nil
 }

@@ -2,7 +2,9 @@ package e2e_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net/url"
 	"os"
@@ -24,13 +26,12 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-type logWriter struct {
-	t *testing.T
-}
+const artifactsDirectoryName = "artifacts"
 
-func (w *logWriter) Write(data []byte) (int, error) {
-	w.t.Log(string(data))
-	return len(data), nil
+func openLogFile(t *testing.T, name string) *os.File {
+	file, err := os.OpenFile(filepath.Join(artifactsDirectoryName, name+".log"), os.O_CREATE|os.O_TRUNC|os.O_APPEND|os.O_WRONLY, 0o644)
+	require.NoError(t, err)
+	return file
 }
 
 func TestE2E(t *testing.T) {
@@ -40,8 +41,6 @@ func TestE2E(t *testing.T) {
 
 	const l1BlockTime = time.Second // We would want 250ms instead, but then Anvil doesn't respond to RPCs (probably a thread starving in Anvil).
 
-	_, verbose := os.LookupEnv("MONOMER_E2E_VERBOSE")
-
 	contractsRootDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/")
 	require.NoError(t, err)
 
@@ -50,16 +49,24 @@ func TestE2E(t *testing.T) {
 	monomerCometURL := newURL(t, "http://127.0.0.1:8890")
 	opNodeURL := newURL(t, "http://127.0.0.1:8891")
 
-	logHandler := log.NewTerminalHandler(&logWriter{
-		t: t,
-	}, false)
+	if err := os.Mkdir(artifactsDirectoryName, 0o755); !errors.Is(err, os.ErrExist) {
+		require.NoError(t, err)
+	}
+	opLogger := log.NewTerminalHandler(openLogFile(t, "op"), false)
+
+	env := environment.New()
+	defer func() {
+		require.NoError(t, env.Close())
+	}()
 	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, contractsRootDir, l1BlockTime, &e2e.SelectiveListener{
-		OPLogWithPrefixCb: func(prefix string, r *slog.Record) {
-			if prefix != "node" && !verbose {
-				return
-			}
-			require.NotNil(t, r)
-			require.NoError(t, logHandler.Handle(context.Background(), *r))
+		OPLogCb: func(r slog.Record) {
+			require.NoError(t, opLogger.Handle(context.Background(), r))
+		},
+		HandleCmdOutputCb: func(path string, stdout, stderr io.Reader) {
+			env.Go(func() {
+				_, err := io.Copy(openLogFile(t, filepath.Base(path)), io.MultiReader(stdout, stderr))
+				require.NoError(t, err)
+			})
 		},
 		OnAnvilErrCb: func(err error) {
 			t.Log(err)
@@ -77,10 +84,6 @@ func TestE2E(t *testing.T) {
 		},
 	})
 
-	env := environment.New()
-	defer func() {
-		require.NoError(t, env.Close())
-	}()
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	require.NoError(t, stack.Run(ctx, env))

@@ -32,10 +32,8 @@ import (
 )
 
 type OPEventListener interface {
-	// LogWithPrefix is meant to be used as a general-purpose log function.
-	// The prefix will never be empty and r will never be nil.
-	// It is only used to fulfill log interfaces defined by third-party OP Stack components.
-	LogWithPrefix(prefix string, r *slog.Record)
+	// Log may be called many times.
+	Log(r slog.Record)
 }
 
 type OPStack struct {
@@ -136,7 +134,7 @@ func (op *OPStack) runNode(ctx context.Context, env *environment.Env) error {
 		Sync: sync.Config{
 			SyncMode: sync.CLSync,
 		},
-	}, op.newLogger("node"), op.newLogger("node snapshotter"), "v0.1", opnodemetrics.NewMetrics(""))
+	}, op.newLogger("node"), op.newLogger("node-snapshotter"), "v0.1", opnodemetrics.NewMetrics(""))
 	if err != nil {
 		return fmt.Errorf("new node: %v", err)
 	}
@@ -152,13 +150,13 @@ func (op *OPStack) runNode(ctx context.Context, env *environment.Env) error {
 func (op *OPStack) runProposer(ctx context.Context, env *environment.Env, l1Client proposer.L1Client, txManagerConfig *txmgr.Config) error {
 	metrics := opproposermetrics.NoopMetrics
 
-	txManager, err := txmgr.NewSimpleTxManagerFromConfig("proposer", op.newLogger("proposer tx manager"), metrics, *txManagerConfig)
+	txManager, err := txmgr.NewSimpleTxManagerFromConfig("proposer", op.newLogger("proposer-tx-manager"), metrics, *txManagerConfig)
 	if err != nil {
 		return fmt.Errorf("new simple tx manager: %v", err)
 	}
 	env.Defer(txManager.Close)
 
-	rollupProvider, err := dial.NewStaticL2RollupProvider(ctx, op.newLogger("proposer dialer"), op.nodeURL.String())
+	rollupProvider, err := dial.NewStaticL2RollupProvider(ctx, op.newLogger("proposer-dialer"), op.nodeURL.String())
 	if err != nil {
 		return fmt.Errorf("new static l2 rollup provider: %v", err)
 	}
@@ -189,7 +187,7 @@ func (op *OPStack) runProposer(ctx context.Context, env *environment.Env, l1Clie
 func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Client batcher.L1Client, txManagerConfig *txmgr.Config) error {
 	metrics := opbatchermetrics.NoopMetrics
 
-	txManager, err := txmgr.NewSimpleTxManagerFromConfig("batcher", op.newLogger("batcher tx manager"), metrics, *txManagerConfig)
+	txManager, err := txmgr.NewSimpleTxManagerFromConfig("batcher", op.newLogger("batcher-tx-manager"), metrics, *txManagerConfig)
 	if err != nil {
 		return fmt.Errorf("new simple tx manager: %v", err)
 	}
@@ -197,7 +195,7 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 
 	endpointProvider, err := dial.NewStaticL2EndpointProvider(
 		ctx,
-		op.newLogger("batcher dialer"),
+		op.newLogger("batcher-dialer"),
 		op.engineURL.String(),
 		op.nodeURL.String(),
 	)
@@ -243,15 +241,14 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 	return nil
 }
 
-func (op *OPStack) newLogger(prefix string) log.Logger {
+func (op *OPStack) newLogger(name string) log.Logger {
 	return log.NewLogger(&logHandler{
-		prefix:        prefix,
 		eventListener: op.eventListener,
-	})
+	}).With("monomer-e2e-component", name)
 }
 
 type logHandler struct {
-	prefix        string
+	attrs         []slog.Attr
 	eventListener OPEventListener
 }
 
@@ -262,11 +259,19 @@ func (h *logHandler) Enabled(_ context.Context, _ slog.Level) bool {
 }
 
 func (h *logHandler) Handle(_ context.Context, r slog.Record) error { //nolint:gocritic // hugeParam
-	h.eventListener.LogWithPrefix(h.prefix, &r)
+	if h.attrs == nil {
+		h.eventListener.Log(r)
+	} else {
+		newRecord := r.Clone()
+		newRecord.AddAttrs(h.attrs...)
+		h.eventListener.Log(newRecord)
+	}
 	return nil
 }
 
+// WithAttrs must not be called on multiple goroutines.
 func (h *logHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	h.attrs = attrs
 	return h
 }
 
