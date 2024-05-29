@@ -37,6 +37,10 @@ install-gofumpt:
 install-buf:
 	go install github.com/bufbuild/buf/cmd/buf@v1.31.0
 
+.PHONY: install-abigen
+install-abigen:
+	go install github.com/ethereum/go-ethereum/cmd/abigen@latest
+
 .PHONY: install-go-test-coverage
 install-go-test-coverage:
 	go install github.com/vladopajic/go-test-coverage/v2@v2.9.0
