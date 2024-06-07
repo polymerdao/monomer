@@ -42,8 +42,6 @@ type Node struct {
 	blockdb                    dbm.DB
 	txdb                       cometdb.DB
 	mempooldb                  dbm.DB
-	adaptCosmosTxsToEthTxs     monomer.CosmosTxAdapter
-	adaptPayloadTxsToCosmosTxs monomer.PayloadTxAdapter
 	eventListener              EventListener
 }
 
@@ -55,8 +53,6 @@ func New(
 	blockdb,
 	mempooldb dbm.DB,
 	txdb cometdb.DB,
-	adaptCosmosTxsToEthTxs monomer.CosmosTxAdapter,
-	adaptPayloadTxsToCosmosTxs monomer.PayloadTxAdapter,
 	eventListener EventListener,
 ) *Node {
 	return &Node{
@@ -67,8 +63,6 @@ func New(
 		blockdb:                    blockdb,
 		txdb:                       txdb,
 		mempooldb:                  mempooldb,
-		adaptCosmosTxsToEthTxs:     adaptCosmosTxsToEthTxs,
-		adaptPayloadTxsToCosmosTxs: adaptPayloadTxsToCosmosTxs,
 		eventListener:              eventListener,
 	}
 }
@@ -94,8 +88,6 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 			Service: engine.NewEngineAPI(
 				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID),
 				n.app,
-				n.adaptPayloadTxsToCosmosTxs,
-				n.adaptCosmosTxsToEthTxs,
 				blockStore,
 			),
 		},
