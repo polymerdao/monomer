@@ -14,7 +14,6 @@ import (
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,8 +47,6 @@ func TestRun(t *testing.T) {
 		blockdb,
 		mempooldb,
 		txdb,
-		rolluptypes.AdaptCosmosTxsToEthTxs,
-		rolluptypes.AdaptPayloadTxsToCosmosTxs,
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
 				require.NoError(t, err)

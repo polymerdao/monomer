@@ -15,6 +15,7 @@ import (
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/builder"
+    rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type BlockStore interface {
@@ -28,8 +29,6 @@ type EngineAPI struct {
 	txValidator              TxValidator
 	blockStore               BlockStore
 	currentPayloadAttributes *monomer.PayloadAttributes
-	ethCosmosAdapter         monomer.PayloadTxAdapter
-	cosmosEthAdapter         monomer.CosmosTxAdapter
 	lock                     sync.RWMutex
 }
 
@@ -40,16 +39,12 @@ type TxValidator interface {
 func NewEngineAPI(
 	b *builder.Builder,
 	txValidator TxValidator,
-	ethCosmosAdapter monomer.PayloadTxAdapter,
-	cosmosEthAdapter monomer.CosmosTxAdapter,
 	blockStore BlockStore,
 ) *EngineAPI {
 	return &EngineAPI{
 		txValidator:      txValidator,
 		blockStore:       blockStore,
 		builder:          b,
-		ethCosmosAdapter: ethCosmosAdapter,
-		cosmosEthAdapter: cosmosEthAdapter,
 	}
 }
 
@@ -172,7 +167,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("gas limit not provided"))
 	}
 
-	cosmosTxs, err := e.ethCosmosAdapter(pa.Transactions)
+	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(pa.Transactions)
 	if err != nil {
 		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
 	}
@@ -259,7 +254,7 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 		log.Panicf("failed to commit block: %v", err) // TODO error handling. An error here is potentially a big problem.
 	}
 
-	txs, err := e.cosmosEthAdapter(block.Txs)
+    txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
 	if err != nil {
 		return nil, engine.GenericServerError.With(fmt.Errorf("convert cosmos txs to eth txs: %v", err))
 	}
