@@ -37,7 +37,6 @@ type EventListener interface {
 type Node struct {
 	app                        monomer.Application
 	genesis                    *genesis.Genesis
-	engineHTTP                 net.Listener
 	engineWS                   net.Listener
 	cometHTTPAndWS             net.Listener
 	blockdb                    dbm.DB
@@ -51,7 +50,6 @@ type Node struct {
 func New(
 	app monomer.Application,
 	g *genesis.Genesis,
-	engineHTTP net.Listener,
 	engineWS net.Listener,
 	cometHTTPAndWS net.Listener,
 	blockdb,
@@ -64,7 +62,6 @@ func New(
 	return &Node{
 		app:                        app,
 		genesis:                    g,
-		engineHTTP:                 engineHTTP,
 		engineWS:                   engineWS,
 		cometHTTPAndWS:             cometHTTPAndWS,
 		blockdb:                    blockdb,
@@ -117,13 +114,6 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 			return fmt.Errorf("register %s API: %v", api.Namespace, err)
 		}
 	}
-
-	engineHTTP := makeHTTPService(rpcServer, n.engineHTTP)
-	env.Go(func() {
-		if err := engineHTTP.Run(ctx); err != nil {
-			n.eventListener.OnEngineHTTPServeErr(fmt.Errorf("run engine http server: %v", err))
-		}
-	})
 
 	engineWS := makeHTTPService(rpcServer.WebsocketHandler([]string{}), n.engineWS)
 	env.Go(func() {
