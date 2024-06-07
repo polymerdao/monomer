@@ -106,7 +106,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 				*eth.Block
 			}{
 				ChainID: eth.NewChainID(n.genesis.ChainID.HexBig()),
-				Block:   eth.NewBlock(blockStore, n.adaptCosmosTxsToEthTxs),
+				Block:   eth.NewBlock(blockStore),
 			},
 		},
 	} {

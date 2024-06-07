@@ -6,8 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
+    rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 // var errBlockNotFound = errors.New("block not found") // the op-node checks for this exact string.
@@ -27,13 +27,11 @@ func (e *ChainID) ChainId() *hexutil.Big { //nolint:stylecheck
 
 type Block struct {
 	blockStore store.BlockStoreReader
-	adapter    monomer.CosmosTxAdapter
 }
 
-func NewBlock(blockStore store.BlockStoreReader, adapter monomer.CosmosTxAdapter) *Block {
+func NewBlock(blockStore store.BlockStoreReader) *Block {
 	return &Block{
 		blockStore: blockStore,
-		adapter:    adapter,
 	}
 }
 
@@ -42,7 +40,7 @@ func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error
 	if b == nil {
 		return nil, ethereum.NotFound
 	}
-	txs, err := e.adapter(b.Txs)
+	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(b.Txs)
 	if err != nil {
 		return nil, fmt.Errorf("adapt cosmos txs: %v", err)
 	}
@@ -54,7 +52,7 @@ func (e *Block) GetBlockByHash(hash common.Hash, inclTx bool) (map[string]any, e
 	if block == nil {
 		return nil, ethereum.NotFound
 	}
-	txs, err := e.adapter(block.Txs)
+	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
 	if err != nil {
 		return nil, fmt.Errorf("adapt cosmos txs: %v", err)
 	}
