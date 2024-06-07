@@ -28,9 +28,11 @@ import (
 
 const artifactsDirectoryName = "artifacts"
 
-func openLogFile(t *testing.T, name string) *os.File {
-	file, err := os.OpenFile(filepath.Join(artifactsDirectoryName, name+".log"), os.O_CREATE|os.O_TRUNC|os.O_APPEND|os.O_WRONLY, 0o644)
+func openLogFile(t *testing.T, env *environment.Env, name string) *os.File {
+	filename := filepath.Join(artifactsDirectoryName, name+".log")
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_APPEND|os.O_WRONLY, 0o644)
 	require.NoError(t, err)
+	env.DeferErr("close log file: "+filename, file.Close)
 	return file
 }
 
@@ -49,22 +51,24 @@ func TestE2E(t *testing.T) {
 	monomerCometURL := newURL(t, "http://127.0.0.1:8890")
 	opNodeURL := newURL(t, "http://127.0.0.1:8891")
 
-	if err := os.Mkdir(artifactsDirectoryName, 0o755); !errors.Is(err, os.ErrExist) {
-		require.NoError(t, err)
-	}
-	opLogger := log.NewTerminalHandler(openLogFile(t, "op"), false)
-
 	env := environment.New()
 	defer func() {
 		require.NoError(t, env.Close())
 	}()
+
+	if err := os.Mkdir(artifactsDirectoryName, 0o755); !errors.Is(err, os.ErrExist) {
+		require.NoError(t, err)
+	}
+	opLogger := log.NewTerminalHandler(openLogFile(t, env, "op"), false)
+
 	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, contractsRootDir, l1BlockTime, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {
 			require.NoError(t, opLogger.Handle(context.Background(), r))
 		},
 		HandleCmdOutputCb: func(path string, stdout, stderr io.Reader) {
+			file := openLogFile(t, env, filepath.Base(path))
 			env.Go(func() {
-				_, err := io.Copy(openLogFile(t, filepath.Base(path)), io.MultiReader(stdout, stderr))
+				_, err := io.Copy(file, io.MultiReader(stdout, stderr))
 				require.NoError(t, err)
 			})
 		},
