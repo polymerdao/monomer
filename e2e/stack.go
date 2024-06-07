@@ -203,10 +203,6 @@ func (s *Stack) startCmd(cmd *exec.Cmd) error {
 }
 
 func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTime, chainIDU64 uint64) error {
-	engineHTTP, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		return fmt.Errorf("set up monomer engine http listener: %v", err)
-	}
 	engineWS, err := net.Listen("tcp", s.monomerEngineURL.Host())
 	if err != nil {
 		return fmt.Errorf("set up monomer engine ws listener: %v", err)
@@ -233,7 +229,6 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 			ChainID:  chainID,
 			Time:     genesisTime,
 		},
-		engineHTTP,
 		engineWS,
 		cometListener,
 		blockdb,

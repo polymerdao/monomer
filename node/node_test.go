@@ -20,8 +20,6 @@ import (
 
 func TestRun(t *testing.T) {
 	chainID := monomer.ChainID(0)
-	engineHTTP, err := net.Listen("tcp", "127.0.0.1:0")
-	require.NoError(t, err)
 	engineWS, err := net.Listen("tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	cometListener, err := net.Listen("tcp", "127.0.0.1:0")
@@ -45,7 +43,6 @@ func TestRun(t *testing.T) {
 			ChainID:  chainID,
 			AppState: testapp.MakeGenesisAppState(t, app),
 		},
-		engineHTTP,
 		engineWS,
 		cometListener,
 		blockdb,
@@ -70,7 +67,7 @@ func TestRun(t *testing.T) {
 	defer cancel()
 	require.NoError(t, n.Run(ctx, env))
 
-	client, err := rpc.DialContext(ctx, "http://"+engineHTTP.Addr().String())
+	client, err := rpc.DialContext(ctx, "ws://"+engineWS.Addr().String())
 	require.NoError(t, err)
 	defer client.Close()
 	ethClient := ethclient.NewClient(client)
