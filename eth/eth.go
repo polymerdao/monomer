@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer/app/peptide/store"
-    rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 // var errBlockNotFound = errors.New("block not found") // the op-node checks for this exact string.
