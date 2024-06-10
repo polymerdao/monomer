@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer/e2e/url"
@@ -95,6 +96,7 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 		ReceiptQueryInterval:      defaults.ReceiptQueryInterval,
 		TxNotInMempoolTimeout:     defaults.TxNotInMempoolTimeout,
 		SafeAbortNonceTooLowCount: defaults.SafeAbortNonceTooLowCount,
+		From:                      crypto.PubkeyToAddress(op.privKey.PublicKey),
 		Signer: func(ctx context.Context, address common.Address, tx *ethtypes.Transaction) (*ethtypes.Transaction, error) {
 			return opcrypto.PrivateKeySignerFn(op.privKey, l1ChainID)(address, tx)
 		},
