@@ -18,10 +18,7 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-          # Required when using setup-go@v5, which enables caching by default.
-          # https://github.com/golangci/golangci-lint-action/issues/677
-          cache: false
-      - uses: golangci/golangci-lint-action@v4
+      - uses: golangci/golangci-lint-action@v6
         with:
           version: v1.57.2
   proto:
