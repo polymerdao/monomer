@@ -35,16 +35,14 @@ type EventListener interface {
 }
 
 type Node struct {
-	app                        monomer.Application
-	genesis                    *genesis.Genesis
-	engineWS                   net.Listener
-	cometHTTPAndWS             net.Listener
-	blockdb                    dbm.DB
-	txdb                       cometdb.DB
-	mempooldb                  dbm.DB
-	adaptCosmosTxsToEthTxs     monomer.CosmosTxAdapter
-	adaptPayloadTxsToCosmosTxs monomer.PayloadTxAdapter
-	eventListener              EventListener
+	app            monomer.Application
+	genesis        *genesis.Genesis
+	engineWS       net.Listener
+	cometHTTPAndWS net.Listener
+	blockdb        dbm.DB
+	txdb           cometdb.DB
+	mempooldb      dbm.DB
+	eventListener  EventListener
 }
 
 func New(
@@ -55,21 +53,17 @@ func New(
 	blockdb,
 	mempooldb dbm.DB,
 	txdb cometdb.DB,
-	adaptCosmosTxsToEthTxs monomer.CosmosTxAdapter,
-	adaptPayloadTxsToCosmosTxs monomer.PayloadTxAdapter,
 	eventListener EventListener,
 ) *Node {
 	return &Node{
-		app:                        app,
-		genesis:                    g,
-		engineWS:                   engineWS,
-		cometHTTPAndWS:             cometHTTPAndWS,
-		blockdb:                    blockdb,
-		txdb:                       txdb,
-		mempooldb:                  mempooldb,
-		adaptCosmosTxsToEthTxs:     adaptCosmosTxsToEthTxs,
-		adaptPayloadTxsToCosmosTxs: adaptPayloadTxsToCosmosTxs,
-		eventListener:              eventListener,
+		app:            app,
+		genesis:        g,
+		engineWS:       engineWS,
+		cometHTTPAndWS: cometHTTPAndWS,
+		blockdb:        blockdb,
+		txdb:           txdb,
+		mempooldb:      mempooldb,
+		eventListener:  eventListener,
 	}
 }
 
@@ -94,8 +88,6 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 			Service: engine.NewEngineAPI(
 				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID),
 				n.app,
-				n.adaptPayloadTxsToCosmosTxs,
-				n.adaptCosmosTxsToEthTxs,
 				blockStore,
 			),
 		},
@@ -106,7 +98,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 				*eth.Block
 			}{
 				ChainID: eth.NewChainID(n.genesis.ChainID.HexBig()),
-				Block:   eth.NewBlock(blockStore, n.adaptCosmosTxsToEthTxs),
+				Block:   eth.NewBlock(blockStore),
 			},
 		},
 	} {

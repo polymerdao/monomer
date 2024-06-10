@@ -23,7 +23,6 @@ import (
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 const oneETH = uint64(1e18)
@@ -234,8 +233,6 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		blockdb,
 		mempooldb,
 		txdb,
-		rolluptypes.AdaptCosmosTxsToEthTxs,
-		rolluptypes.AdaptPayloadTxsToCosmosTxs,
 		s.eventListener,
 	)
 	if err := n.Run(ctx, env); err != nil {
