@@ -15,7 +15,7 @@ import (
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/builder"
-    rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type BlockStore interface {
@@ -42,9 +42,9 @@ func NewEngineAPI(
 	blockStore BlockStore,
 ) *EngineAPI {
 	return &EngineAPI{
-		txValidator:      txValidator,
-		blockStore:       blockStore,
-		builder:          b,
+		txValidator: txValidator,
+		blockStore:  blockStore,
+		builder:     b,
 	}
 }
 
@@ -254,7 +254,7 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 		log.Panicf("failed to commit block: %v", err) // TODO error handling. An error here is potentially a big problem.
 	}
 
-    txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
+	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
 	if err != nil {
 		return nil, engine.GenericServerError.With(fmt.Errorf("convert cosmos txs to eth txs: %v", err))
 	}

@@ -35,14 +35,14 @@ type EventListener interface {
 }
 
 type Node struct {
-	app                        monomer.Application
-	genesis                    *genesis.Genesis
-	engineWS                   net.Listener
-	cometHTTPAndWS             net.Listener
-	blockdb                    dbm.DB
-	txdb                       cometdb.DB
-	mempooldb                  dbm.DB
-	eventListener              EventListener
+	app            monomer.Application
+	genesis        *genesis.Genesis
+	engineWS       net.Listener
+	cometHTTPAndWS net.Listener
+	blockdb        dbm.DB
+	txdb           cometdb.DB
+	mempooldb      dbm.DB
+	eventListener  EventListener
 }
 
 func New(
@@ -56,14 +56,14 @@ func New(
 	eventListener EventListener,
 ) *Node {
 	return &Node{
-		app:                        app,
-		genesis:                    g,
-		engineWS:                   engineWS,
-		cometHTTPAndWS:             cometHTTPAndWS,
-		blockdb:                    blockdb,
-		txdb:                       txdb,
-		mempooldb:                  mempooldb,
-		eventListener:              eventListener,
+		app:            app,
+		genesis:        g,
+		engineWS:       engineWS,
+		cometHTTPAndWS: cometHTTPAndWS,
+		blockdb:        blockdb,
+		txdb:           txdb,
+		mempooldb:      mempooldb,
+		eventListener:  eventListener,
 	}
 }
 
