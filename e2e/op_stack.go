@@ -242,13 +242,17 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 }
 
 func (op *OPStack) newLogger(name string) log.Logger {
+	if name == "" {
+		panic("name needs to be a nonempty string")
+	}
 	return log.NewLogger(&logHandler{
 		eventListener: op.eventListener,
-	}).With("monomer-e2e-component", name)
+		name:          name,
+	})
 }
 
 type logHandler struct {
-	attrs         []slog.Attr
+	name          string
 	eventListener OPEventListener
 }
 
@@ -259,19 +263,14 @@ func (h *logHandler) Enabled(_ context.Context, _ slog.Level) bool {
 }
 
 func (h *logHandler) Handle(_ context.Context, r slog.Record) error { //nolint:gocritic // hugeParam
-	if h.attrs == nil {
-		h.eventListener.Log(r)
-	} else {
-		newRecord := r.Clone()
-		newRecord.AddAttrs(h.attrs...)
-		h.eventListener.Log(newRecord)
-	}
+	newRecord := r.Clone()
+	newRecord.Add("monomer-e2e-component", h.name)
+	h.eventListener.Log(newRecord)
 	return nil
 }
 
 // WithAttrs must not be called on multiple goroutines.
 func (h *logHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	h.attrs = attrs
 	return h
 }
 
