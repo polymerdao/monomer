@@ -269,10 +269,11 @@ func (h *logHandler) Handle(_ context.Context, r slog.Record) error { //nolint:g
 	return nil
 }
 
-// WithAttrs must not be called on multiple goroutines.
 func (h *logHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	h.attrs = attrs
-	return h
+	return &logHandler{
+		attrs:         append(h.attrs, attrs...),
+		eventListener: h.eventListener,
+	}
 }
 
 func (h *logHandler) WithGroup(name string) slog.Handler {
