@@ -2,19 +2,19 @@ package e2e
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 	"time"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
@@ -69,46 +69,52 @@ func New(
 }
 
 func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
-	// Run anvil.
-	anvilCmd := exec.CommandContext( //nolint:gosec
-		ctx,
-		"anvil",
-		"--port", s.anvilURL.Port(),
-		"--order", "fifo",
-		"--disable-block-gas-limit",
-		"--gas-price", "0",
-		"--block-time", fmt.Sprint(s.l1BlockTime.Seconds()),
-	)
-	anvilCmd.Cancel = func() error {
-		// Anvil can catch SIGTERMs. The exec package sends a SIGKILL by default.
-		return anvilCmd.Process.Signal(syscall.SIGTERM)
+	// configure & run L1
+
+	const l2ChainID = 901
+	const networkName = "hardhat"
+	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join(s.contractsRootDir, "deployments", networkName, ".deploy"))
+	if err != nil {
+		return fmt.Errorf("new l1 deployments: %v", err)
 	}
-	if err := s.startCmd(anvilCmd); err != nil {
-		return err
+	deployConfig, err := opgenesis.NewDeployConfigWithNetwork(networkName, filepath.Join(s.contractsRootDir, "deploy-config"))
+	if err != nil {
+		return fmt.Errorf("new deploy config: %v", err)
 	}
-	env.Go(func() {
-		if err := anvilCmd.Wait(); err != nil && !errors.Is(err, ctx.Err()) {
-			s.eventListener.OnAnvilErr(fmt.Errorf("run %s: %v", anvilCmd, err))
-		}
+	deployConfig.L1ChainID = 31337     // The file in the Optimism repo mistakenly sets the Hardhat L1 chain ID to 900.
+	deployConfig.L2ChainID = l2ChainID // Ensure Monomer and the deploy config are aligned.
+	deployConfig.SetDeployments(l1Deployments)
+
+	// Generate a deployer key pre-fund the account
+	deployerKey, err := crypto.GenerateKey()
+	if err != nil {
+		return fmt.Errorf("generate key: %v", err)
+	}
+	deployerAddr := crypto.PubkeyToAddress(deployerKey.PublicKey)
+	balance := big.NewInt(int64(oneETH))
+
+	var dump state.Dump
+
+	dump.Accounts = make(map[string]state.DumpAccount)
+	dump.OnAccount(&deployerAddr, state.DumpAccount{
+		Balance: balance.String(),
 	})
+
+	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, &dump, l1Deployments)
+	if err != nil {
+		return fmt.Errorf("build l1 developer genesis: %v", err)
+	}
+
+	l1client := ethdevnet(ctx, 0, uint64(s.l1BlockTime.Seconds()), l1genesis)
+
+	fmt.Println("l1client:", l1client)
+
 	// NOTE: should we set a timeout on the context? Might not be worth the complexity.
 	if !s.anvilURL.IsReachable(ctx) {
 		return nil
 	}
 
-	// Fund an account.
-	anvilRPCClient, err := rpc.DialContext(ctx, s.anvilURL.String())
-	if err != nil {
-		return fmt.Errorf("dial anvil: %v", err)
-	}
-	anvil := NewAnvilClient(anvilRPCClient)
-	privKey, err := crypto.GenerateKey()
-	if err != nil {
-		return fmt.Errorf("generate key: %v", err)
-	}
-	if err := anvil.SetBalance(ctx, crypto.PubkeyToAddress(privKey.PublicKey), 10*oneETH); err != nil { //nolint:gomnd
-		return fmt.Errorf("set balance: %v", err)
-	}
+	anvil := NewAnvilClient(l1client)
 
 	// Deploy the OP L1 contracts.
 	forgeCmd := exec.CommandContext( //nolint:gosec
@@ -120,7 +126,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		fmt.Sprintf("%s:Deploy", filepath.Join(s.contractsRootDir, "scripts", "Deploy.s.sol")),
 		"--rpc-url", s.anvilURL.String(),
 		"--broadcast",
-		"--private-key", common.Bytes2Hex(crypto.FromECDSA(privKey)),
+		"--private-key", common.Bytes2Hex(crypto.FromECDSA(deployerKey)),
 	)
 	if err := s.startCmd(forgeCmd); err != nil {
 		return err
@@ -134,7 +140,6 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	}
 
 	// Run Monomer.
-	const l2ChainID = 901
 	if err := s.runMonomer(ctx, env, latestL1Block.Time(), l2ChainID); err != nil {
 		return err
 	}
@@ -151,20 +156,6 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("get Monomer genesis block hash: %v", err)
 	}
 
-	// Get deploy config and rollup config.
-	// The Optimism repo only includes configs for Hardhat. Fortunately, Anvil is designed to be compatible and works fine here.
-	const networkName = "hardhat"
-	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join(s.contractsRootDir, "deployments", networkName, ".deploy"))
-	if err != nil {
-		return fmt.Errorf("new l1 deployments: %v", err)
-	}
-	deployConfig, err := opgenesis.NewDeployConfigWithNetwork(networkName, filepath.Join(s.contractsRootDir, "deploy-config"))
-	if err != nil {
-		return fmt.Errorf("new deploy config: %v", err)
-	}
-	deployConfig.L1ChainID = 31337     // The file in the Optimism repo mistakenly sets the Hardhat L1 chain ID to 900.
-	deployConfig.L2ChainID = l2ChainID // Ensure Monomer and the deploy config are aligned.
-	deployConfig.SetDeployments(l1Deployments)
 	rollupConfig, err := deployConfig.RollupConfig(latestL1Block, l2GenesisBlockHash, 1)
 	if err != nil {
 		return fmt.Errorf("new rollup config: %v", err)
@@ -175,7 +166,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		s.monomerEngineURL,
 		s.opNodeURL,
 		l1Deployments.L2OutputOracleProxy,
-		privKey,
+		deployerKey,
 		rollupConfig,
 		s.eventListener,
 	)

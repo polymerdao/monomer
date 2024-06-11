@@ -46,7 +46,7 @@ func TestE2E(t *testing.T) {
 	contractsRootDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/")
 	require.NoError(t, err)
 
-	l1URL := newURL(t, "ws://127.0.0.1:8888")
+	l1URL := newURL(t, "ws://127.0.0.1:8545")
 	monomerEngineURL := newURL(t, "ws://127.0.0.1:8889")
 	monomerCometURL := newURL(t, "http://127.0.0.1:8890")
 	opNodeURL := newURL(t, "http://127.0.0.1:8891")

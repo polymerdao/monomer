@@ -25,7 +25,7 @@ func NewAnvilClient(client *rpc.Client) *AnvilClient {
 }
 
 func (a *AnvilClient) SetBalance(ctx context.Context, account common.Address, balance uint64) error {
-	if err := a.client.CallContext(ctx, nil, "anvil_setBalance", account, hexutil.Uint64(balance)); err != nil {
+	if err := a.client.CallContext(ctx, nil, "hardhat_setBalance", account, hexutil.Uint64(balance)); err != nil {
 		return fmt.Errorf("%s, %d: %v", account, balance, err)
 	}
 	return nil
