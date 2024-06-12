@@ -85,7 +85,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	deployConfig.L2ChainID = l2ChainID // Ensure Monomer and the deploy config are aligned.
 	deployConfig.SetDeployments(l1Deployments)
 
-	// Generate a deployer key pre-fund the account
+	// Generate a deployer key and pre-fund the account
 	deployerKey, err := crypto.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("generate key: %v", err)
