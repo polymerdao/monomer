@@ -83,6 +83,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	}
 	deployConfig.L1ChainID = 31337     // The file in the Optimism repo mistakenly sets the Hardhat L1 chain ID to 900.
 	deployConfig.L2ChainID = l2ChainID // Ensure Monomer and the deploy config are aligned.
+
 	deployConfig.SetDeployments(l1Deployments)
 
 	// Generate a deployer key and pre-fund the account
@@ -106,16 +107,22 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client := ethdevnet(ctx, deployConfig.L1ChainID, uint64(s.l1BlockTime.Seconds()), l1genesis)
+	l1client, l1HTTPendpoint := ethdevnet(ctx, deployConfig.L1ChainID, uint64(s.l1BlockTime.Seconds()), l1genesis)
 
 	fmt.Println("l1client:", l1client)
 
-	// NOTE: should we set a timeout on the context? Might not be worth the complexity.
-	if !s.anvilURL.IsReachable(ctx) {
-		return nil
-	}
+	// url := l1client.
 
-	anvil := NewL1Client(l1client)
+	// NOTE: should we set a timeout on the context? Might not be worth the complexity.
+	// if !s.anvilURL.IsReachable(ctx) {
+	// 	return nil
+	// }
+
+	l1 := NewL1Client(l1client)
+
+	fmt.Println("running forge cmd for L1 at ", l1HTTPendpoint)
+	fmt.Println("prior rpc-url: ", s.anvilURL)
+	fmt.Println("contractsRoot: ", s.contractsRootDir)
 
 	// Deploy the OP L1 contracts.
 	forgeCmd := exec.CommandContext( //nolint:gosec
@@ -125,7 +132,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		"--root", s.contractsRootDir,
 		"-vvv",
 		fmt.Sprintf("%s:Deploy", filepath.Join(s.contractsRootDir, "scripts", "Deploy.s.sol")),
-		"--rpc-url", s.anvilURL.String(),
+		"--rpc-url", l1HTTPendpoint,
 		"--broadcast",
 		"--private-key", common.Bytes2Hex(crypto.FromECDSA(deployerKey)),
 	)
@@ -135,7 +142,9 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	if err := forgeCmd.Wait(); err != nil {
 		return fmt.Errorf("run %s: %v", forgeCmd, err)
 	}
-	latestL1Block, err := anvil.BlockByNumber(ctx, nil)
+	fmt.Println("forge cmd done")
+
+	latestL1Block, err := l1.BlockByNumber(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("get the latest l1 block: %v", err)
 	}
