@@ -73,7 +73,7 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 	if err != nil {
 		return fmt.Errorf("dial anvil: %v", err)
 	}
-	anvil := NewAnvilClient(anvilRPCClient)
+	anvil := NewL1Client(anvilRPCClient)
 
 	if err := op.runNode(ctx, env); err != nil {
 		return err

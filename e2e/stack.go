@@ -114,7 +114,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return nil
 	}
 
-	anvil := NewAnvilClient(l1client)
+	anvil := NewL1Client(l1client)
 
 	// Deploy the OP L1 contracts.
 	forgeCmd := exec.CommandContext( //nolint:gosec

@@ -11,13 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-type AnvilClient struct {
+type L1Client struct {
 	client *rpc.Client
 	*ethclient.Client
 }
 
-func NewAnvilClient(client *rpc.Client) *AnvilClient {
-	return &AnvilClient{
+func NewL1Client(client *rpc.Client) *L1Client {
+	return &L1Client{
 		client: client,
 		Client: ethclient.NewClient(client),
 	}
