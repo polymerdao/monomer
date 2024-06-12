@@ -91,11 +91,12 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("generate key: %v", err)
 	}
 	deployerAddr := crypto.PubkeyToAddress(deployerKey.PublicKey)
-	balance := big.NewInt(int64(oneETH))
+	balance := big.NewInt(0).Mul(big.NewInt(int64(oneETH)), big.NewInt(10))
 
-	var dump state.Dump
+	var dump state.Dump = state.Dump{
+		Accounts: make(map[string]state.DumpAccount),
+	}
 
-	dump.Accounts = make(map[string]state.DumpAccount)
 	dump.OnAccount(&deployerAddr, state.DumpAccount{
 		Balance: balance.String(),
 	})
