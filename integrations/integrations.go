@@ -1,6 +1,7 @@
 package integrations
 
 import (
+	"context"
 	"fmt"
 	"net"
 
@@ -11,6 +12,7 @@ import (
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/polymerdao/monomer"
+	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
@@ -23,10 +25,10 @@ func StartCommandHandler(
 	inProcessConsesus bool,
 	opts server.StartCmdOptions,
 ) error {
-    // We assume `inProcessConsensus` is true for now, so let's return an error if it's not.
-    if !inProcessConsesus {
-        return fmt.Errorf("in-process consensus must be enabled")
-    }
+	// We assume `inProcessConsensus` is true for now, so let's return an error if it's not.
+	if !inProcessConsesus {
+		return fmt.Errorf("in-process consensus must be enabled")
+	}
 
 	// --- Do the normal Cosmos SDK stuff ---
 	svrCfg, err := GetAndValidateConfig(svrCtx)
@@ -186,5 +188,14 @@ func startMonomerNode() (*node.Node, func(), error) {
 			},
 		},
 	)
+
+	nodeCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	env := environment.New()
+	env.Go(func() {
+		n.Run(nodeCtx, env)
+	})
+
 	return n, cleanupFn, nil
 }
