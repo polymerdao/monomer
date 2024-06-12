@@ -106,7 +106,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client := ethdevnet(ctx, 0, uint64(s.l1BlockTime.Seconds()), l1genesis)
+	l1client := ethdevnet(ctx, deployConfig.L1ChainID, uint64(s.l1BlockTime.Seconds()), l1genesis)
 
 	fmt.Println("l1client:", l1client)
 
