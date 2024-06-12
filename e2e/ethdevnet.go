@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func ethdevnet(_ context.Context, chainid uint64, blockTime uint64, genesis *core.Genesis) *rpc.Client {
+func ethdevnet(_ context.Context, chainid uint64, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string) {
 	now := time.Now().Unix()
 
 	tmpDir := "~/tmp"
@@ -23,14 +23,23 @@ func ethdevnet(_ context.Context, chainid uint64, blockTime uint64, genesis *cor
 	// geth.InitL1(0, 0, &core.Genesis{}, clock.NewSimpleClock(), t.TempDir())
 
 	myClock := clock.NewAdvancingClock(time.Millisecond * 500)
-	node, client, err := geth.InitL1(chainid, blockTime, genesis, myClock, tmpDir, beacon)
+	node, _, err := geth.InitL1(chainid, blockTime, genesis, myClock, tmpDir, beacon)
+	if err != nil {
+		panic(err)
+	}
 
-	fmt.Println("node service at: ", node.HTTPEndpoint())
+	err = node.Start()
+	if err != nil {
+		panic(err)
+	}
 
-	fmt.Println(client)
+	client := node.Attach()
+
+	fmt.Println("node service at: ", node.WSEndpoint())
 
 	if err != nil {
 		panic(err)
 	}
-	return node.Attach()
+
+	return client, node.WSEndpoint()
 }
