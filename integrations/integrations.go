@@ -97,11 +97,11 @@ func startInProcess(
 	} else {
 		svrCtx.Logger.Info("starting Monomer node in-process")
 		// Start the Monomer node
-		_, monomerCleanupFn, err := startMonomerNode()
+		monomerEnv := environment.New()
+		_, err := startMonomerNode(monomerEnv)
 		if err != nil {
 			return err
 		}
-		defer monomerCleanupFn()
 
 		// Add the tx service to the gRPC router. We only need to register this
 		// service if API or gRPC is enabled, and avoid doing so in the general
@@ -134,15 +134,15 @@ func startInProcess(
 }
 
 // Starts the Monomer node in-process in place of the Comet node.
-func startMonomerNode() (*node.Node, func(), error) {
+func startMonomerNode(env *environment.Env) (*node.Node, error) {
 	chainID := monomer.ChainID(1)
 	engineWS, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	cometListener, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	appdb := dbm.NewMemDB()
 
@@ -150,22 +150,12 @@ func startMonomerNode() (*node.Node, func(), error) {
 	// a testapp.App. How can I do this?
 	app, err := testapp.New(appdb, chainID.HexBig().String())
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	blockdb := dbm.NewMemDB()
 	txdb := cometdb.NewMemDB()
 	mempooldb := dbm.NewMemDB()
-
-	// Do we need this cleanup function?
-	cleanupFn := func() {
-		engineWS.Close()
-		cometListener.Close()
-		appdb.Close()
-		blockdb.Close()
-		txdb.Close()
-		mempooldb.Close()
-	}
 
 	n := node.New(
 		app,
@@ -192,10 +182,19 @@ func startMonomerNode() (*node.Node, func(), error) {
 	nodeCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	env := environment.New()
 	env.Go(func() {
 		n.Run(nodeCtx, env)
 	})
+	env.Defer(func() {
+		engineWS.Close()
+		cometListener.Close()
+		appdb.Close()
+		blockdb.Close()
+		txdb.Close()
+		mempooldb.Close()
+	})
 
-	return n, cleanupFn, nil
+	env.Close()
+
+	return n, nil
 }
