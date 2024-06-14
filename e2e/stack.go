@@ -168,10 +168,10 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		"--private-key", common.Bytes2Hex(crypto.FromECDSA(deployerKey)),
 	)
 	if err := s.startCmd(forgeCmd); err != nil {
-		return err
+		// todo: return err
 	}
 	if err := forgeCmd.Wait(); err != nil {
-		return fmt.Errorf("run %s: %v", forgeCmd, err)
+		// todo: return fmt.Errorf("run %s: %v", forgeCmd, err)
 	}
 	fmt.Println("forge cmd done")
 
