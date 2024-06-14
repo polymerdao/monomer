@@ -1,11 +1,16 @@
 package e2e
 
 import (
+	"bytes"
+	"compress/gzip"
 	"context"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
@@ -15,6 +20,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
@@ -132,6 +138,44 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	if err != nil {
 		return fmt.Errorf("get the latest l1 block: %v", err)
 	}
+
+	var dumpResult string
+	err = anvil.client.CallContext(ctx, &dumpResult, "anvil_dumpState")
+	if err != nil {
+		return fmt.Errorf("dump state: %v", err)
+	}
+
+	fmt.Println("result: ", dumpResult)
+
+	decoded, err := hex.DecodeString(dumpResult[2:])
+
+	if err != nil {
+		panic(err)
+	}
+
+	// fmt.Println("decoded: ", decoded)
+
+	zipReader, err := gzip.NewReader(bytes.NewReader(decoded))
+	if err != nil {
+		panic(err)
+	}
+	defer zipReader.Close()
+
+	unzipped, err := io.ReadAll(zipReader)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Println("unzipped: ", string(unzipped))
+
+	var dump state.Dump
+	err = json.Unmarshal(unzipped, &dump)
+	if err != nil {
+		panic(err)
+	}
+	fmt.Println("dump: ", dump)
+
+	os.Exit(0)
 
 	// Run Monomer.
 	const l2ChainID = 901
