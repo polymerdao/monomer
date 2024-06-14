@@ -18,6 +18,20 @@ type URL struct {
 	port uint16
 }
 
+func New(address string) (*URL, error) {
+	stdURL, err := url.Parse(address)
+	if err != nil {
+		return nil, err
+	}
+
+	resultURL, err := Parse(stdURL)
+	if err != nil {
+		return nil, err
+	}
+
+	return resultURL, nil
+}
+
 func Parse(stdURL *url.URL) (*URL, error) {
 	if stdURL == nil {
 		return nil, errors.New("url is nil")
