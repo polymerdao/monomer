@@ -27,7 +27,10 @@ func (wa *WrappedApplication) Commit(_ context.Context, _ *abcitypes.RequestComm
 	return wa.app.Commit()
 }
 
-func (wa *WrappedApplication) FinalizeBlock(_ context.Context, req *abcitypes.RequestFinalizeBlock) (*abcitypes.ResponseFinalizeBlock, error) {
+func (wa *WrappedApplication) FinalizeBlock(
+	_ context.Context,
+	req *abcitypes.RequestFinalizeBlock,
+) (*abcitypes.ResponseFinalizeBlock, error) {
 	return wa.app.FinalizeBlock(req)
 }
 

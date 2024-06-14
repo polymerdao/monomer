@@ -21,7 +21,7 @@ import (
 
 func StartCommandHandler(
 	svrCtx *server.Context,
-	clientCtx client.Context,
+	clientCtx client.Context, //nolint:gocritic // hugeParam
 	appCreator servertypes.AppCreator,
 	inProcessConsesus bool,
 	opts server.StartCmdOptions,
@@ -82,8 +82,8 @@ func startApp(
 // We modify this function to start a Monomer node in-process instead of a Comet node.
 func startInProcess(
 	svrCtx *server.Context,
-	svrCfg serverconfig.Config,
-	clientCtx client.Context,
+	svrCfg serverconfig.Config, //nolint:gocritic // hugeParam
+	clientCtx client.Context, //nolint:gocritic // hugeParam
 	app servertypes.Application,
 	opts server.StartCmdOptions,
 ) error {
@@ -104,16 +104,6 @@ func startInProcess(
 		if err != nil {
 			return err
 		}
-
-		// Add the tx service to the gRPC router. We only need to register this
-		// service if API or gRPC is enabled, and avoid doing so in the general
-		// case, because it spawns a new local CometBFT RPC client.
-		/* if svrCfg.API.Enable || svrCfg.GRPC.Enable {
-		    clientCtx = clientCtx.WithClient(local.New(tmNode))
-		    app.RegisterTxService(clientCtx)
-		    app.RegisterTendermintService(clientCtx)
-		    app.RegisterNodeService(clientCtx, svrCfg)
-		} */
 	}
 
 	grpcSrv, clientCtx, err := StartGrpcServer(ctx, g, svrCfg.GRPC, clientCtx, svrCtx, app)
@@ -143,7 +133,7 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 		return nil, err
 	}
 
-	cmtListenAddr := svrCtx.Config.P2P.ListenAddress
+	cmtListenAddr := svrCtx.Config.RPC.ListenAddress
 	cometListener, err := net.Listen("tcp", cmtListenAddr)
 	if err != nil {
 		return nil, err
@@ -176,12 +166,11 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 		mempooldb,
 		txdb,
 		&node.SelectiveListener{
-			// TODO: Remove this field from SelectiveListener
 			OnEngineHTTPServeErrCb: func(err error) {
-				fmt.Errorf("failed to serve engine HTTP: %w", err)
+				svrCtx.Logger.Error("failed to serve engine HTTP", "error", err)
 			},
 			OnEngineWebsocketServeErrCb: func(err error) {
-				fmt.Errorf("failed to serve engine websocket: %w", err)
+				svrCtx.Logger.Error("failed to serve engine websocket", "error", err)
 			},
 		},
 	)
@@ -190,7 +179,10 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	defer cancel()
 
 	env.Go(func() {
-		n.Run(nodeCtx, env)
+		err := n.Run(nodeCtx, env)
+		if err != nil {
+			svrCtx.Logger.Error("failed to run Monomer node", "error", err)
+		}
 	})
 	env.Defer(func() {
 		engineWS.Close()

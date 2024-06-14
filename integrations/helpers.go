@@ -60,13 +60,14 @@ func SetupTraceWriter(logger log.Logger, traceWriterFile string) (traceWriter io
 
 // See https://github.com/cosmos/cosmos-sdk/blob/7fb26685cd68a6c1d199dc270c80f49f2bfe7ace/server/util.go#L480
 func OpenTraceWriter(traceWriterFile string) (w io.WriteCloser, err error) {
+	const filePermission = 0o666
 	if traceWriterFile == "" {
 		return
 	}
 	return os.OpenFile(
 		traceWriterFile,
 		os.O_WRONLY|os.O_APPEND|os.O_CREATE,
-		0o666,
+		filePermission,
 	)
 }
 
@@ -83,7 +84,7 @@ func StartGrpcServer(
 	ctx context.Context,
 	g *errgroup.Group,
 	config serverconfig.GRPCConfig,
-	clientCtx client.Context,
+	clientCtx client.Context, //nolint:gocritic // hugeParam
 	svrCtx *server.Context,
 	app servertypes.Application,
 ) (*grpc.Server, client.Context, error) {
@@ -138,8 +139,8 @@ func StartGrpcServer(
 func StartAPIServer(
 	ctx context.Context,
 	g *errgroup.Group,
-	svrCfg serverconfig.Config,
-	clientCtx client.Context,
+	svrCfg serverconfig.Config, //nolint:gocritic // hugeParam
+	clientCtx client.Context, //nolint:gocritic // hugeParam
 	svrCtx *server.Context,
 	app servertypes.Application,
 	home string,
