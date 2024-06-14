@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"os"
 	"os/exec"
 	"path/filepath"
 	"syscall"
@@ -169,13 +168,16 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	fmt.Println("unzipped: ", string(unzipped))
 
 	var dump state.Dump
+	// var dump opgenesis.ForgeDump
 	err = json.Unmarshal(unzipped, &dump)
+	// err = dump.UnmarshalJSON(unzipped)
+
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("dump: ", dump)
 
-	os.Exit(0)
+	// os.Exit(0)
 
 	// Run Monomer.
 	const l2ChainID = 901
