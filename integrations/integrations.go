@@ -2,6 +2,7 @@ package integrations
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
 
@@ -11,11 +12,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/server"
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
+	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
-	"github.com/polymerdao/monomer/testapp"
 )
 
 func StartCommandHandler(
@@ -98,7 +99,8 @@ func startInProcess(
 		svrCtx.Logger.Info("starting Monomer node in-process")
 		// Start the Monomer node
 		monomerEnv := environment.New()
-		_, err := startMonomerNode(monomerEnv)
+		wrappedApp := &WrappedApplication{app}
+		_, err := startMonomerNode(wrappedApp, monomerEnv, svrCtx)
 		if err != nil {
 			return err
 		}
@@ -134,34 +136,39 @@ func startInProcess(
 }
 
 // Starts the Monomer node in-process in place of the Comet node.
-func startMonomerNode(env *environment.Env) (*node.Node, error) {
+func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrCtx *server.Context) (*node.Node, error) {
 	chainID := monomer.ChainID(1)
 	engineWS, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
 		return nil, err
 	}
-	cometListener, err := net.Listen("tcp", "127.0.0.1:0")
+
+	cmtListenAddr := svrCtx.Config.P2P.ListenAddress
+	cometListener, err := net.Listen("tcp", cmtListenAddr)
 	if err != nil {
 		return nil, err
 	}
+
 	appdb := dbm.NewMemDB()
-
-	// We obviously need to replace this with an actual Monomer Application, not
-	// a testapp.App. How can I do this?
-	app, err := testapp.New(appdb, chainID.HexBig().String())
-	if err != nil {
-		return nil, err
-	}
-
 	blockdb := dbm.NewMemDB()
 	txdb := cometdb.NewMemDB()
 	mempooldb := dbm.NewMemDB()
 
+	appGenesis, err := genutiltypes.AppGenesisFromFile(svrCtx.Config.GenesisFile())
+	if err != nil {
+		return nil, err
+	}
+
+	var appState map[string]json.RawMessage
+	if err := json.Unmarshal(appGenesis.AppState, &appState); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal app state: %w", err)
+	}
+
 	n := node.New(
-		app,
+		wrappedApp,
 		&genesis.Genesis{
 			ChainID:  chainID,
-			AppState: app.DefaultGenesis(),
+			AppState: appState,
 		},
 		engineWS,
 		cometListener,
