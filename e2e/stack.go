@@ -102,6 +102,16 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("dial anvil: %v", err)
 	}
 	anvil := NewAnvilClient(anvilRPCClient)
+
+	var result *[]state.Dump
+	err = anvil.client.CallContext(ctx, result, "anvil_dumpState")
+	if err != nil {
+		return fmt.Errorf("dump state: %v", err)
+	}
+
+	fmt.Println("result: ", result)
+	os.Exit(0)
+
 	privKey, err := crypto.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("generate key: %v", err)
