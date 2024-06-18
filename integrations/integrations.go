@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"strings"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
@@ -17,6 +18,7 @@ import (
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
+	"github.com/spf13/viper"
 )
 
 func StartCommandHandler(
@@ -134,6 +136,8 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	}
 
 	cmtListenAddr := svrCtx.Config.RPC.ListenAddress
+	svrCtx.Logger.Info("starting CometBFT listener on", "address", cmtListenAddr)
+	cmtListenAddr = strings.TrimPrefix(cmtListenAddr, "tcp://")
 	cometListener, err := net.Listen("tcp", cmtListenAddr)
 	if err != nil {
 		return nil, err
@@ -144,13 +148,18 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	txdb := cometdb.NewMemDB()
 	mempooldb := dbm.NewMemDB()
 
-	appGenesis, err := genutiltypes.AppGenesisFromFile(svrCtx.Config.GenesisFile())
+	monomerGenesisPath := viper.GetString("monomer-genesis-path")
+	svrCtx.Logger.Info("loading Monomer genesis from", "path", monomerGenesisPath)
+
+	appGenesis, err := genutiltypes.AppGenesisFromFile(monomerGenesisPath)
 	if err != nil {
+		svrCtx.Logger.Error("failed to load Monomer genesis", "error", err)
 		return nil, err
 	}
 
 	var appState map[string]json.RawMessage
 	if err := json.Unmarshal(appGenesis.AppState, &appState); err != nil {
+		svrCtx.Logger.Error("failed to unmarshal app state", "error", err)
 		return nil, fmt.Errorf("failed to unmarshal app state: %w", err)
 	}
 
