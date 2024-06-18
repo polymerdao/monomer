@@ -29,7 +29,7 @@ func mockAppCreator(
 	_ io.Writer,
 	_ servertypes.AppOptions,
 ) servertypes.Application {
-	app, err := testapp.New(db, "testapp")
+	app, err := testapp.New(db, "1")
 	if err != nil {
 		panic(err)
 	}
