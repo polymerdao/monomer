@@ -4,8 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
+	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
@@ -21,6 +25,12 @@ import (
 	"github.com/spf13/viper"
 )
 
+// -- Start Monomer
+// -- Start Application
+
+// TODO:
+// -- Don't worry about: traceWriter, grpc server, api server
+
 func StartCommandHandler(
 	svrCtx *server.Context,
 	clientCtx client.Context, //nolint:gocritic // hugeParam
@@ -33,87 +43,91 @@ func StartCommandHandler(
 		return fmt.Errorf("in-process consensus must be enabled")
 	}
 
+	env := environment.New()
+	defer func() {
+		if closeErr := env.Close(); closeErr != nil {
+			svrCtx.Logger.Error(closeErr.Error())
+		}
+	}()
+
 	// --- Do the normal Cosmos SDK stuff ---
-	svrCfg, err := GetAndValidateConfig(svrCtx)
+	svrCfg, err := getAndValidateConfig(svrCtx)
 	if err != nil {
 		return fmt.Errorf("failed to get and validate server config: %w", err)
 	}
 
-	app, appCleanupFn, err := startApp(svrCtx, appCreator, opts)
+	app, err := startApp(env, svrCtx, appCreator, opts)
 	if err != nil {
 		return fmt.Errorf("failed to start application: %w", err)
 	}
-	defer appCleanupFn()
 
 	// Would usually start a Comet node in-process here, but we replace the
 	// Comet node with a Monomer node.
-	return startInProcess(svrCtx, svrCfg, clientCtx, app, opts)
+	if err := startInProcess(env, svrCtx, svrCfg, clientCtx, app, opts); err != nil {
+		svrCtx.Logger.Error("failed to start Monomer node in-process", "error", err)
+		return fmt.Errorf("failed to start Monomer node in-process: %w", err)
+	}
+
+	sigCh := make(chan os.Signal, 1)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	<-sigCh
+
+	return nil
+}
+
+var _ io.WriteCloser = (*fakeTraceWriter)(nil)
+
+type fakeTraceWriter struct{}
+
+func (f *fakeTraceWriter) Write([]byte) (int, error) {
+	return 0, nil
+}
+
+func (f *fakeTraceWriter) Close() error {
+	return nil
 }
 
 // See https://github.com/cosmos/cosmos-sdk/blob/7fb26685cd68a6c1d199dc270c80f49f2bfe7ace/server/start.go#L624
 func startApp(
+	env *environment.Env,
 	svrCtx *server.Context,
 	appCreator servertypes.AppCreator,
 	opts server.StartCmdOptions,
-) (app servertypes.Application, cleanupFn func(), err error) {
-	traceWriter, traceCleanupFn, err := SetupTraceWriter(svrCtx.Logger, svrCtx.Viper.GetString(FlagTraceStore))
-	if err != nil {
-		return app, cleanupFn, err
-	}
-
+) (app servertypes.Application, err error) {
 	home := svrCtx.Config.RootDir
 	db, err := opts.DBOpener(home, server.GetAppDBBackend(svrCtx.Viper))
 	if err != nil {
-		return app, cleanupFn, err
+		return app, err
 	}
 
 	// TODO: Check if is testnet and implement `testnetify` function
 
-	app = appCreator(svrCtx.Logger, db, traceWriter, svrCtx.Viper)
-	cleanupFn = func() {
-		traceCleanupFn()
+	app = appCreator(svrCtx.Logger, db, &fakeTraceWriter{}, svrCtx.Viper)
+	env.Defer(func() {
 		if localErr := app.Close(); localErr != nil {
 			svrCtx.Logger.Error(localErr.Error())
 		}
-	}
+	})
 
-	return app, cleanupFn, nil
+	return app, nil
 }
 
 // See https://github.com/cosmos/cosmos-sdk/blob/7fb26685cd68a6c1d199dc270c80f49f2bfe7ace/server/start.go#L307
 // We modify this function to start a Monomer node in-process instead of a Comet node.
 func startInProcess(
+	env *environment.Env,
 	svrCtx *server.Context,
-	svrCfg serverconfig.Config, //nolint:gocritic // hugeParam
+	_ serverconfig.Config, //nolint:gocritic // hugeParam
 	clientCtx client.Context, //nolint:gocritic // hugeParam
 	app servertypes.Application,
 	opts server.StartCmdOptions,
 ) error {
-	cmtCfg := svrCtx.Config
-	gRPCOnly := svrCtx.Viper.GetBool(FlagGRPCOnly)
+	g, ctx := getCtx(svrCtx, true)
 
-	g, ctx := GetCtx(svrCtx, true)
-
-	if gRPCOnly {
-		svrCtx.Logger.Info("starting node in gRPC only mode; Monomer is disabled")
-		svrCfg.GRPC.Enable = true
-	} else {
-		svrCtx.Logger.Info("starting Monomer node in-process")
-		// Start the Monomer node
-		monomerEnv := environment.New()
-		wrappedApp := &WrappedApplication{app}
-		_, err := startMonomerNode(wrappedApp, monomerEnv, svrCtx)
-		if err != nil {
-			return err
-		}
-	}
-
-	grpcSrv, clientCtx, err := StartGrpcServer(ctx, g, svrCfg.GRPC, clientCtx, svrCtx, app)
-	if err != nil {
-		return err
-	}
-
-	err = StartAPIServer(ctx, g, svrCfg, clientCtx, svrCtx, app, cmtCfg.RootDir, grpcSrv)
+	svrCtx.Logger.Info("starting Monomer node in-process")
+	// Start the Monomer node
+	wrappedApp := &WrappedApplication{app}
+	_, err := startMonomerNode(wrappedApp, env, svrCtx)
 	if err != nil {
 		return err
 	}
@@ -158,10 +172,12 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	}
 
 	var appState map[string]json.RawMessage
+	svrCtx.Logger.Info("unmarshalling app state: ", "appState", appGenesis.AppState)
 	if err := json.Unmarshal(appGenesis.AppState, &appState); err != nil {
 		svrCtx.Logger.Error("failed to unmarshal app state", "error", err)
 		return nil, fmt.Errorf("failed to unmarshal app state: %w", err)
 	}
+	svrCtx.Logger.Info("app state unmarshalled: ", "appState", appState)
 
 	n := node.New(
 		wrappedApp,
@@ -181,8 +197,13 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 			OnEngineWebsocketServeErrCb: func(err error) {
 				svrCtx.Logger.Error("failed to serve engine websocket", "error", err)
 			},
+			OnCometServeErrCb: func(err error) {
+				svrCtx.Logger.Error("failed to serve CometBFT", "error", err)
+			},
 		},
 	)
+
+	svrCtx.Logger.Info("created Monomer node: ", "node", n)
 
 	nodeCtx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -192,6 +213,7 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 		if err != nil {
 			svrCtx.Logger.Error("failed to run Monomer node", "error", err)
 		}
+		svrCtx.Logger.Info("running Monomer node: ", "node", n)
 	})
 	env.Defer(func() {
 		engineWS.Close()
@@ -201,8 +223,6 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 		txdb.Close()
 		mempooldb.Close()
 	})
-
-	env.Close()
 
 	return n, nil
 }
