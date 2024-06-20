@@ -3,7 +3,8 @@ package integrations
 import (
 	"context"
 	"io"
-	"net/url"
+	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +21,6 @@ import (
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/gogoproto/grpc"
-	e2eurl "github.com/polymerdao/monomer/e2e/url"
 	testapp "github.com/polymerdao/monomer/testapp"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -44,7 +44,10 @@ func mockAppCreator(
 // Unit test for Monomer's custom `StartCommandHandler` callback
 func TestStartCommandHandler(t *testing.T) {
 	svrCtx := server.NewDefaultContext()
+
+	// This flag must be set, because by default it's set to ""
 	svrCtx.Viper.Set("minimum-gas-prices", "0.025stake")
+	// This flag must be set to load the Monomer genesis file
 	viper.Set("monomer-genesis-path", "./testdata/genesis.json")
 
 	clientCtx := client.Context{}
@@ -55,28 +58,39 @@ func TestStartCommandHandler(t *testing.T) {
 		},
 	}
 
+	cmtListenAddr := svrCtx.Config.RPC.ListenAddress
+	cmtListenAddr = strings.TrimPrefix(cmtListenAddr, "tcp://")
+
 	go func() {
 		err := StartCommandHandler(svrCtx, clientCtx, mockAppCreator, inProcessConsensus, opts)
 		require.NoError(t, err)
 	}()
 	time.Sleep(1 * time.Second)
 
-	// --- Submit a Monomer Tx ---
-	monomerCometURL := newURL(t, "http://127.0.0.1:26657")
-	bftClient, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
-	require.NoError(t, err)
+	// --- Ensure Monomer has an active CometBFT listener ---
+	if conn, err := net.Dial("tcp", cmtListenAddr); err != nil {
+		svrCtx.Logger.Error("failed to dial CometBFT", "error", err)
+		panic(err)
+	} else {
+		conn.Close()
+	}
+
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// --- Submit a Monomer Tx ---
+	bftClient, err := bftclient.New("http://"+cmtListenAddr, "http://"+cmtListenAddr)
+	require.NoError(t, err, "could not create CometBFT client")
+	svrCtx.Logger.Info("CometBFT client created", "bftClient", bftClient)
+
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
-	t.Log("submitting Monomer Tx to CometBFT...", bftTx)
+
 	putTx, err := bftClient.BroadcastTxAsync(ctx, txBytes)
-	require.NoError(t, err)
-	t.Log("Monomer Tx broadcasted to CometBFT", putTx)
+	require.NoError(t, err, "could not broadcast tx")
 	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
 	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash is not equal to bftTx.Hash")
-	t.Log("Monomer Tx submitted to CometBFT successfully")
+	svrCtx.Logger.Info("Monomer Tx broadcasted successfully", "txHash", putTx.Hash)
 }
 
 // Wrapper around `testapp.App` to satisfy the `ABCI` and `servertypes.Application` interfaces
@@ -170,12 +184,4 @@ func (w *WrappedTestApp) Close() error {
 
 func (w *WrappedTestApp) CommitMultiStore() storetypes.CommitMultiStore {
 	panic("not implemented")
-}
-
-func newURL(t *testing.T, address string) *e2eurl.URL {
-	stdURL, err := url.Parse(address)
-	require.NoError(t, err)
-	resultURL, err := e2eurl.Parse(stdURL)
-	require.NoError(t, err)
-	return resultURL
 }

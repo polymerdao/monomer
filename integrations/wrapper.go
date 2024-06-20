@@ -7,6 +7,9 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 )
 
+// A wrapper around `servertypes.Application` that reconciles discrepancies
+// between the Monomer and Comet SDKs. Specifically, the differences that this
+// wrapper reconciles are in their function signatures on the `ABCI` interface.
 type WrappedApplication struct {
 	app servertypes.Application
 }
