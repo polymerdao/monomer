@@ -122,12 +122,12 @@ func startInProcess(
 	wrappedApp := &WrappedApplication{app}
 	_, err := startMonomerNode(wrappedApp, env, svrCtx)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to start Monomer node: %v", err)
 	}
 
 	if opts.PostSetup != nil {
 		if err := opts.PostSetup(svrCtx, clientCtx, ctx, g); err != nil {
-			return err
+			return fmt.Errorf("failed to run post setup: %v", err)
 		}
 	}
 
@@ -147,7 +147,7 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	cmtListenAddr = strings.TrimPrefix(cmtListenAddr, "tcp://")
 	cometListener, err := net.Listen("tcp", cmtListenAddr)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create CometBFT listener: %v", err)
 	}
 
 	appdb := dbm.NewMemDB()
@@ -170,7 +170,7 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	var appState map[string]json.RawMessage
 	if err := json.Unmarshal(appGenesis.AppState, &appState); err != nil {
 		svrCtx.Logger.Error("Failed to unmarshal app state", "error", err)
-		return nil, fmt.Errorf("failed to unmarshal app state: %w", err)
+		return nil, fmt.Errorf("failed to unmarshal app state: %v", err)
 	}
 
 	n := node.New(
@@ -203,7 +203,7 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 
 	nodeErr := n.Run(nodeCtx, env)
 	if nodeErr != nil {
-		svrCtx.Logger.Error("Failed to run Monomer node", "error", err)
+		return nil, fmt.Errorf("failed to run Monomer node: %v", nodeErr)
 	}
 
 	svrCtx.Logger.Info("Monomer started w/ CometBFT listener on", "address", cometListener.Addr())
