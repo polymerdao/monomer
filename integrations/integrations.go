@@ -44,7 +44,6 @@ func StartCommandHandler(
 		}
 	}()
 
-	// --- Do the normal Cosmos SDK stuff ---
 	svrCfg, err := serverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
 		return fmt.Errorf("failed to get server config: %w", err)
@@ -202,7 +201,6 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	nodeCtx, nodeCtxCancel := context.WithCancel(context.Background())
 	env.Defer(nodeCtxCancel)
 
-	// --- Run Monomer ---
 	nodeErr := n.Run(nodeCtx, env)
 	if nodeErr != nil {
 		svrCtx.Logger.Error("Failed to run Monomer node", "error", err)
@@ -210,7 +208,6 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 
 	svrCtx.Logger.Info("Monomer started w/ CometBFT listener on", "address", cometListener.Addr())
 
-	// --- Cleanup ---
 	env.Defer(func() {
 		engineWS.Close()
 		cometListener.Close()
