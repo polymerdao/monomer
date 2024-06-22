@@ -39,15 +39,18 @@ func StartCommandHandler(
 
 	env := environment.New()
 	defer func() {
-		if closeErr := env.Close(); closeErr != nil {
-			svrCtx.Logger.Error(closeErr.Error())
+		if err := env.Close(); err != nil {
+			svrCtx.Logger.Error("Failed to close environment", "err", err)
 		}
 	}()
 
 	// --- Do the normal Cosmos SDK stuff ---
-	svrCfg, err := getAndValidateConfig(svrCtx)
+	svrCfg, err := serverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
-		return fmt.Errorf("failed to get and validate server config: %w", err)
+		return fmt.Errorf("failed to get server config: %w", err)
+	}
+	if err := svrCfg.ValidateBasic(); err != nil {
+		return fmt.Errorf("failed to validate server config: %w", err)
 	}
 
 	app, err := startApp(env, svrCtx, appCreator, opts)
@@ -57,7 +60,7 @@ func StartCommandHandler(
 
 	// Would usually start a Comet node in-process here, but we replace the
 	// Comet node with a Monomer node.
-	if err := startInProcess(env, svrCtx, svrCfg, clientCtx, app, opts); err != nil {
+	if err := startInProcess(env, svrCtx, clientCtx, app, opts); err != nil {
 		svrCtx.Logger.Error("failed to start Monomer node in-process", "error", err)
 		return fmt.Errorf("failed to start Monomer node in-process: %w", err)
 	}
@@ -88,10 +91,9 @@ func startApp(
 	appCreator servertypes.AppCreator,
 	opts server.StartCmdOptions,
 ) (app servertypes.Application, err error) {
-	home := svrCtx.Config.RootDir
-	db, err := opts.DBOpener(home, server.GetAppDBBackend(svrCtx.Viper))
+	db, err := opts.DBOpener(svrCtx.Config.RootDir, server.GetAppDBBackend(svrCtx.Viper))
 	if err != nil {
-		return app, err
+		return app, fmt.Errorf("open db: %v", err)
 	}
 
 	// TODO: Check if is testnet and implement `testnetify` function
@@ -111,15 +113,13 @@ func startApp(
 func startInProcess(
 	env *environment.Env,
 	svrCtx *server.Context,
-	_ serverconfig.Config, //nolint:gocritic // hugeParam
 	clientCtx client.Context, //nolint:gocritic // hugeParam
 	app servertypes.Application,
 	opts server.StartCmdOptions,
 ) error {
 	g, ctx := getCtx(svrCtx, true)
 
-	svrCtx.Logger.Info("starting Monomer node in-process")
-	// --- Start the Monomer node ---
+	svrCtx.Logger.Info("Starting Monomer node in-process")
 	wrappedApp := &WrappedApplication{app}
 	_, err := startMonomerNode(wrappedApp, env, svrCtx)
 	if err != nil {
@@ -138,11 +138,10 @@ func startInProcess(
 // Starts the Monomer node in-process in place of the Comet node. The
 // `MonomerGenesisPath` flag must be set in viper before invoking this.
 func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrCtx *server.Context) (*node.Node, error) {
-	// --- Bootstrap listeners and DBs ---
 	chainID := monomer.ChainID(1)
 	engineWS, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("create Engine websocket listener: %v", err)
 	}
 
 	cmtListenAddr := svrCtx.Config.RPC.ListenAddress
@@ -153,27 +152,28 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	}
 
 	appdb := dbm.NewMemDB()
+	env.DeferErr("close app db", appdb.Close)
 	blockdb := dbm.NewMemDB()
+	env.DeferErr("close block db", blockdb.Close)
 	txdb := cometdb.NewMemDB()
+	env.DeferErr("close tx db", txdb.Close)
 	mempooldb := dbm.NewMemDB()
+	env.DeferErr("close mempool db", mempooldb.Close)
 
-	// --- Load Monomer genesis doc ---
 	monomerGenesisPath := viper.GetString("monomer-genesis-path")
-	svrCtx.Logger.Info("loading Monomer genesis from", "path", monomerGenesisPath)
+	svrCtx.Logger.Info("Loading Monomer genesis from", "path", monomerGenesisPath)
 
 	appGenesis, err := genutiltypes.AppGenesisFromFile(monomerGenesisPath)
 	if err != nil {
-		svrCtx.Logger.Error("failed to load Monomer genesis", "error", err)
-		return nil, err
+		return nil, fmt.Errorf("load application genesis file: %v", err)
 	}
 
 	var appState map[string]json.RawMessage
 	if err := json.Unmarshal(appGenesis.AppState, &appState); err != nil {
-		svrCtx.Logger.Error("failed to unmarshal app state", "error", err)
+		svrCtx.Logger.Error("Failed to unmarshal app state", "error", err)
 		return nil, fmt.Errorf("failed to unmarshal app state: %w", err)
 	}
 
-	// --- Create a Monomer node ---
 	n := node.New(
 		wrappedApp,
 		&genesis.Genesis{
@@ -187,32 +187,25 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 		txdb,
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
-				svrCtx.Logger.Error("failed to serve engine HTTP", "error", err)
+				svrCtx.Logger.Error("[Engine HTTP Server]", "error", err)
 			},
 			OnEngineWebsocketServeErrCb: func(err error) {
-				svrCtx.Logger.Error("failed to serve engine websocket", "error", err)
+				svrCtx.Logger.Error("[Engine Websocket]", "error", err)
 			},
 			OnCometServeErrCb: func(err error) {
-				svrCtx.Logger.Error("failed to serve CometBFT", "error", err)
+				svrCtx.Logger.Error("[CometBFT]", "error", err)
 			},
 		},
 	)
-	svrCtx.Logger.Info("spinning up Monomer node")
+	svrCtx.Logger.Info("Spinning up Monomer node")
 
 	nodeCtx, nodeCtxCancel := context.WithCancel(context.Background())
+	env.Defer(nodeCtxCancel)
 
 	// --- Run Monomer ---
 	nodeErr := n.Run(nodeCtx, env)
 	if nodeErr != nil {
-		svrCtx.Logger.Error("failed to run Monomer node", "error", err)
-	}
-
-	// --- Check if CometBFT listener is up ---
-	if conn, err := net.Dial("tcp", cmtListenAddr); err != nil {
-		svrCtx.Logger.Error("failed to dial CometBFT", "error", err)
-	} else {
-		svrCtx.Logger.Info("dialing CometBFT succeeded at", "address", cmtListenAddr)
-		conn.Close()
+		svrCtx.Logger.Error("Failed to run Monomer node", "error", err)
 	}
 
 	svrCtx.Logger.Info("Monomer started w/ CometBFT listener on", "address", cometListener.Addr())
@@ -221,11 +214,6 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	env.Defer(func() {
 		engineWS.Close()
 		cometListener.Close()
-		appdb.Close()
-		blockdb.Close()
-		txdb.Close()
-		mempooldb.Close()
-		nodeCtxCancel()
 	})
 
 	return n, nil
