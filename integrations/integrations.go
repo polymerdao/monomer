@@ -25,15 +25,17 @@ import (
 	"github.com/spf13/viper"
 )
 
+// StartCommandHandler is a custom callback that overrides the default `start` function in the Cosmos
+// SDK. It starts a Monomer node in-process instead of a CometBFT node.
 func StartCommandHandler(
 	svrCtx *server.Context,
 	clientCtx client.Context, //nolint:gocritic // hugeParam
 	appCreator servertypes.AppCreator,
-	inProcessConsesus bool,
+	inProcessConsensus bool,
 	opts server.StartCmdOptions,
 ) error {
 	// We assume `inProcessConsensus` is true for now, so let's return an error if it's not.
-	if !inProcessConsesus {
+	if !inProcessConsensus {
 		return fmt.Errorf("in-process consensus must be enabled")
 	}
 
