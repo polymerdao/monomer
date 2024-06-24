@@ -18,7 +18,7 @@ func ethdevnet(_ context.Context, blockTime uint64, genesis *core.Genesis) (*rpc
 	blobsDirectory := filepath.Join("artifacts", "blobs")
 
 	beacon := fakebeacon.NewBeacon(nil, blobsDirectory, uint64(now), blockTime)
-	myClock := clock.NewAdvancingClock(time.Millisecond * 500)
+	myClock := clock.NewAdvancingClock(time.Second / 2)
 	node, _, err := geth.InitL1(
 		genesis.Config.ChainID.Uint64(),
 		blockTime,
