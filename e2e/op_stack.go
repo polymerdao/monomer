@@ -73,7 +73,7 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 	if err != nil {
 		return fmt.Errorf("dial anvil: %v", err)
 	}
-	anvil := NewL1Client(anvilRPCClient)
+	l1 := NewL1Client(anvilRPCClient)
 
 	if err := op.runNode(ctx, env); err != nil {
 		return err
@@ -81,12 +81,12 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 
 	// Use the same tx manager config for the op-proposer and op-batcher.
 	defaults := txmgr.DefaultBatcherFlagValues
-	l1ChainID, err := anvil.ChainID(ctx)
+	l1ChainID, err := l1.ChainID(ctx)
 	if err != nil {
 		return fmt.Errorf("get l1 chain id: %v", err)
 	}
 	txManagerConfig := &txmgr.Config{
-		Backend:                   anvil,
+		Backend:                   l1,
 		ChainID:                   l1ChainID,
 		NumConfirmations:          defaults.NumConfirmations,
 		NetworkTimeout:            defaults.NetworkTimeout,
@@ -100,11 +100,11 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 		},
 	}
 
-	if err := op.runProposer(ctx, env, anvil, txManagerConfig); err != nil {
+	if err := op.runProposer(ctx, env, l1, txManagerConfig); err != nil {
 		return err
 	}
 
-	if err := op.runBatcher(ctx, env, anvil, txManagerConfig); err != nil {
+	if err := op.runBatcher(ctx, env, l1, txManagerConfig); err != nil {
 		return err
 	}
 	return nil
