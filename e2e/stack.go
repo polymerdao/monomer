@@ -24,8 +24,6 @@ import (
 	"github.com/polymerdao/monomer/testapp"
 )
 
-const oneETH = uint64(1e18)
-
 type EventListener interface {
 	OPEventListener
 	node.EventListener
