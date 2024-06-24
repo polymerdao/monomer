@@ -1,15 +1,12 @@
 package e2e
 
 import (
-	"bytes"
-	"compress/gzip"
 	"context"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
-	"math/big"
 	"net"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"time"
@@ -17,7 +14,6 @@ import (
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -77,7 +73,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 
 	const l2ChainID = 901
 	const networkName = "hardhat"
-	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join(s.contractsRootDir, "deployments", networkName, ".deploy"))
+	l1Deployments, err := opgenesis.NewL1Deployments("optimism/.devnet/addresses.json")
 	if err != nil {
 		return fmt.Errorf("new l1 deployments: %v", err)
 	}
@@ -96,33 +92,21 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("generate key: %v", err)
 	}
 
-
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Println("decoded: ", decoded)
-
-	zipReader, err := gzip.NewReader(bytes.NewReader(decoded))
-	if err != nil {
-		panic(err)
-	}
-	defer zipReader.Close()
-
-	unzipped, err := io.ReadAll(zipReader)
-	if err != nil {
-		panic(err)
-	}
-
 	var dump state.Dump
-	err = json.Unmarshal(unzipped, &dump)
-	if err != nil {
-		return fmt.Errorf("unmarshal dump: %v", err)
-	}
 
-	dump.OnAccount(&deployerAddr, state.DumpAccount{
-		Balance: balance.String(),
-	})
+	l1StateJSON, err := os.ReadFile("optimism/.devnet/allocs-l1.json")
+	if err != nil {
+		// check if not found
+		if os.IsNotExist(err) {
+			panic("allocs-l1.json not found - run `make setup-e2e` from project root")
+		} else {
+			panic(fmt.Errorf("read allocs-l1.json: %v", err))
+		}
+	}
+	err = json.Unmarshal(l1StateJSON, &dump)
+	if err != nil {
+		panic(err)
+	}
 
 	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, &dump, l1Deployments)
 	if err != nil {
@@ -137,17 +121,13 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("new l1 url: %v", err)
 	}
 
-
-	// url := l1client.
-
 	// NOTE: should we set a timeout on the context? Might not be worth the complexity.
-	// if !s.anvilURL.IsReachable(ctx) {
-	// 	return nil
-	// }
+	if !s.anvilURL.IsReachable(ctx) {
+		return nil
+	}
 
 	l1 := NewL1Client(l1client)
 
-	fmt.Println("running forge cmd for L1 at ", l1HTTPendpoint)
 	fmt.Println("prior rpc-url: ", s.anvilURL)
 	fmt.Println("contractsRoot: ", s.contractsRootDir)
 
