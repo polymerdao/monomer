@@ -3,6 +3,7 @@ package e2e
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/fakebeacon"
@@ -12,34 +13,28 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func ethdevnet(_ context.Context, chainid uint64, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string) {
+func ethdevnet(_ context.Context, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string) {
 	now := time.Now().Unix()
+	blobsDirectory := filepath.Join("artifacts", "blobs")
 
-	tmpDir := "~/tmp"
-
-	// logger := log.New(log.Writer(), "ethdevnet", log.LstdFlags)
-
-	beacon := fakebeacon.NewBeacon(nil, tmpDir, uint64(now), blockTime)
-	// geth.InitL1(0, 0, &core.Genesis{}, clock.NewSimpleClock(), t.TempDir())
-
+	beacon := fakebeacon.NewBeacon(nil, blobsDirectory, uint64(now), blockTime)
 	myClock := clock.NewAdvancingClock(time.Millisecond * 500)
-	node, _, err := geth.InitL1(chainid, blockTime, genesis, myClock, tmpDir, beacon)
+	node, _, err := geth.InitL1(
+		genesis.Config.ChainID.Uint64(),
+		blockTime,
+		genesis,
+		myClock,
+		blobsDirectory,
+		beacon,
+	)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("init geth L1: %w", err))
 	}
 
 	err = node.Start()
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("start geth L1: %w", err))
 	}
 
-	client := node.Attach()
-
-	fmt.Println("node service at: ", node.WSEndpoint())
-
-	if err != nil {
-		panic(err)
-	}
-
-	return client, node.WSEndpoint()
+	return node.Attach(), node.WSEndpoint()
 }

@@ -78,7 +78,6 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	if err != nil {
 		return fmt.Errorf("new deploy config: %v", err)
 	}
-	deployConfig.L1ChainID = 31337     // The file in the Optimism repo mistakenly sets the Hardhat L1 chain ID to 900.
 	deployConfig.L2ChainID = l2ChainID // Ensure Monomer and the deploy config are aligned.
 
 	deployConfig.SetDeployments(l1Deployments)
@@ -110,7 +109,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client, l1HTTPendpoint := ethdevnet(ctx, deployConfig.L1ChainID, uint64(s.l1BlockTime.Seconds()), l1genesis)
+	l1client, l1HTTPendpoint := ethdevnet(ctx, uint64(s.l1BlockTime.Seconds()), l1genesis)
 
 	l1url, err := url.New(l1HTTPendpoint)
 
