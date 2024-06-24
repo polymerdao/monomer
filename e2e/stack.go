@@ -168,22 +168,6 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	return nil
 }
 
-func (s *Stack) startCmd(cmd *exec.Cmd) error {
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("get stdout pipe for %s: %v", cmd, err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("get stderr pipe for %s: %v", cmd, err)
-	}
-	s.eventListener.HandleCmdOutput(cmd.Path, stdout, stderr)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start %s: %v", cmd, err)
-	}
-	return nil
-}
-
 func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTime, chainIDU64 uint64) error {
 	engineWS, err := net.Listen("tcp", s.monomerEngineURL.Host())
 	if err != nil {
