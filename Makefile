@@ -56,3 +56,9 @@ clean:
 	if [ -f $(COVER_OUT) ]; then rm $(COVER_OUT); fi
 	if [ -f $(COVER_HTML) ]; then rm $(COVER_HTML); fi
 	if [ -f e2e/artifacts ]; then rm -r e2e/artifacts; fi
+
+.PHONY: setup-e2e
+setup-e2e:
+	$(MAKE) -C e2e/optimism install-geth && \
+		$(MAKE) -C e2e/optimism cannon-prestate && \
+		$(MAKE) -C e2e/optimism devnet-allocs
