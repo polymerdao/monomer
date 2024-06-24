@@ -110,7 +110,6 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	l1client, l1HTTPendpoint := ethdevnet(ctx, uint64(s.l1BlockTime.Seconds()), l1genesis)
 
 	l1url, err := url.New(l1HTTPendpoint)
-
 	if err != nil {
 		return fmt.Errorf("new l1 url: %v", err)
 	}
