@@ -155,26 +155,6 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	fmt.Println("prior rpc-url: ", s.anvilURL)
 	fmt.Println("contractsRoot: ", s.contractsRootDir)
 
-	// Deploy the OP L1 contracts.
-	forgeCmd := exec.CommandContext( //nolint:gosec
-		ctx,
-		"forge",
-		"script",
-		"--root", s.contractsRootDir,
-		"-vvv",
-		fmt.Sprintf("%s:Deploy", filepath.Join(s.contractsRootDir, "scripts", "Deploy.s.sol")),
-		"--rpc-url", l1HTTPendpoint,
-		"--broadcast",
-		"--private-key", common.Bytes2Hex(crypto.FromECDSA(deployerKey)),
-	)
-	if err := s.startCmd(forgeCmd); err != nil {
-		// todo: return err
-	}
-	if err := forgeCmd.Wait(); err != nil {
-		// todo: return fmt.Errorf("run %s: %v", forgeCmd, err)
-	}
-	fmt.Println("forge cmd done")
-
 	latestL1Block, err := l1.BlockByNumber(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("get the latest l1 block: %v", err)
