@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -23,6 +24,11 @@ import (
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
 	"github.com/spf13/viper"
+)
+
+const (
+	monomerGenesisPathFlag = "monomer-genesis-path"
+	monomerEngineWSFlag    = "monomer-engine-ws"
 )
 
 // StartCommandHandler is a custom callback that overrides the default `start` function in the Cosmos
@@ -61,7 +67,7 @@ func StartCommandHandler(
 
 	// Would usually start a Comet node in-process here, but we replace the
 	// Comet node with a Monomer node.
-	if err := startInProcess(env, svrCtx, clientCtx, app, opts); err != nil {
+	if err := startInProcess(env, svrCtx, &clientCtx, app, opts); err != nil {
 		svrCtx.Logger.Error("failed to start Monomer node in-process", "error", err)
 		return fmt.Errorf("failed to start Monomer node in-process: %w", err)
 	}
@@ -114,7 +120,7 @@ func startApp(
 func startInProcess(
 	env *environment.Env,
 	svrCtx *server.Context,
-	clientCtx client.Context, //nolint:gocritic // hugeParam
+	clientCtx *client.Context,
 	app servertypes.Application,
 	opts server.StartCmdOptions,
 ) error {
@@ -128,7 +134,7 @@ func startInProcess(
 	}
 
 	if opts.PostSetup != nil {
-		if err := opts.PostSetup(svrCtx, clientCtx, ctx, g); err != nil {
+		if err := opts.PostSetup(svrCtx, *clientCtx, ctx, g); err != nil {
 			return fmt.Errorf("failed to run post setup: %v", err)
 		}
 	}
@@ -139,11 +145,11 @@ func startInProcess(
 // Starts the Monomer node in-process in place of the Comet node. The
 // `MonomerGenesisPath` flag must be set in viper before invoking this.
 func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrCtx *server.Context) (*node.Node, error) {
-	chainID := monomer.ChainID(1)
-	engineWS, err := net.Listen("tcp", "127.0.0.1:0")
+	engineWS, err := net.Listen("tcp", viper.GetString(monomerEngineWSFlag))
 	if err != nil {
 		return nil, fmt.Errorf("create Engine websocket listener: %v", err)
 	}
+	env.DeferErr("close engine ws", engineWS.Close)
 
 	cmtListenAddr := svrCtx.Config.RPC.ListenAddress
 	cmtListenAddr = strings.TrimPrefix(cmtListenAddr, "tcp://")
@@ -151,6 +157,7 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	if err != nil {
 		return nil, fmt.Errorf("create CometBFT listener: %v", err)
 	}
+	env.DeferErr("close comet listener", cometListener.Close)
 
 	appdb := dbm.NewMemDB()
 	env.DeferErr("close app db", appdb.Close)
@@ -161,12 +168,17 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	mempooldb := dbm.NewMemDB()
 	env.DeferErr("close mempool db", mempooldb.Close)
 
-	monomerGenesisPath := viper.GetString("monomer-genesis-path")
+	monomerGenesisPath := viper.GetString(monomerGenesisPathFlag)
 	svrCtx.Logger.Info("Loading Monomer genesis from", "path", monomerGenesisPath)
 
 	appGenesis, err := genutiltypes.AppGenesisFromFile(monomerGenesisPath)
 	if err != nil {
 		return nil, fmt.Errorf("load application genesis file: %v", err)
+	}
+
+	genChainID, err := strconv.ParseUint(appGenesis.ChainID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse chain ID: %v", err)
 	}
 
 	var appState map[string]json.RawMessage
@@ -178,7 +190,7 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	n := node.New(
 		wrappedApp,
 		&genesis.Genesis{
-			ChainID:  chainID,
+			ChainID:  monomer.ChainID(genChainID),
 			AppState: appState,
 		},
 		engineWS,
@@ -209,11 +221,6 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	}
 
 	svrCtx.Logger.Info("Monomer started w/ CometBFT listener on", "address", cometListener.Addr())
-
-	env.Defer(func() {
-		engineWS.Close()
-		cometListener.Close()
-	})
 
 	return n, nil
 }

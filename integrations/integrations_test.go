@@ -48,7 +48,9 @@ func TestStartCommandHandler(t *testing.T) {
 	// This flag must be set, because by default it's set to ""
 	svrCtx.Viper.Set("minimum-gas-prices", "0.025stake")
 	// This flag must be set to load the Monomer genesis file
-	viper.Set("monomer-genesis-path", "./testdata/genesis.json")
+	viper.Set(monomerGenesisPathFlag, "./testdata/genesis.json")
+	// This flag must be set to configure Monomer's Engine Websocket
+	viper.Set(monomerEngineWSFlag, "127.0.0.1:8089")
 
 	clientCtx := client.Context{}
 	inProcessConsensus := true
