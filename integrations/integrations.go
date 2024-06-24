@@ -54,22 +54,21 @@ func StartCommandHandler(
 
 	svrCfg, err := serverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
-		return fmt.Errorf("failed to get server config: %w", err)
+		return fmt.Errorf("get server config: %v", err)
 	}
 	if err := svrCfg.ValidateBasic(); err != nil {
-		return fmt.Errorf("failed to validate server config: %w", err)
+		return fmt.Errorf("validate server config: %v", err)
 	}
 
 	app, err := startApp(env, svrCtx, appCreator, opts)
 	if err != nil {
-		return fmt.Errorf("failed to start application: %w", err)
+		return fmt.Errorf("start application: %v", err)
 	}
 
 	// Would usually start a Comet node in-process here, but we replace the
 	// Comet node with a Monomer node.
 	if err := startInProcess(env, svrCtx, &clientCtx, app, opts); err != nil {
-		svrCtx.Logger.Error("failed to start Monomer node in-process", "error", err)
-		return fmt.Errorf("failed to start Monomer node in-process: %w", err)
+		return fmt.Errorf("start Monomer node in-process: %v", err)
 	}
 
 	sigCh := make(chan os.Signal, 1)
@@ -130,12 +129,12 @@ func startInProcess(
 	wrappedApp := &WrappedApplication{app}
 	_, err := startMonomerNode(wrappedApp, env, svrCtx)
 	if err != nil {
-		return fmt.Errorf("failed to start Monomer node: %v", err)
+		return fmt.Errorf("start Monomer node: %v", err)
 	}
 
 	if opts.PostSetup != nil {
 		if err := opts.PostSetup(svrCtx, *clientCtx, ctx, g); err != nil {
-			return fmt.Errorf("failed to run post setup: %v", err)
+			return fmt.Errorf("run post setup: %v", err)
 		}
 	}
 
@@ -178,13 +177,12 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 
 	genChainID, err := strconv.ParseUint(appGenesis.ChainID, 10, 64)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse chain ID: %v", err)
+		return nil, fmt.Errorf("parse chain ID: %v", err)
 	}
 
 	var appState map[string]json.RawMessage
 	if err := json.Unmarshal(appGenesis.AppState, &appState); err != nil {
-		svrCtx.Logger.Error("Failed to unmarshal app state", "error", err)
-		return nil, fmt.Errorf("failed to unmarshal app state: %v", err)
+		return nil, fmt.Errorf("unmarshal app state: %v", err)
 	}
 
 	n := node.New(
@@ -217,7 +215,7 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 
 	nodeErr := n.Run(nodeCtx, env)
 	if nodeErr != nil {
-		return nil, fmt.Errorf("failed to run Monomer node: %v", nodeErr)
+		return nil, fmt.Errorf("run Monomer node: %v", nodeErr)
 	}
 
 	svrCtx.Logger.Info("Monomer started w/ CometBFT listener on", "address", cometListener.Addr())
