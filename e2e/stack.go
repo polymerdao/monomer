@@ -38,7 +38,6 @@ type EventListener interface {
 }
 
 type Stack struct {
-	anvilURL         *url.URL
 	monomerEngineURL *url.URL
 	monomerCometURL  *url.URL
 	opNodeURL        *url.URL
@@ -58,7 +57,6 @@ func New(
 	eventListener EventListener,
 ) *Stack {
 	return &Stack{
-		anvilURL:         anvilURL,
 		monomerEngineURL: monomerEngineURL,
 		monomerCometURL:  monomerCometURL,
 		opNodeURL:        opNodeURL,
@@ -92,7 +90,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("generate key: %v", err)
 	}
 
-	var dump state.Dump
+	var l1state state.Dump
 
 	l1StateJSON, err := os.ReadFile("optimism/.devnet/allocs-l1.json")
 	if err != nil {
@@ -103,12 +101,12 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 			panic(fmt.Errorf("read allocs-l1.json: %v", err))
 		}
 	}
-	err = json.Unmarshal(l1StateJSON, &dump)
+	err = json.Unmarshal(l1StateJSON, &l1state)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("unmarshal l1 state: %v", err))
 	}
 
-	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, &dump, l1Deployments)
+	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, &l1state, l1Deployments)
 	if err != nil {
 		return fmt.Errorf("build l1 developer genesis: %v", err)
 	}
@@ -122,14 +120,11 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	}
 
 	// NOTE: should we set a timeout on the context? Might not be worth the complexity.
-	if !s.anvilURL.IsReachable(ctx) {
-		return nil
+	if !l1url.IsReachable(ctx) {
+		return fmt.Errorf("l1 url not reachable: %s", l1url.String())
 	}
 
 	l1 := NewL1Client(l1client)
-
-	fmt.Println("prior rpc-url: ", s.anvilURL)
-	fmt.Println("contractsRoot: ", s.contractsRootDir)
 
 	latestL1Block, err := l1.BlockByNumber(ctx, nil)
 	if err != nil {
