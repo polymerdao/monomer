@@ -67,7 +67,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	// configure & run L1
 
 	const l2ChainID = 901
-	const networkName = "hardhat"
+	const networkName = "devnetL1"
 	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join("optimism", ".devnet", "addresses.json"))
 	if err != nil {
 		return fmt.Errorf("new l1 deployments: %v", err)
