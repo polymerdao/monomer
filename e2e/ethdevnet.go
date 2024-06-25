@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func ethdevnet(_ context.Context, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string) {
+func ethdevnet(_ context.Context, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, error) {
 	now := time.Now().Unix()
 	blobsDirectory := filepath.Join("artifacts", "blobs")
 
@@ -28,13 +28,13 @@ func ethdevnet(_ context.Context, blockTime uint64, genesis *core.Genesis) (*rpc
 		beacon,
 	)
 	if err != nil {
-		panic(fmt.Errorf("init geth L1: %w", err))
+		return nil, "", fmt.Errorf("init geth L1: %w", err)
 	}
 
 	err = node.Start()
 	if err != nil {
-		panic(fmt.Errorf("start geth L1: %w", err))
+		return nil, "", fmt.Errorf("start geth L1: %w", err)
 	}
 
-	return node.Attach(), node.WSEndpoint()
+	return node.Attach(), node.WSEndpoint(), nil
 }

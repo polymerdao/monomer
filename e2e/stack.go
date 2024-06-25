@@ -92,14 +92,14 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	if err != nil {
 		// check if not found
 		if os.IsNotExist(err) {
-			panic("allocs-l1.json not found - run `make setup-e2e` from project root")
+			return fmt.Errorf("allocs-l1.json not found - run `make setup-e2e` from project root")
 		} else {
-			panic(fmt.Errorf("read allocs-l1.json: %v", err))
+			return fmt.Errorf("read allocs-l1.json: %v", err)
 		}
 	}
 	err = json.Unmarshal(l1StateJSON, &l1state)
 	if err != nil {
-		panic(fmt.Errorf("unmarshal l1 state: %v", err))
+		return fmt.Errorf("unmarshal l1 state: %v", err)
 	}
 
 	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, &l1state, l1Deployments)
@@ -107,7 +107,10 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client, l1HTTPendpoint := ethdevnet(ctx, uint64(s.l1BlockTime.Seconds()), l1genesis)
+	l1client, l1HTTPendpoint, err := ethdevnet(ctx, uint64(s.l1BlockTime.Seconds()), l1genesis)
+	if err != nil {
+		return fmt.Errorf("ethdevnet: %v", err)
+	}
 
 	l1url, err := url.ParseString(l1HTTPendpoint)
 	if err != nil {
