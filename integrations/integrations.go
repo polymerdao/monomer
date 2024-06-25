@@ -13,6 +13,7 @@ import (
 	"syscall"
 
 	cometdb "github.com/cometbft/cometbft-db"
+	cometconfig "github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -158,7 +159,13 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	}
 	env.DeferErr("close comet listener", cometListener.Close)
 
-	appdb := dbm.NewMemDB()
+	appdb, err := cometconfig.DefaultDBProvider(&cometconfig.DBContext{
+		ID:     "app",
+		Config: svrCtx.Config,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("create app db: %v", err)
+	}
 	env.DeferErr("close app db", appdb.Close)
 	blockdb := dbm.NewMemDB()
 	env.DeferErr("close block db", blockdb.Close)

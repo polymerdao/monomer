@@ -44,6 +44,7 @@ func mockAppCreator(
 // Unit test for Monomer's custom `StartCommandHandler` callback
 func TestStartCommandHandler(t *testing.T) {
 	svrCtx := server.NewDefaultContext()
+	svrCtx.Config.DBPath = t.TempDir()
 
 	// This flag must be set, because by default it's set to ""
 	svrCtx.Viper.Set("minimum-gas-prices", "0.025stake")
@@ -77,8 +78,7 @@ func TestStartCommandHandler(t *testing.T) {
 		conn.Close()
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+	ctx := context.Background()
 
 	// --- Submit a Monomer Tx ---
 	bftClient, err := bftclient.New("http://"+cmtListenAddr, "http://"+cmtListenAddr)
