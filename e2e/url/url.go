@@ -18,7 +18,7 @@ type URL struct {
 	port uint16
 }
 
-func New(address string) (*URL, error) {
+func ParseString(address string) (*URL, error) {
 	stdURL, err := url.Parse(address)
 	if err != nil {
 		return nil, err
