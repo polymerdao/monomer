@@ -88,7 +88,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 
 	var l1state state.Dump
 
-	l1StateJSON, err := os.ReadFile("optimism/.devnet/allocs-l1.json")
+	l1StateJSON, err := os.ReadFile(filepath.Join("optimism", ".devnet", "allocs-l1.json"))
 	if err != nil {
 		// check if not found
 		if os.IsNotExist(err) {
