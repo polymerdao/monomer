@@ -25,6 +25,7 @@ import (
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
 	"github.com/spf13/viper"
+	"golang.org/x/sync/errgroup"
 )
 
 const (
@@ -124,8 +125,6 @@ func startInProcess(
 	app servertypes.Application,
 	opts server.StartCmdOptions,
 ) error {
-	g, ctx := getCtx(svrCtx, true)
-
 	svrCtx.Logger.Info("Starting Monomer node in-process")
 	err := startMonomerNode(&WrappedApplication{
 		app: app,
@@ -135,12 +134,16 @@ func startInProcess(
 	}
 
 	if opts.PostSetup != nil {
-		if err := opts.PostSetup(svrCtx, *clientCtx, ctx, g); err != nil {
+		var g errgroup.Group
+		if err := opts.PostSetup(svrCtx, *clientCtx, monomerCtx, &g); err != nil {
 			return fmt.Errorf("run post setup: %v", err)
+		}
+		if err := g.Wait(); err != nil {
+			return fmt.Errorf("unexpected error in PostSetup errgroup: %v", err)
 		}
 	}
 
-	return g.Wait()
+	return nil
 }
 
 // Starts the Monomer node in-process in place of the Comet node. The
