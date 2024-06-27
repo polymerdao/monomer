@@ -44,7 +44,8 @@ func mockAppCreator(
 // Unit test for Monomer's custom `StartCommandHandler` callback
 func TestStartCommandHandler(t *testing.T) {
 	svrCtx := server.NewDefaultContext()
-	svrCtx.Config.DBPath = t.TempDir()
+	svrCtx.Config.RootDir = t.TempDir()
+	svrCtx.Config.DBBackend = "memdb"
 
 	// This flag must be set, because by default it's set to ""
 	svrCtx.Viper.Set("minimum-gas-prices", "0.025stake")

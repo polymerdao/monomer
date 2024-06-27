@@ -14,7 +14,6 @@ import (
 	"syscall"
 
 	cometdb "github.com/cometbft/cometbft-db"
-	cometconfig "github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -67,9 +66,12 @@ func StartCommandHandler(
 		return fmt.Errorf("start application: %v", err)
 	}
 
+	monomerCtx, cancel := context.WithCancel(context.Background())
+	env.Defer(cancel)
+
 	// Would usually start a Comet node in-process here, but we replace the
 	// Comet node with a Monomer node.
-	if err := startInProcess(env, svrCtx, &clientCtx, app, opts); err != nil {
+	if err := startInProcess(env, svrCtx, &clientCtx, monomerCtx, app, opts); err != nil {
 		return fmt.Errorf("start Monomer node in-process: %v", err)
 	}
 
@@ -118,6 +120,7 @@ func startInProcess(
 	env *environment.Env,
 	svrCtx *server.Context,
 	clientCtx *client.Context,
+	monomerCtx context.Context,
 	app servertypes.Application,
 	opts server.StartCmdOptions,
 ) error {
@@ -126,7 +129,7 @@ func startInProcess(
 	svrCtx.Logger.Info("Starting Monomer node in-process")
 	err := startMonomerNode(&WrappedApplication{
 		app: app,
-	}, env, svrCtx)
+	}, env, opts, monomerCtx, svrCtx)
 	if err != nil {
 		return fmt.Errorf("start Monomer node: %v", err)
 	}
@@ -142,7 +145,13 @@ func startInProcess(
 
 // Starts the Monomer node in-process in place of the Comet node. The
 // `MonomerGenesisPath` flag must be set in viper before invoking this.
-func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrCtx *server.Context) error {
+func startMonomerNode(
+	wrappedApp *WrappedApplication,
+	env *environment.Env,
+	opts server.StartCmdOptions,
+	monomerCtx context.Context,
+	svrCtx *server.Context,
+) error {
 	engineWS, err := net.Listen("tcp", viper.GetString(monomerEngineWSFlag))
 	if err != nil {
 		return fmt.Errorf("create Engine websocket listener: %v", err)
@@ -157,19 +166,28 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	}
 	env.DeferErr("close comet listener", cometListener.Close)
 
-	appdb, err := cometconfig.DefaultDBProvider(&cometconfig.DBContext{
-		ID:     "app",
-		Config: svrCtx.Config,
-	})
+	appdb, err := opts.DBOpener(svrCtx.Config.RootDir, server.GetAppDBBackend(svrCtx.Viper))
 	if err != nil {
-		return fmt.Errorf("create app db: %v", err)
+		return fmt.Errorf("open app db: %v", err)
 	}
 	env.DeferErr("close app db", appdb.Close)
-	blockdb := dbm.NewMemDB()
+
+	blockdb, err := dbm.NewDB("blockstore", dbm.BackendType(svrCtx.Config.DBBackend), svrCtx.Config.RootDir)
+	if err != nil {
+		return fmt.Errorf("create block db: %v", err)
+	}
 	env.DeferErr("close block db", blockdb.Close)
-	txdb := cometdb.NewMemDB()
+
+	txdb, err := cometdb.NewDB("tx", cometdb.BackendType(svrCtx.Config.DBBackend), svrCtx.Config.RootDir)
+	if err != nil {
+		return fmt.Errorf("create tx db: %v", err)
+	}
 	env.DeferErr("close tx db", txdb.Close)
-	mempooldb := dbm.NewMemDB()
+
+	mempooldb, err := dbm.NewDB("mempool", dbm.BackendType(svrCtx.Config.DBBackend), svrCtx.Config.RootDir)
+	if err != nil {
+		return fmt.Errorf("create mempool db: %v", err)
+	}
 	env.DeferErr("close mempool db", mempooldb.Close)
 
 	monomerGenesisPath := viper.GetString(monomerGenesisPathFlag)
@@ -215,10 +233,7 @@ func startMonomerNode(wrappedApp *WrappedApplication, env *environment.Env, svrC
 	)
 	svrCtx.Logger.Info("Spinning up Monomer node")
 
-	nodeCtx, nodeCtxCancel := context.WithCancel(context.Background())
-	env.Defer(nodeCtxCancel)
-
-	if err := n.Run(nodeCtx, env); err != nil {
+	if err := n.Run(monomerCtx, env); err != nil {
 		return fmt.Errorf("run Monomer node: %v", err)
 	}
 
