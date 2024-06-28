@@ -8,8 +8,12 @@ import (
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/client/tx"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module/testutil"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/stretchr/testify/require"
@@ -48,36 +52,46 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 	return defaultGenesis
 }
 
-func ToTx(t *testing.T, k, v string) []byte {
-	msgAny, err := codectypes.NewAnyWithValue(&testappv1.SetRequest{
-		// TODO use real addresses and enable the signature and gas checks.
-		// This is just a dummy address. The signature and gas checks are disabled in testapp.go,
-		// so this works for now.
-		FromAddress: "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
-		Key:   k,
-		Value: v,
-	})
-	require.NoError(t, err)
-	tx := &sdktx.Tx{
-		Body: &sdktx.TxBody{
-			Messages: []*codectypes.Any{msgAny},
-		},
-		AuthInfo: &sdktx.AuthInfo{
-			Fee: &sdktx.Fee{},
-		},
+func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey) []byte {
+	fromAddr := sdk.AccAddress(pk.Address())
+
+	msg := &testappv1.SetRequest{
+		FromAddress: fromAddr.String(),
+		Key:         k,
+		Value:       v,
 	}
-	txBytes := make([]byte, tx.Size())
-	_, err = tx.MarshalTo(txBytes)
+
+	txConfig := testutil.MakeTestTxConfig()
+	txBuilder := txConfig.NewTxBuilder()
+	err := txBuilder.SetMsgs(msg)
+	require.NoError(t, err)
+
+	signerData := authsigning.SignerData{
+		ChainID:       "test",
+		AccountNumber: 0,
+		Sequence:      0,
+		PubKey:        pk,
+	}
+
+	txBuilder.SetGasLimit(100000)
+	txBuilder.SetFeePayer(fromAddr)
+
+	sig, err := tx.SignWithPrivKey(context.TODO(), signing.SignMode_SIGN_MODE_DIRECT, signerData, txBuilder, sk, txConfig, 0)
+	require.NoError(t, err)
+	err = txBuilder.SetSignatures(sig)
+	require.NoError(t, err)
+
+	txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
 	require.NoError(t, err)
 	return txBytes
 }
 
 // ToTxs converts the key-values to SetRequest sdk.Msgs and marshals the messages to protobuf wire format.
 // Each message is placed in a separate tx.
-func ToTxs(t *testing.T, kvs map[string]string) [][]byte {
+func ToTxs(t *testing.T, kvs map[string]string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey) [][]byte {
 	var txs [][]byte
 	for k, v := range kvs {
-		txs = append(txs, ToTx(t, k, v))
+		txs = append(txs, ToTx(t, k, v, sk, pk))
 	}
 	// Ensure txs are always returned in the same order.
 	slices.SortFunc(txs, func(x []byte, y []byte) int {
@@ -137,4 +151,12 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 		require.NoError(t, (&val).Unmarshal(resp.GetValue()))
 		require.Empty(t, val.GetValue())
 	}
+}
+
+func TestAccount() (*secp256k1.PrivKey, *secp256k1.PubKey) {
+    sk := secp256k1.GenPrivKey()
+    pk := secp256k1.PubKey{
+        Key: sk.PubKey().Bytes(),
+    }
+    return sk, &pk
 }

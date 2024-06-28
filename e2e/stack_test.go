@@ -158,7 +158,9 @@ func TestE2E(t *testing.T) {
 	client, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
 	require.NoError(t, err, "create Comet client")
 
-	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
+	sk, pk := testapp.TestAccount()
+
+	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue", sk, pk)
 	bftTx := bfttypes.Tx(txBytes)
 
 	putTx, err := client.BroadcastTxAsync(ctx, txBytes)

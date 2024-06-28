@@ -26,8 +26,9 @@ import (
 )
 
 func TestABCI(t *testing.T) {
-	chainID := "0"
+	chainID := "test"
 	app := testapp.NewTest(t, chainID)
+	sk, pk := testapp.TestAccount()
 	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
 		ChainId: chainID,
 		AppStateBytes: func() []byte {
@@ -44,11 +45,12 @@ func TestABCI(t *testing.T) {
 
 	// Build bock with tx.
 	height := int64(1)
-	_, err = app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
-		Txs:    [][]byte{testapp.ToTx(t, k, v)},
+	resultFinalizeBlock, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
+		Txs:    [][]byte{testapp.ToTx(t, k, v, sk, pk)},
 		Height: height,
 	})
 	require.NoError(t, err)
+	t.Logf("resultFinalizeBlock: %v", resultFinalizeBlock)
 	_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
 	require.NoError(t, err)
 
@@ -118,11 +120,12 @@ func TestStatus(t *testing.T) {
 func TestBroadcastTx(t *testing.T) {
 	chainID := "0"
 	app := testapp.NewTest(t, chainID)
+	sk, pk := testapp.TestAccount()
 	mpool := mempool.New(testutils.NewMemDB(t))
 	broadcastTxAPI := comet.NewBroadcastTxAPI(app, mpool)
 
 	// Success case.
-	tx := testapp.ToTx(t, "k1", "v1")
+	tx := testapp.ToTx(t, "k1", "v1", sk, pk)
 	result, err := broadcastTxAPI.BroadcastTx(&jsonrpctypes.Context{}, tx)
 	require.NoError(t, err)
 	// We trust that the other fields are set correctly.

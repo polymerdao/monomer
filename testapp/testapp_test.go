@@ -65,10 +65,11 @@ func TestRollbackToHeight(t *testing.T) {
 }
 
 func build(t *testing.T, app *testapp.App, chainID string, height int64) (string, string) {
+    sk, pk := testapp.TestAccount()
 	key := fmt.Sprintf("k%d", height)
 	value := fmt.Sprintf("v%d", height)
 	_, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
-		Txs:    [][]byte{testapp.ToTx(t, key, value)},
+		Txs:    [][]byte{testapp.ToTx(t, key, value, sk, pk)},
 		Height: height,
 	})
 	require.NoError(t, err)
