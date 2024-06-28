@@ -13,6 +13,8 @@ import (
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -63,6 +65,54 @@ func New(
 	}
 }
 
+// helper shim to allow decoding of hex nonces
+type auxDumpAccount struct {
+	Balance     string                 `json:"balance"`
+	Nonce       string                 `json:"nonce"`
+	Root        hexutil.Bytes          `json:"root"`
+	CodeHash    hexutil.Bytes          `json:"codeHash"`
+	Code        hexutil.Bytes          `json:"code,omitempty"`
+	Storage     map[common.Hash]string `json:"storage,omitempty"`
+	Address     *common.Address        `json:"address,omitempty"` // Address only present in iterative (line-by-line) mode
+	AddressHash hexutil.Bytes          `json:"key,omitempty"`     // If we don't have address, we can output the key
+
+}
+
+// helper shim to allow decoding of hex nonces
+type auxDump struct {
+	Root     string                    `json:"root"`
+	Accounts map[string]auxDumpAccount `json:"accounts"`
+	// Next can be set to represent that this dump is only partial, and Next
+	// is where an iterator should be positioned in order to continue the dump.
+	Next []byte `json:"next,omitempty"` // nil if no more accounts
+}
+
+func (d *auxDump) ToStateDump() (*state.Dump, error) {
+	accounts := make(map[string]state.DumpAccount)
+
+	for k, v := range d.Accounts {
+		nonce, err := hexutil.DecodeUint64(v.Nonce)
+		if err != nil {
+			return nil, fmt.Errorf("decode nonce: %v", err)
+		}
+
+		accounts[k] = state.DumpAccount{
+			Balance:  v.Balance,
+			Nonce:    nonce,
+			Root:     v.Root,
+			CodeHash: v.CodeHash,
+			Code:     v.Code,
+			Storage:  v.Storage,
+		}
+	}
+
+	return &state.Dump{
+		Root:     d.Root,
+		Accounts: accounts,
+	}, nil
+
+}
+
 func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	// configure & run L1
 
@@ -86,7 +136,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("generate key: %v", err)
 	}
 
-	var l1state state.Dump
+	var auxState auxDump
 
 	l1StateJSON, err := os.ReadFile(filepath.Join("optimism", ".devnet", "allocs-l1.json"))
 	if err != nil {
@@ -97,12 +147,19 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 			return fmt.Errorf("read allocs-l1.json: %v", err)
 		}
 	}
-	err = json.Unmarshal(l1StateJSON, &l1state)
+	err = json.Unmarshal(l1StateJSON, &auxState)
+
 	if err != nil {
 		return fmt.Errorf("unmarshal l1 state: %v", err)
 	}
 
-	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, &l1state, l1Deployments)
+	l1state, err := auxState.ToStateDump()
+
+	if err != nil {
+		return fmt.Errorf("auxState to state dump: %v", err)
+	}
+
+	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, l1state, l1Deployments)
 	if err != nil {
 		return fmt.Errorf("build l1 developer genesis: %v", err)
 	}
