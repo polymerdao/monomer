@@ -82,10 +82,12 @@ func TestBuild(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			var chainID monomer.ChainID
 			app := testapp.NewTest(t, chainID.String())
-			sk, pk := testapp.TestAccount()
+			ctx := app.GetContext()
 
-			inclusionListTxs := testapp.ToTxs(t, test.inclusionList, sk, pk)
-			mempoolTxs := testapp.ToTxs(t, test.mempool, sk, pk)
+			sk, pk := app.TestAccount()
+
+			inclusionListTxs := testapp.ToTxs(t, test.inclusionList, sk, pk, ctx)
+			mempoolTxs := testapp.ToTxs(t, test.mempool, sk, pk, ctx)
 
 			pool := mempool.New(testutils.NewMemDB(t))
 			for _, tx := range mempoolTxs {
@@ -218,11 +220,12 @@ func TestRollback(t *testing.T) {
 
 	var chainID monomer.ChainID
 	app := testapp.NewTest(t, chainID.String())
+	ctx := app.GetContext()
 	g := &genesis.Genesis{
 		ChainID:  chainID,
 		AppState: testapp.MakeGenesisAppState(t, app),
 	}
-	sk, pk := testapp.TestAccount()
+	sk, pk := app.TestAccount()
 
 	eventBus := bfttypes.NewEventBus()
 	require.NoError(t, eventBus.Start())
@@ -249,7 +252,7 @@ func TestRollback(t *testing.T) {
 	}
 	block, err := b.Build(context.Background(), &builder.Payload{
 		Timestamp:            g.Time + 1,
-		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs, sk, pk)),
+		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs, sk, pk, ctx)),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, block)
@@ -284,7 +287,7 @@ func TestRollback(t *testing.T) {
 	require.Equal(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
 
 	// Tx store.
-	for _, tx := range bfttypes.ToTxs(testapp.ToTxs(t, kvs, sk, pk)) {
+	for _, tx := range bfttypes.ToTxs(testapp.ToTxs(t, kvs, sk, pk, ctx)) {
 		result, err := txStore.Get(tx.Hash())
 		require.NoError(t, err)
 		require.Nil(t, result)

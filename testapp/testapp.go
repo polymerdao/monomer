@@ -53,6 +53,8 @@ import (
 // (the requirement doesn't make sense to me since that's a consensus-layer concern).
 type App struct {
 	app            *runtime.App
+    bankKeeper     bankkeeper.Keeper
+    accountKeeper  authkeeper.AccountKeeper
 	defaultGenesis map[string]json.RawMessage
 }
 
@@ -82,6 +84,12 @@ func (a *App) Commit(_ context.Context, _ *abcitypes.RequestCommit) (*abcitypes.
 
 func (a *App) RollbackToHeight(_ context.Context, targetHeight uint64) error {
 	return a.app.CommitMultiStore().RollbackToVersion(int64(targetHeight))
+}
+
+func (a *App) GetContext() sdktypes.Context {
+    chainID := a.app.ChainID()
+    a.app.Logger().Info("GetContext", "chainID", chainID)
+    return a.app.BaseApp.NewContext(true).WithChainID(chainID)
 }
 
 var modules = []string{
@@ -143,9 +151,7 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 			},
 			{
 				Name: "tx",
-				Config: appconfig.WrapAny(&txconfigv1.Config{
-					SkipAnteHandler: true, // Ignore signatures and gas for testing.
-				}),
+				Config: appconfig.WrapAny(&txconfigv1.Config{}),
 			},
 			{
 				Name:   minttypes.ModuleName,
@@ -207,6 +213,8 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 
 	return &App{
 		app:            runtimeApp,
+        bankKeeper:     bankKeeper,
+        accountKeeper:  accountKeeper,
 		defaultGenesis: appBuilder.DefaultGenesis(),
 	}, nil
 }

@@ -64,12 +64,13 @@ func TestRollbackToHeight(t *testing.T) {
 	app.StateContains(t, uint64(height-1), newState)
 }
 
-func build(t *testing.T, app *testapp.App, chainID string, height int64) (string, string) {
-    sk, pk := testapp.TestAccount()
+func build(t *testing.T, app *testapp.App, _ string, height int64) (string, string) {
+    ctx := app.GetContext()
+    sk, pk := app.TestAccount()
 	key := fmt.Sprintf("k%d", height)
 	value := fmt.Sprintf("v%d", height)
 	_, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
-		Txs:    [][]byte{testapp.ToTx(t, key, value, sk, pk)},
+		Txs:    [][]byte{testapp.ToTx(t, key, value, sk, pk, ctx)},
 		Height: height,
 	})
 	require.NoError(t, err)
