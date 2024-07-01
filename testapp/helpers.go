@@ -55,7 +55,7 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 	return defaultGenesis
 }
 
-func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey, ctx sdk.Context) []byte {
+func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey, acc sdk.AccountI, ctx sdk.Context) []byte {
 	fromAddr := sdk.AccAddress(pk.Address())
 
 	msg := &testappv1.SetRequest{
@@ -71,15 +71,18 @@ func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey
 
 	signerData := authsigning.SignerData{
 		ChainID:       "test",
-		AccountNumber: 0,
-		Sequence:      0,
+		AccountNumber: acc.GetAccountNumber(),
+		Sequence:      acc.GetSequence(),
 		PubKey:        pk,
 	}
+    fmt.Println("PubKey:", pk)
 
 	txBuilder.SetGasLimit(100000)
 	txBuilder.SetFeePayer(fromAddr)
 
 	sig, err := tx.SignWithPrivKey(ctx, signing.SignMode_SIGN_MODE_DIRECT, signerData, txBuilder, sk, txConfig, 0)
+    fmt.Println("Signature.PubKey:", sig.PubKey)
+
 	require.NoError(t, err)
 	err = txBuilder.SetSignatures(sig)
 	require.NoError(t, err)
@@ -91,10 +94,10 @@ func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey
 
 // ToTxs converts the key-values to SetRequest sdk.Msgs and marshals the messages to protobuf wire format.
 // Each message is placed in a separate tx.
-func ToTxs(t *testing.T, kvs map[string]string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey, ctx sdk.Context) [][]byte {
+func ToTxs(t *testing.T, kvs map[string]string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey, acc sdk.AccountI, ctx sdk.Context) [][]byte {
 	var txs [][]byte
 	for k, v := range kvs {
-		txs = append(txs, ToTx(t, k, v, sk, pk, ctx))
+		txs = append(txs, ToTx(t, k, v, sk, pk, acc, ctx))
 	}
 	// Ensure txs are always returned in the same order.
 	slices.SortFunc(txs, func(x []byte, y []byte) int {
@@ -156,7 +159,7 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 	}
 }
 
-func (a *App) TestAccount() (*secp256k1.PrivKey, *secp256k1.PubKey) {
+func (a *App) TestAccount() (*secp256k1.PrivKey, *secp256k1.PubKey, sdk.AccountI) {
     fmt.Println("Crypto: Generating test keys...")
 	sk := secp256k1.GenPrivKey()
 	pk := secp256k1.PubKey{
@@ -184,5 +187,5 @@ func (a *App) TestAccount() (*secp256k1.PrivKey, *secp256k1.PubKey) {
 	}
 	fmt.Println("Test account generated.")
 
-	return sk, &pk
+	return sk, &pk, account
 }

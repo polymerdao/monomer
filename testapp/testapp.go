@@ -89,7 +89,7 @@ func (a *App) RollbackToHeight(_ context.Context, targetHeight uint64) error {
 func (a *App) GetContext() sdktypes.Context {
     chainID := a.app.ChainID()
     a.app.Logger().Info("GetContext", "chainID", chainID)
-    return a.app.BaseApp.NewContext(true).WithChainID(chainID)
+    return a.app.BaseApp.NewContext(false).WithChainID(chainID)
 }
 
 var modules = []string{
