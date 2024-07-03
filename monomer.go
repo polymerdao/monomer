@@ -128,6 +128,40 @@ func (b *Block) ToEthLikeBlock(txs ethtypes.Transactions, inclTxs bool) map[stri
 	return result
 }
 
+func (b *Block) ToEthBlock(ethTxs ethtypes.Transactions) (*ethtypes.Block, error) {
+	return ethtypes.NewBlock(b.ToEthHeader(ethTxs), ethTxs, nil, nil, trie.NewStackTrie(nil)), nil
+}
+
+func (b *Block) ToEthHeader(ethTxs ethtypes.Transactions) *ethtypes.Header {
+	var excessBlobGas uint64 = 0
+	var blobGasUsed uint64 = 0
+	header := &ethtypes.Header{
+		ParentHash:       b.Header.ParentHash,
+		UncleHash:        ethtypes.EmptyUncleHash,
+		Coinbase:         common.Address{},
+		Root:             common.BytesToHash(b.Header.AppHash),
+		ReceiptHash:      ethtypes.EmptyReceiptsHash,
+		Bloom:            ethtypes.Bloom{},
+		Difficulty:       common.Big0,
+		Number:           big.NewInt(b.Header.Height),
+		GasLimit:         b.Header.GasLimit,
+		GasUsed:          0,
+		Time:             b.Header.Time,
+		Extra:            []byte{},
+		MixDigest:        common.Hash{},
+		Nonce:            ethtypes.BlockNonce{},
+		BaseFee:          common.Big0,
+		WithdrawalsHash:  &ethtypes.EmptyWithdrawalsHash,
+		BlobGasUsed:      &blobGasUsed,
+		ExcessBlobGas:    &excessBlobGas,
+		ParentBeaconRoot: &common.Hash{},
+	}
+	if len(ethTxs) != 0 {
+		header.TxHash = ethtypes.DeriveSha(ethTxs, trie.NewStackTrie(nil))
+	}
+	return header
+}
+
 func (b *Block) ToCometLikeBlock() *bfttypes.Block {
 	return &bfttypes.Block{
 		Header: bfttypes.Header{

@@ -3,6 +3,8 @@ package eth
 import (
 	"fmt"
 
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -47,6 +49,30 @@ func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error
 	return b.ToEthLikeBlock(txs, inclTx), nil
 }
 
+func (e *Block) GetEthBlockByNumber(id BlockID) (*ethtypes.Block, error) {
+	b := id.Get(e.blockStore)
+	if b == nil {
+		return nil, ethereum.NotFound
+	}
+	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(b.Txs)
+	if err != nil {
+		return nil, fmt.Errorf("adapt cosmos txs: %v", err)
+	}
+	return b.ToEthBlock(txs)
+}
+
+func (e *Block) GetEthHeaderByNumber(id BlockID) (*ethtypes.Header, error) {
+	b := id.Get(e.blockStore)
+	if b == nil {
+		return nil, ethereum.NotFound
+	}
+	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(b.Txs)
+	if err != nil {
+		return nil, fmt.Errorf("adapt cosmos txs: %v", err)
+	}
+	return b.ToEthHeader(txs), nil
+}
+
 func (e *Block) GetBlockByHash(hash common.Hash, inclTx bool) (map[string]any, error) {
 	block := e.blockStore.BlockByHash(hash)
 	if block == nil {
@@ -57,4 +83,28 @@ func (e *Block) GetBlockByHash(hash common.Hash, inclTx bool) (map[string]any, e
 		return nil, fmt.Errorf("adapt cosmos txs: %v", err)
 	}
 	return block.ToEthLikeBlock(txs, inclTx), nil
+}
+
+func (e *Block) GetEthBlockByHash(hash common.Hash) (*ethtypes.Block, error) {
+	block := e.blockStore.BlockByHash(hash)
+	if block == nil {
+		return nil, ethereum.NotFound
+	}
+	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
+	if err != nil {
+		return nil, fmt.Errorf("adapt cosmos txs: %v", err)
+	}
+	return block.ToEthBlock(txs)
+}
+
+func (e *Block) GetEthHeaderByHash(hash common.Hash) (*ethtypes.Header, error) {
+	block := e.blockStore.BlockByHash(hash)
+	if block == nil {
+		return nil, ethereum.NotFound
+	}
+	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
+	if err != nil {
+		return nil, fmt.Errorf("adapt cosmos txs: %v", err)
+	}
+	return block.ToEthHeader(txs), nil
 }
