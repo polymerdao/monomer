@@ -3,10 +3,9 @@ package integrations
 import (
 	"context"
 	"io"
-	"net"
+	stdURL "net/url"
 	"strings"
 	"testing"
-	"time"
 
 	"cosmossdk.io/log"
 	"cosmossdk.io/store/snapshots"
@@ -21,6 +20,7 @@ import (
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/gogoproto/grpc"
+	"github.com/polymerdao/monomer/e2e/url"
 	testapp "github.com/polymerdao/monomer/testapp"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -64,27 +64,21 @@ func TestStartCommandHandler(t *testing.T) {
 
 	cmtListenAddr := svrCtx.Config.RPC.ListenAddress
 	cmtListenAddr = strings.TrimPrefix(cmtListenAddr, "tcp://")
+	cmtListenURL, err := url.Parse(&stdURL.URL{Scheme: "http", Host: cmtListenAddr})
+	require.NoError(t, err)
 
 	go func() {
 		err := StartCommandHandler(svrCtx, clientCtx, mockAppCreator, inProcessConsensus, opts)
 		require.NoError(t, err)
 	}()
-	time.Sleep(1 * time.Second)
-
-	// --- Ensure Monomer has an active CometBFT listener ---
-	if conn, err := net.Dial("tcp", cmtListenAddr); err != nil {
-		svrCtx.Logger.Error("failed to dial CometBFT", "error", err)
-		panic(err)
-	} else {
-		conn.Close()
-	}
 
 	ctx := context.Background()
+	require.True(t, cmtListenURL.IsReachable(ctx))
 
 	// --- Submit a Monomer Tx ---
 	bftClient, err := bftclient.New("http://"+cmtListenAddr, "http://"+cmtListenAddr)
 	require.NoError(t, err, "could not create CometBFT client")
-	svrCtx.Logger.Info("CometBFT client created", "bftClient", bftClient)
+	t.Log("CometBFT client created", "bftClient", bftClient)
 
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
@@ -93,7 +87,7 @@ func TestStartCommandHandler(t *testing.T) {
 	require.NoError(t, err, "could not broadcast tx")
 	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
 	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash is not equal to bftTx.Hash")
-	svrCtx.Logger.Info("Monomer Tx broadcasted successfully", "txHash", putTx.Hash)
+	t.Log("Monomer Tx broadcasted successfully", "txHash", putTx.Hash)
 }
 
 // Wrapper around `testapp.App` to satisfy the `ABCI` and `servertypes.Application` interfaces
@@ -101,7 +95,7 @@ type WrappedTestApp struct {
 	*testapp.App
 }
 
-// ---- `ABCI` interface ----
+var _ servertypes.ABCI = (*WrappedTestApp)(nil)
 
 func (w *WrappedTestApp) Info(r *abcitypes.RequestInfo) (*abcitypes.ResponseInfo, error) {
 	return w.App.Info(context.TODO(), r)
@@ -155,7 +149,7 @@ func (w *WrappedTestApp) VerifyVoteExtension(_ *abcitypes.RequestVerifyVoteExten
 	panic("not implemented")
 }
 
-// ---- `servertypes.Application` interface ----
+var _ servertypes.Application = (*WrappedTestApp)(nil)
 
 func (w *WrappedTestApp) RegisterAPIRoutes(*api.Server, serverconfig.APIConfig) {
 	panic("not implemented")
