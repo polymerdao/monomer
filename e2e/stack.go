@@ -77,7 +77,6 @@ type auxDumpAccount struct {
 	Storage     map[common.Hash]string `json:"storage,omitempty"`
 	Address     *common.Address        `json:"address,omitempty"` // Address only present in iterative (line-by-line) mode
 	AddressHash hexutil.Bytes          `json:"key,omitempty"`     // If we don't have address, we can output the key
-
 }
 
 // helper shim to allow decoding of hex nonces
