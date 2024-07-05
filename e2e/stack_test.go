@@ -112,11 +112,13 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
 	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash does not match local hash")
+	t.Log("Monomer can ingest cometbft txs")
 
 	badPutTx := []byte("malformed")
 	badPut, err := client.BroadcastTxAsync(ctx, badPutTx)
 	require.NoError(t, err) // no API error - failure encoded in response
 	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
+	t.Log("Monomer can reject malformed cometbft txs")
 
 	checkTicker := time.NewTicker(time.Duration(l1BlockTime) * time.Second)
 	defer checkTicker.Stop()
@@ -134,6 +136,7 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, getTx.TxResult.Code, "txResult.Code is not OK")
 	require.Equal(t, bftTx, getTx.Tx, "txBytes do not match")
+	t.Log("Monomer can serve txs by hash")
 
 	txBlock, err := monomerClient.BlockByNumber(ctx, big.NewInt(getTx.Height))
 	require.NoError(t, err)
