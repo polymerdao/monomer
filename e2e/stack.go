@@ -42,7 +42,7 @@ type Stack struct {
 	opNodeURL        *url.URL
 	deployConfigDir  string
 	eventListener    EventListener
-	l1BlockTime      time.Duration
+	l1BlockTime      uint64
 }
 
 // New assumes all ports are available and that all paths exist and are valid.
@@ -52,7 +52,7 @@ func New(
 	monomerCometURL,
 	opNodeURL *url.URL,
 	deployConfigDir string,
-	l1BlockTime time.Duration,
+	l1BlockTime uint64,
 	eventListener EventListener,
 ) *Stack {
 	return &Stack{
@@ -161,7 +161,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client, l1HTTPendpoint, err := ethdevnet(ctx, uint64(s.l1BlockTime.Seconds()), l1genesis)
+	l1client, l1HTTPendpoint, err := ethdevnet(ctx, s.l1BlockTime, l1genesis)
 	if err != nil {
 		return fmt.Errorf("ethdevnet: %v", err)
 	}

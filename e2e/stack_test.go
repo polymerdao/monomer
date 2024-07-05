@@ -41,7 +41,7 @@ func TestE2E(t *testing.T) {
 		t.Skip("skipping e2e tests in short mode")
 	}
 
-	const l1BlockTime = time.Second // We would want 250ms instead, but then Anvil doesn't respond to RPCs (probably a thread starving in Anvil).
+	const l1BlockTime = uint64(1) // We would want 250ms instead, but blocktimes are uints in seconds.
 
 	deployConfigDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/deploy-config")
 	require.NoError(t, err)
@@ -116,7 +116,7 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, err) // no API error - failure encoded in response
 	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
 
-	checkTicker := time.NewTicker(l1BlockTime)
+	checkTicker := time.NewTicker(time.Duration(l1BlockTime) * time.Second)
 	defer checkTicker.Stop()
 	for range checkTicker.C {
 		latestBlock, err := monomerClient.BlockByNumber(context.Background(), nil)
