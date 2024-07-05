@@ -91,7 +91,7 @@ type auxDump struct {
 func (d *auxDump) ToStateDump() (*state.Dump, error) {
 	accounts := make(map[string]state.DumpAccount)
 
-	for k, v := range d.Accounts {
+	for k, v := range d.Accounts { //nolint:gocritic
 		nonce, err := hexutil.DecodeUint64(v.Nonce)
 		if err != nil {
 			return nil, fmt.Errorf("decode nonce: %v", err)
@@ -126,7 +126,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("new deploy config: %v", err)
 	}
 	deployConfig.SetDeployments(l1Deployments)
-	deployConfig.L1UseClique = false // Clique is for PoA permissioned block production. Disabling allows node to produce blocks without addition config.
+	deployConfig.L1UseClique = false // Allows node to produce blocks without addition config. Clique is a PoA config.
 
 	// Generate a deployer key and pre-fund the account
 	deployerKey, err := crypto.GenerateKey()
