@@ -111,7 +111,6 @@ func (d *auxDump) ToStateDump() (*state.Dump, error) {
 		Root:     d.Root,
 		Accounts: accounts,
 	}, nil
-
 }
 
 func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
@@ -147,13 +146,11 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		}
 	}
 	err = json.Unmarshal(l1StateJSON, &auxState)
-
 	if err != nil {
 		return fmt.Errorf("unmarshal l1 state: %v", err)
 	}
 
 	l1state, err := auxState.ToStateDump()
-
 	if err != nil {
 		return fmt.Errorf("auxState to state dump: %v", err)
 	}
