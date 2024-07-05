@@ -40,7 +40,7 @@ type Stack struct {
 	monomerEngineURL *url.URL
 	monomerCometURL  *url.URL
 	opNodeURL        *url.URL
-	contractsRootDir string
+	deployConfigDir  string
 	eventListener    EventListener
 	l1BlockTime      time.Duration
 }
@@ -51,7 +51,7 @@ func New(
 	monomerEngineURL,
 	monomerCometURL,
 	opNodeURL *url.URL,
-	contractsRootDir string,
+	deployConfigDir string,
 	l1BlockTime time.Duration,
 	eventListener EventListener,
 ) *Stack {
@@ -59,7 +59,7 @@ func New(
 		monomerEngineURL: monomerEngineURL,
 		monomerCometURL:  monomerCometURL,
 		opNodeURL:        opNodeURL,
-		contractsRootDir: contractsRootDir,
+		deployConfigDir:  deployConfigDir,
 		eventListener:    eventListener,
 		l1BlockTime:      l1BlockTime,
 	}
@@ -121,7 +121,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	if err != nil {
 		return fmt.Errorf("new l1 deployments: %v", err)
 	}
-	deployConfig, err := opgenesis.NewDeployConfigWithNetwork(networkName, filepath.Join(s.contractsRootDir, "deploy-config"))
+	deployConfig, err := opgenesis.NewDeployConfigWithNetwork(networkName, s.deployConfigDir)
 	if err != nil {
 		return fmt.Errorf("new deploy config: %v", err)
 	}

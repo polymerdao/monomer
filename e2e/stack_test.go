@@ -43,7 +43,7 @@ func TestE2E(t *testing.T) {
 
 	const l1BlockTime = time.Second // We would want 250ms instead, but then Anvil doesn't respond to RPCs (probably a thread starving in Anvil).
 
-	contractsRootDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/")
+	deployConfigDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/deploy-config")
 	require.NoError(t, err)
 
 	l1URL := newURL(t, "ws://127.0.0.1:8545")
@@ -61,7 +61,7 @@ func TestE2E(t *testing.T) {
 	}
 	opLogger := log.NewTerminalHandler(openLogFile(t, env, "op"), false)
 
-	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, contractsRootDir, l1BlockTime, &e2e.SelectiveListener{
+	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1BlockTime, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {
 			require.NoError(t, opLogger.Handle(context.Background(), r))
 		},
