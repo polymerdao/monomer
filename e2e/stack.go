@@ -116,7 +116,6 @@ func (d *auxDump) ToStateDump() (*state.Dump, error) {
 func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	// configure & run L1
 
-	const l2ChainID = 901
 	const networkName = "devnetL1"
 	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join("optimism", ".devnet", "addresses.json"))
 	if err != nil {
@@ -126,8 +125,6 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	if err != nil {
 		return fmt.Errorf("new deploy config: %v", err)
 	}
-	deployConfig.L2ChainID = l2ChainID // Ensure Monomer and the deploy config are aligned.
-
 	deployConfig.SetDeployments(l1Deployments)
 
 	// Generate a deployer key and pre-fund the account
@@ -187,7 +184,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	}
 
 	// Run Monomer.
-	if err := s.runMonomer(ctx, env, latestL1Block.Time(), l2ChainID); err != nil {
+	if err := s.runMonomer(ctx, env, latestL1Block.Time(), deployConfig.L2ChainID); err != nil {
 		return err
 	}
 	if !s.monomerEngineURL.IsReachable(ctx) {
