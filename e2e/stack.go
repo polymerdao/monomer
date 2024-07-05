@@ -40,6 +40,7 @@ type Stack struct {
 	monomerCometURL  *url.URL
 	opNodeURL        *url.URL
 	deployConfigDir  string
+	l1stateDumpDir   string
 	eventListener    EventListener
 	l1BlockTime      uint64
 }
@@ -51,6 +52,7 @@ func New(
 	monomerCometURL,
 	opNodeURL *url.URL,
 	deployConfigDir string,
+	l1stateDumpDir string,
 	l1BlockTime uint64,
 	eventListener EventListener,
 ) *Stack {
@@ -59,6 +61,7 @@ func New(
 		monomerCometURL:  monomerCometURL,
 		opNodeURL:        opNodeURL,
 		deployConfigDir:  deployConfigDir,
+		l1stateDumpDir:   l1stateDumpDir,
 		eventListener:    eventListener,
 		l1BlockTime:      l1BlockTime,
 	}
@@ -116,7 +119,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	// configure & run L1
 
 	const networkName = "devnetL1"
-	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join("optimism", ".devnet", "addresses.json"))
+	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join(s.l1stateDumpDir, "addresses.json"))
 	if err != nil {
 		return fmt.Errorf("new l1 deployments: %v", err)
 	}
@@ -135,7 +138,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 
 	var auxState auxDump
 
-	l1StateJSON, err := os.ReadFile(filepath.Join("optimism", ".devnet", "allocs-l1.json"))
+	l1StateJSON, err := os.ReadFile(filepath.Join(s.l1stateDumpDir, "allocs-l1.json"))
 	if err != nil {
 		// check if not found
 		if os.IsNotExist(err) {

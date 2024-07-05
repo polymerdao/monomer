@@ -45,6 +45,8 @@ func TestE2E(t *testing.T) {
 
 	deployConfigDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/deploy-config")
 	require.NoError(t, err)
+	l1StateDumpDir, err := filepath.Abs("./optimism/.devnet")
+	require.NoError(t, err)
 
 	l1URL := newURL(t, "ws://127.0.0.1:8545")
 	monomerEngineURL := newURL(t, "ws://127.0.0.1:8889")
@@ -61,7 +63,7 @@ func TestE2E(t *testing.T) {
 	}
 	opLogger := log.NewTerminalHandler(openLogFile(t, env, "op"), false)
 
-	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1BlockTime, &e2e.SelectiveListener{
+	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, l1BlockTime, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {
 			require.NoError(t, opLogger.Handle(context.Background(), r))
 		},
