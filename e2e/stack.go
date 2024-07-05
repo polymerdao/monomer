@@ -8,7 +8,6 @@ import (
 	"net"
 	"os"
 	"path/filepath"
-	"time"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
@@ -126,6 +125,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("new deploy config: %v", err)
 	}
 	deployConfig.SetDeployments(l1Deployments)
+	deployConfig.L1UseClique = false // Clique is for PoA permissioned block production. Disabling allows node to produce blocks without addition config.
 
 	// Generate a deployer key and pre-fund the account
 	deployerKey, err := crypto.GenerateKey()
