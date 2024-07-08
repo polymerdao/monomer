@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net"
 	"os"
 	"path/filepath"
@@ -170,8 +171,10 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		}
 		userAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
+		bigEth := big.NewInt(int64(1e18))
+
 		user := state.DumpAccount{
-			Balance: "0x100000000000000000000000000000000000000000000000000000000000000",
+			Balance: bigEth.String(),
 			Nonce:   0,
 			Address: &userAddress,
 		}

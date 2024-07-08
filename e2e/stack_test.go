@@ -14,6 +14,10 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	bfttypes "github.com/cometbft/cometbft/types"
+	"github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer/e2e"
@@ -80,7 +84,7 @@ func TestE2E(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	_, err = stack.Run(ctx, env)
+	ruConfig, err := stack.Run(ctx, env)
 	require.NoError(t, err)
 	// To avoid flaky tests, hang until the Monomer server is ready.
 	// We rely on the `go test` timeout to ensure the tests don't hang forever (default is 10 minutes).
@@ -90,6 +94,60 @@ func TestE2E(t *testing.T) {
 	monomerClient := e2e.NewMonomerClient(monomerRPCClient)
 
 	const targetHeight = 5
+
+	// construct L1 client. Hang until L1 responsive.
+	fmt.Println("Waiting for L1 to be reachable")
+	fmt.Println("L1 URL: ", ruConfig.L1URL.String())
+	require.True(t, ruConfig.L1URL.IsReachable(ctx))
+	fmt.Println("L1 is reachable")
+	l1RPCClient, err := rpc.DialContext(ctx, ruConfig.L1URL.String())
+	require.NoError(t, err)
+	l1Client := e2e.NewL1Client(l1RPCClient)
+
+	// instantiate L1 user, tx signer.
+	user := stack.L1Users[0]
+	signer := types.NewEIP155Signer(ruConfig.L1ChainID)
+
+	// op Portal
+	portal, err := bindings.NewOptimismPortal(ruConfig.DepositContractAddress, l1Client)
+	require.NoError(t, err)
+
+	// send user Deposit Tx
+	nonce, err := l1Client.Client.NonceAt(ctx, user.Address, nil)
+	require.NoError(t, err)
+
+	price, err := l1Client.Client.SuggestGasPrice(context.Background())
+	require.NoError(t, err)
+
+	gasPrice := new(big.Int).Mul(price, big.NewInt(2))
+	if gasPrice.BitLen() > 256 {
+		gasPrice = price // fallback to original price if overflow
+	}
+
+	depositTx, err := portal.DepositTransaction(
+		&bind.TransactOpts{
+			From: user.Address,
+			Signer: func(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
+				signed, err := types.SignTx(tx, signer, user.PrivateKey)
+				if err != nil {
+					return nil, err
+				}
+				return signed, nil
+			},
+			Nonce:    big.NewInt(int64(nonce)),
+			GasPrice: big.NewInt(price.Int64() * 2),
+			GasLimit: 1e6,
+			Value:    big.NewInt(1e18 / 10), // 0.1 eth
+			Context:  ctx,
+			NoSend:   false,
+		},
+		user.Address,
+		big.NewInt(1e18/20), // 0.5 eth deposit to L2
+		ruConfig.Genesis.SystemConfig.GasLimit/10, // 10% of block gas limit
+		false,    // _isCreation
+		[]byte{}, // no data
+	)
+	require.NoError(t, err, "deposit tx")
 
 	bftClient, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
 	require.NoError(t, err, "create Comet client")
@@ -120,7 +178,7 @@ func TestE2E(t *testing.T) {
 	}
 	t.Log("Monomer can sync")
 
-	getTx, err := client.Tx(ctx, bftTx.Hash(), false)
+	getTx, err := bftClient.Tx(ctx, bftTx.Hash(), false)
 
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, getTx.TxResult.Code, "txResult.Code is not OK")
@@ -130,6 +188,11 @@ func TestE2E(t *testing.T) {
 	txBlock, err := monomerClient.BlockByNumber(ctx, big.NewInt(getTx.Height))
 	require.NoError(t, err)
 	require.Len(t, txBlock.Transactions(), 2)
+
+	// inspect L1 for deposit tx receipt
+	receipt, err := l1Client.Client.TransactionReceipt(ctx, depositTx.Hash())
+	require.NoError(t, err, "deposit tx receipt")
+	require.NotNil(t, receipt, "deposit tx receipt")
 
 	for i := uint64(2); i < targetHeight; i++ {
 		block, err := monomerClient.BlockByNumber(ctx, new(big.Int).SetUint64(i))
