@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -37,6 +38,12 @@ type Stack struct {
 	l1stateDumpDir   string
 	eventListener    EventListener
 	l1BlockTime      uint64
+	L1Users          []L1User
+}
+
+type L1User struct {
+	Address    common.Address
+	PrivateKey *ecdsa.PrivateKey
 }
 
 // New assumes all ports are available and that all paths exist and are valid.
@@ -148,6 +155,27 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	l1state, err := auxState.ToStateDump()
 	if err != nil {
 		return fmt.Errorf("auxState to state dump: %v", err)
+	}
+
+	// Fund test EOA accounts
+	for range 1 {
+		privateKey, err := crypto.GenerateKey()
+		if err != nil {
+			return fmt.Errorf("generate key: %v", err)
+		}
+		userAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
+
+		user := state.DumpAccount{
+			Balance: "0x100000000000000000000000000000000000000000000000000000000000000",
+			Nonce:   0,
+			Address: &userAddress,
+		}
+		l1state.OnAccount(user.Address, user)
+		s.L1Users = append(s.L1Users, L1User{
+			Address:    userAddress,
+			PrivateKey: privateKey,
+		})
+		fmt.Println("funded userAddress", userAddress.Hex())
 	}
 
 	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, l1state, l1Deployments)
