@@ -92,20 +92,20 @@ func TestE2E(t *testing.T) {
 
 	const targetHeight = 5
 
-	client, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
+	bftClient, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
 	require.NoError(t, err, "create Comet client")
 
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
 
-	putTx, err := client.BroadcastTxAsync(ctx, txBytes)
+	putTx, err := bftClient.BroadcastTxAsync(ctx, txBytes)
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
 	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash does not match local hash")
 	t.Log("Monomer can ingest cometbft txs")
 
 	badPutTx := []byte("malformed")
-	badPut, err := client.BroadcastTxAsync(ctx, badPutTx)
+	badPut, err := bftClient.BroadcastTxAsync(ctx, badPutTx)
 	require.NoError(t, err) // no API error - failure encoded in response
 	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
 	t.Log("Monomer can reject malformed cometbft txs")
