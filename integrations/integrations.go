@@ -8,10 +8,8 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/signal"
 	"strconv"
 	"strings"
-	"syscall"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
@@ -29,9 +27,10 @@ import (
 )
 
 const (
-	monomerGenesisPathFlag = "monomer-genesis-path"
-	monomerEngineWSFlag    = "monomer-engine-ws"
+	monomerEngineWSFlag = "monomer-engine-ws"
 )
+
+var sigCh = make(chan os.Signal, 1)
 
 // StartCommandHandler is a custom callback that overrides the default `start` function in the Cosmos
 // SDK. It starts a Monomer node in-process instead of a CometBFT node.
@@ -76,9 +75,8 @@ func StartCommandHandler(
 		return fmt.Errorf("start Monomer node in-process: %v", err)
 	}
 
-	sigCh := make(chan os.Signal, 1)
-	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	<-sigCh
+	cancel()
 
 	return nil
 }
@@ -128,7 +126,7 @@ func startInProcess(
 	svrCtx.Logger.Info("Starting Monomer node in-process")
 	err := startMonomerNode(&WrappedApplication{
 		app: app,
-	}, env, opts, monomerCtx, svrCtx)
+	}, env, monomerCtx, svrCtx)
 	if err != nil {
 		return fmt.Errorf("start Monomer node: %v", err)
 	}
@@ -151,7 +149,6 @@ func startInProcess(
 func startMonomerNode(
 	wrappedApp *WrappedApplication,
 	env *environment.Env,
-	opts server.StartCmdOptions,
 	monomerCtx context.Context,
 	svrCtx *server.Context,
 ) error {
@@ -159,7 +156,6 @@ func startMonomerNode(
 	if err != nil {
 		return fmt.Errorf("create Engine websocket listener: %v", err)
 	}
-	env.DeferErr("close engine ws", engineWS.Close)
 
 	cmtListenAddr := svrCtx.Config.RPC.ListenAddress
 	cmtListenAddr = strings.TrimPrefix(cmtListenAddr, "tcp://")
@@ -167,13 +163,6 @@ func startMonomerNode(
 	if err != nil {
 		return fmt.Errorf("create CometBFT listener: %v", err)
 	}
-	env.DeferErr("close comet listener", cometListener.Close)
-
-	appdb, err := opts.DBOpener(svrCtx.Config.RootDir, server.GetAppDBBackend(svrCtx.Viper))
-	if err != nil {
-		return fmt.Errorf("open app db: %v", err)
-	}
-	env.DeferErr("close app db", appdb.Close)
 
 	blockdb, err := dbm.NewDB("blockstore", dbm.BackendType(svrCtx.Config.DBBackend), svrCtx.Config.RootDir)
 	if err != nil {
@@ -193,8 +182,7 @@ func startMonomerNode(
 	}
 	env.DeferErr("close mempool db", mempooldb.Close)
 
-	monomerGenesisPath := viper.GetString(monomerGenesisPathFlag)
-	svrCtx.Logger.Info("Loading Monomer genesis from", "path", monomerGenesisPath)
+	monomerGenesisPath := svrCtx.Config.GenesisFile()
 
 	appGenesis, err := genutiltypes.AppGenesisFromFile(monomerGenesisPath)
 	if err != nil {

@@ -4,7 +4,9 @@ import (
 	"context"
 	"io"
 	stdURL "net/url"
+	"path/filepath"
 	"strings"
+	"syscall"
 	"testing"
 
 	"cosmossdk.io/log"
@@ -22,6 +24,7 @@ import (
 	"github.com/cosmos/gogoproto/grpc"
 	"github.com/polymerdao/monomer/e2e/url"
 	testapp "github.com/polymerdao/monomer/testapp"
+	"github.com/sourcegraph/conc"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
@@ -46,11 +49,12 @@ func TestStartCommandHandler(t *testing.T) {
 	svrCtx := server.NewDefaultContext()
 	svrCtx.Config.RootDir = t.TempDir()
 	svrCtx.Config.DBBackend = "memdb"
+	genesisPath, err := filepath.Abs("testdata/genesis.json")
+	require.NoError(t, err)
+	svrCtx.Config.Genesis = genesisPath
 
 	// This flag must be set, because by default it's set to ""
 	svrCtx.Viper.Set("minimum-gas-prices", "0.025stake")
-	// This flag must be set to load the Monomer genesis file
-	viper.Set(monomerGenesisPathFlag, "./testdata/genesis.json")
 	// This flag must be set to configure Monomer's Engine Websocket
 	viper.Set(monomerEngineWSFlag, "127.0.0.1:8089")
 
@@ -67,10 +71,12 @@ func TestStartCommandHandler(t *testing.T) {
 	cmtListenURL, err := url.Parse(&stdURL.URL{Scheme: "http", Host: cmtListenAddr})
 	require.NoError(t, err)
 
-	go func() {
+	var wg conc.WaitGroup
+	defer wg.Wait()
+	wg.Go(func() {
 		err := StartCommandHandler(svrCtx, clientCtx, mockAppCreator, inProcessConsensus, opts)
 		require.NoError(t, err)
-	}()
+	})
 
 	ctx := context.Background()
 	require.True(t, cmtListenURL.IsReachable(ctx))
@@ -88,6 +94,8 @@ func TestStartCommandHandler(t *testing.T) {
 	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
 	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash is not equal to bftTx.Hash")
 	t.Log("Monomer Tx broadcasted successfully", "txHash", putTx.Hash)
+
+	sigCh <- syscall.SIGINT
 }
 
 // Wrapper around `testapp.App` to satisfy the `ABCI` and `servertypes.Application` interfaces
