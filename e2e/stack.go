@@ -31,6 +31,11 @@ type EventListener interface {
 	node.EventListener
 }
 
+type StackConfig struct {
+	L1URL *url.URL
+	rollup.Config
+}
+
 type Stack struct {
 	monomerEngineURL *url.URL
 	monomerCometURL  *url.URL
@@ -116,7 +121,7 @@ func (d *auxDump) ToStateDump() (*state.Dump, error) {
 	}, nil
 }
 
-func (s *Stack) Run(ctx context.Context, env *environment.Env) (*rollup.Config, error) {
+func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, error) {
 	// configure & run L1
 
 	const networkName = "devnetL1"
@@ -240,7 +245,10 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*rollup.Config, 
 	if err := opStack.Run(ctx, env); err != nil {
 		return nil, fmt.Errorf("run the op stack: %v", err)
 	}
-	return rollupConfig, nil
+	return &StackConfig{
+		L1URL:  l1url,
+		Config: *rollupConfig,
+	}, nil
 }
 
 func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTime, chainIDU64 uint64) error {
