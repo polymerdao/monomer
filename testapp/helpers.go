@@ -2,12 +2,13 @@ package testapp
 
 import (
 	"context"
+	"cosmossdk.io/math"
 	"encoding/json"
 	"fmt"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	"slices"
 	"testing"
 
-	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -16,7 +17,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/stretchr/testify/require"
@@ -74,21 +74,32 @@ func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey
 		AccountNumber: acc.GetAccountNumber(),
 		Sequence:      acc.GetSequence(),
 		PubKey:        pk,
+		Address:       pk.Address().String(),
 	}
-    fmt.Println("PubKey:", pk)
 
 	txBuilder.SetGasLimit(100000)
 	txBuilder.SetFeePayer(fromAddr)
 
-	sig, err := tx.SignWithPrivKey(ctx, signing.SignMode_SIGN_MODE_DIRECT, signerData, txBuilder, sk, txConfig, 0)
-    fmt.Println("Signature.PubKey:", sig.PubKey)
+	emptySig := signing.SignatureV2{
+		PubKey: pk,
+		Data: &signing.SingleSignatureData{
+			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
+			Signature: nil,
+		},
+		Sequence: acc.GetSequence(),
+	}
+	err = txBuilder.SetSignatures(emptySig)
+	require.NoError(t, err)
 
+	sig, err := tx.SignWithPrivKey(ctx, signing.SignMode_SIGN_MODE_DIRECT, signerData, txBuilder, sk, txConfig, 0)
 	require.NoError(t, err)
 	err = txBuilder.SetSignatures(sig)
 	require.NoError(t, err)
 
-	txBytes, err := txConfig.TxEncoder()(txBuilder.GetTx())
+	signedTx := txBuilder.GetTx()
+	txBytes, err := txConfig.TxEncoder()(signedTx)
 	require.NoError(t, err)
+
 	return txBytes
 }
 
@@ -160,32 +171,30 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 }
 
 func (a *App) TestAccount() (*secp256k1.PrivKey, *secp256k1.PubKey, sdk.AccountI) {
-    fmt.Println("Crypto: Generating test keys...")
+	fmt.Println("Crypto: Generating test keys...")
 	sk := secp256k1.GenPrivKey()
-	pk := secp256k1.PubKey{
-		Key: sk.PubKey().Bytes(),
-	}
+	pk := sk.PubKey().(*secp256k1.PubKey)
 
 	ctx := a.GetContext()
 
-    fmt.Println("AccountKeeper: Creating test account ...")
-    accAddr := sdk.AccAddress(pk.Address())
-    account := a.accountKeeper.NewAccountWithAddress(ctx, accAddr)
-    a.accountKeeper.SetAccount(ctx, account)
+	fmt.Println("AccountKeeper: Creating test account ...")
+	accAddr := sdk.AccAddress(pk.Address())
+	account := a.accountKeeper.NewAccountWithAddress(ctx, accAddr)
+	a.accountKeeper.SetAccount(ctx, account)
 
-    fmt.Println("BankKeeper: Minting coins ...")
+	fmt.Println("BankKeeper: Minting coins ...")
 	coins := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(100000)))
 	err := a.bankKeeper.MintCoins(ctx, minttypes.ModuleName, coins)
 	if err != nil {
 		panic(err)
 	}
 
-    fmt.Println("BankKeeper: Sending coins to", pk.Address(), "...")
+	fmt.Println("BankKeeper: Sending coins to", pk.Address(), "...")
 	err = a.bankKeeper.SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName, accAddr, coins)
 	if err != nil {
 		panic(err)
 	}
 	fmt.Println("Test account generated.")
 
-	return sk, &pk, account
+	return sk, pk, account
 }
