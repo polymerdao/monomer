@@ -54,7 +54,6 @@ type L1User struct {
 
 // New assumes all ports are available and that all paths exist and are valid.
 func New(
-	anvilURL,
 	monomerEngineURL,
 	monomerCometURL,
 	opNodeURL *url.URL,
