@@ -161,7 +161,6 @@ func TestBuild(t *testing.T) {
 			require.Equal(t, wantBlock, gotBlock)
 
 			// Tx store and event bus.
-			eventChan := subscription.Out()
 			for i, tx := range wantBlock.Txs {
 				checkTxResult := func(got abcitypes.TxResult) {
 					// We don't check the full result, which would be difficult and a bit overkill.
@@ -177,10 +176,17 @@ func TestBuild(t *testing.T) {
 				checkTxResult(*got)
 
 				// Event bus.
-				event := <-eventChan
-				data := event.Data()
-				require.IsType(t, bfttypes.EventDataTx{}, data)
-				checkTxResult(data.(bfttypes.EventDataTx).TxResult)
+				select {
+				case event, ok := <-subscription.Out():
+					if !ok {
+						require.FailNow(t, "event channel closed unexpectedly")
+					}
+					data := event.Data()
+					require.IsType(t, bfttypes.EventDataTx{}, data)
+					checkTxResult(data.(bfttypes.EventDataTx).TxResult)
+				case <-subscription.Canceled():
+					require.FailNow(t, "subscription channel closed unexpectedly")
+				}
 			}
 			require.NoError(t, subscription.Err())
 		})
