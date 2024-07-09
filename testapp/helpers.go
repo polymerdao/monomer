@@ -17,6 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/stretchr/testify/require"
@@ -96,6 +97,11 @@ func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey
 	err = txBuilder.SetSignatures(sig)
 	require.NoError(t, err)
 
+	tx := txBuilder.GetTx()
+	signers, err := tx.GetSigners()
+	require.NoError(t, err)
+	fmt.Printf("Signers: %v\n", signers)
+
 	signedTx := txBuilder.GetTx()
 	txBytes, err := txConfig.TxEncoder()(signedTx)
 	require.NoError(t, err)
@@ -170,17 +176,20 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 	}
 }
 
-func (a *App) TestAccount() (*secp256k1.PrivKey, *secp256k1.PubKey, sdk.AccountI) {
+func (a *App) TestAccount(ctx sdk.Context) (*secp256k1.PrivKey, *secp256k1.PubKey, sdk.AccountI) {
 	fmt.Println("Crypto: Generating test keys...")
 	sk := secp256k1.GenPrivKey()
 	pk := sk.PubKey().(*secp256k1.PubKey)
-
-	ctx := a.GetContext()
 
 	fmt.Println("AccountKeeper: Creating test account ...")
 	accAddr := sdk.AccAddress(pk.Address())
 	account := a.accountKeeper.NewAccountWithAddress(ctx, accAddr)
 	a.accountKeeper.SetAccount(ctx, account)
+
+	feeAcc := a.accountKeeper.GetAccount(ctx, accAddr)
+	fmt.Printf("AccountKeeper: Account created with address %v\n", feeAcc)
+
+	a.accountKeeper.Params.Set(ctx, authtypes.DefaultParams())
 
 	fmt.Println("BankKeeper: Minting coins ...")
 	coins := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(100000)))

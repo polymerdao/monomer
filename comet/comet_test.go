@@ -25,12 +25,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	chainID = monomer.ChainID(0)
+)
+
 func TestABCI(t *testing.T) {
-	chainID := "test"
-	app := testapp.NewTest(t, chainID)
+	app := testapp.NewTest(t, chainID.String())
 
 	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
-		ChainId: chainID,
+		ChainId: chainID.String(),
 		AppStateBytes: func() []byte {
 			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
 			require.NoError(t, err)
@@ -39,10 +42,11 @@ func TestABCI(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	sk, pk, acc := app.TestAccount()
-    fmt.Println("acc.Number:", acc.GetAccountNumber())
-    fmt.Println("acc.Sequence:", acc.GetSequence())
-    ctx := app.GetContext()
+	ctx := app.GetContext(false)
+
+	sk, pk, acc := app.TestAccount(ctx)
+	fmt.Println("acc.Number:", acc.GetAccountNumber())
+	fmt.Println("acc.Sequence:", acc.GetSequence())
 
 	// data to store and retrieve
 	k := "k1"
@@ -123,11 +127,19 @@ func TestStatus(t *testing.T) {
 }
 
 func TestBroadcastTx(t *testing.T) {
-	chainID := "0"
-	app := testapp.NewTest(t, chainID)
-	ctx := app.GetContext()
+	app := testapp.NewTest(t, chainID.String())
+	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
+		ChainId: chainID.String(),
+		AppStateBytes: func() []byte {
+			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
+			require.NoError(t, err)
+			return appStateBytes
+		}(),
+	})
+	require.NoError(t, err)
 
-	sk, pk, acc := app.TestAccount()
+	ctx := app.GetContext(true)
+	sk, pk, acc := app.TestAccount(ctx)
 	mpool := mempool.New(testutils.NewMemDB(t))
 	broadcastTxAPI := comet.NewBroadcastTxAPI(app, mpool)
 

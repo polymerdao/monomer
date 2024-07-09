@@ -2,6 +2,7 @@ package builder_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -35,6 +36,10 @@ func (*queryAll) Matches(_ map[string][]string) (bool, error) {
 func (*queryAll) String() string {
 	return "all"
 }
+
+const (
+	chainID = monomer.ChainID(0)
+)
 
 func TestBuild(t *testing.T) {
 	tests := map[string]struct {
@@ -80,14 +85,24 @@ func TestBuild(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			var chainID monomer.ChainID
 			app := testapp.NewTest(t, chainID.String())
-			ctx := app.GetContext()
 
-			sk, pk := app.TestAccount()
+			_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
+				ChainId: chainID.String(),
+				AppStateBytes: func() []byte {
+					appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
+					require.NoError(t, err)
+					return appStateBytes
+				}(),
+			})
+			require.NoError(t, err)
 
-			inclusionListTxs := testapp.ToTxs(t, test.inclusionList, sk, pk, ctx)
-			mempoolTxs := testapp.ToTxs(t, test.mempool, sk, pk, ctx)
+			ctx := app.GetContext(false)
+
+			sk, pk, acc := app.TestAccount(ctx)
+
+			inclusionListTxs := testapp.ToTxs(t, test.inclusionList, sk, pk, acc, ctx)
+			mempoolTxs := testapp.ToTxs(t, test.mempool, sk, pk, acc, ctx)
 
 			pool := mempool.New(testutils.NewMemDB(t))
 			for _, tx := range mempoolTxs {
@@ -109,7 +124,7 @@ func TestBuild(t *testing.T) {
 			})
 			// +1 because we want it to be buffered even when mempool and inclusion list are empty.
 			subChannelLen := len(test.mempool) + len(test.inclusionList) + 1
-			subscription, err := eventBus.Subscribe(context.Background(), "test", &queryAll{}, subChannelLen)
+			subscription, err := eventBus.Subscribe(ctx, "test", &queryAll{}, subChannelLen)
 			require.NoError(t, err)
 
 			require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
@@ -126,15 +141,15 @@ func TestBuild(t *testing.T) {
 
 			payload := &builder.Payload{
 				InjectedTransactions: bfttypes.ToTxs(inclusionListTxs),
-				GasLimit:             0,
+				GasLimit:             100000,
 				Timestamp:            g.Time + 1,
 				NoTxPool:             test.noTxPool,
 			}
-			preBuildInfo, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
+			preBuildInfo, err := app.Info(ctx, &abcitypes.RequestInfo{})
 			require.NoError(t, err)
-			builtBlock, err := b.Build(context.Background(), payload)
+			builtBlock, err := b.Build(ctx, payload)
 			require.NoError(t, err)
-			postBuildInfo, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
+			postBuildInfo, err := app.Info(ctx, &abcitypes.RequestInfo{})
 			require.NoError(t, err)
 
 			// Application.
@@ -218,14 +233,24 @@ func TestRollback(t *testing.T) {
 	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
 	ethstatedb := testutils.NewEthStateDB(t)
 
-	var chainID monomer.ChainID
 	app := testapp.NewTest(t, chainID.String())
-	ctx := app.GetContext()
+
+	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
+		ChainId: chainID.String(),
+		AppStateBytes: func() []byte {
+			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
+			require.NoError(t, err)
+			return appStateBytes
+		}(),
+	})
+	require.NoError(t, err)
+
+	ctx := app.GetContext(false)
 	g := &genesis.Genesis{
 		ChainID:  chainID,
 		AppState: testapp.MakeGenesisAppState(t, app),
 	}
-	sk, pk := app.TestAccount()
+	sk, pk, acc := app.TestAccount(ctx)
 
 	eventBus := bfttypes.NewEventBus()
 	require.NoError(t, eventBus.Start())
@@ -252,7 +277,7 @@ func TestRollback(t *testing.T) {
 	}
 	block, err := b.Build(context.Background(), &builder.Payload{
 		Timestamp:            g.Time + 1,
-		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs, sk, pk, ctx)),
+		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs, sk, pk, acc, ctx)),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, block)
@@ -287,7 +312,7 @@ func TestRollback(t *testing.T) {
 	require.Equal(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
 
 	// Tx store.
-	for _, tx := range bfttypes.ToTxs(testapp.ToTxs(t, kvs, sk, pk, ctx)) {
+	for _, tx := range bfttypes.ToTxs(testapp.ToTxs(t, kvs, sk, pk, acc, ctx)) {
 		result, err := txStore.Get(tx.Hash())
 		require.NoError(t, err)
 		require.Nil(t, result)
