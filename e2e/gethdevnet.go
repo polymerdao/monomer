@@ -1,7 +1,6 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"path/filepath"
 	"time"
@@ -13,11 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func gethdevnet(_ context.Context, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, error) {
-	now := time.Now().Unix()
+func gethdevnet(blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, error) {
 	blobsDirectory := filepath.Join("artifacts", "blobs")
 
-	beacon := fakebeacon.NewBeacon(nil, blobsDirectory, uint64(now), blockTime)
+	beacon := fakebeacon.NewBeacon(nil, blobsDirectory, genesis.Timestamp, blockTime)
 	myClock := clock.NewAdvancingClock(time.Second) // Arbitrary working duration. Eventually consumed by geth lifecycle instances.
 	node, _, err := geth.InitL1(
 		genesis.Config.ChainID.Uint64(),
