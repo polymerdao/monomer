@@ -110,6 +110,7 @@ func (d *auxDump) ToStateDump() (*state.Dump, error) {
 	return &state.Dump{
 		Root:     d.Root,
 		Accounts: accounts,
+		Next:     d.Next,
 	}, nil
 }
 
