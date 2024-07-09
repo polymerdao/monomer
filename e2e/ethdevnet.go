@@ -13,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-func ethdevnet(_ context.Context, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, error) {
+func gethdevnet(_ context.Context, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, error) {
 	now := time.Now().Unix()
 	blobsDirectory := filepath.Join("artifacts", "blobs")
 
