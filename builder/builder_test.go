@@ -161,7 +161,6 @@ func TestBuild(t *testing.T) {
 			require.Equal(t, wantBlock, gotBlock)
 
 			// Tx store and event bus.
-			eventChan := subscription.Out()
 			for i, tx := range wantBlock.Txs {
 				checkTxResult := func(got abcitypes.TxResult) {
 					// We don't check the full result, which would be difficult and a bit overkill.
@@ -178,7 +177,7 @@ func TestBuild(t *testing.T) {
 
 				// Event bus.
 				select {
-				case event, ok := <-eventChan:
+				case event, ok := <-subscription.Out():
 					if !ok {
 						require.FailNow(t, "event channel closed unexpectedly")
 					}
