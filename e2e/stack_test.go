@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"net/url"
 	"os"
@@ -66,16 +65,6 @@ func TestE2E(t *testing.T) {
 	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, l1BlockTime, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {
 			require.NoError(t, opLogger.Handle(context.Background(), r))
-		},
-		HandleCmdOutputCb: func(path string, stdout, stderr io.Reader) {
-			file := openLogFile(t, env, filepath.Base(path))
-			env.Go(func() {
-				_, err := io.Copy(file, io.MultiReader(stdout, stderr))
-				require.NoError(t, err)
-			})
-		},
-		OnAnvilErrCb: func(err error) {
-			t.Log(err)
 		},
 		NodeSelectiveListener: &node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {

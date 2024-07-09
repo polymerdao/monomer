@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net"
 	"os"
 	"path/filepath"
@@ -28,11 +27,6 @@ import (
 type EventListener interface {
 	OPEventListener
 	node.EventListener
-
-	// HandleCmdOutput must not block. It is called at most once for a command.
-	HandleCmdOutput(path string, stdout, stderr io.Reader)
-	// err will never be nil.
-	OnAnvilErr(err error)
 }
 
 type Stack struct {
