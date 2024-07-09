@@ -69,11 +69,11 @@ func NewOPStack(
 }
 
 func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
-	anvilRPCClient, err := rpc.DialContext(ctx, op.l1URL.String())
+	l1RPCClient, err := rpc.DialContext(ctx, op.l1URL.String())
 	if err != nil {
-		return fmt.Errorf("dial anvil: %v", err)
+		return fmt.Errorf("dial L1: %v", err)
 	}
-	l1 := NewL1Client(anvilRPCClient)
+	l1 := NewL1Client(l1RPCClient)
 
 	if err := op.runNode(ctx, env); err != nil {
 		return err
