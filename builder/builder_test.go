@@ -177,10 +177,17 @@ func TestBuild(t *testing.T) {
 				checkTxResult(*got)
 
 				// Event bus.
-				event := <-eventChan
-				data := event.Data()
-				require.IsType(t, bfttypes.EventDataTx{}, data)
-				checkTxResult(data.(bfttypes.EventDataTx).TxResult)
+				select {
+				case event, ok := <-eventChan:
+					if !ok {
+						require.FailNow(t, "event channel closed unexpectedly")
+					}
+					data := event.Data()
+					require.IsType(t, bfttypes.EventDataTx{}, data)
+					checkTxResult(data.(bfttypes.EventDataTx).TxResult)
+				case <-subscription.Canceled():
+					require.FailNow(t, "subscription channel closed unexpectedly")
+				}
 			}
 			require.NoError(t, subscription.Err())
 		})
