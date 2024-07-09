@@ -56,7 +56,7 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 	return defaultGenesis
 }
 
-func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey, acc sdk.AccountI, ctx sdk.Context) []byte {
+func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey, acc sdk.AccountI, seq uint64, ctx sdk.Context) []byte {
 	fromAddr := sdk.AccAddress(pk.Address())
 
 	msg := &testappv1.SetRequest{
@@ -71,9 +71,9 @@ func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey
 	require.NoError(t, err)
 
 	signerData := authsigning.SignerData{
-		ChainID:       "test",
+		ChainID:       chainID,
 		AccountNumber: acc.GetAccountNumber(),
-		Sequence:      acc.GetSequence(),
+		Sequence:      seq,
 		PubKey:        pk,
 		Address:       pk.Address().String(),
 	}
@@ -87,12 +87,12 @@ func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey
 			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
 			Signature: nil,
 		},
-		Sequence: acc.GetSequence(),
+		Sequence: seq,
 	}
 	err = txBuilder.SetSignatures(emptySig)
 	require.NoError(t, err)
 
-	sig, err := tx.SignWithPrivKey(ctx, signing.SignMode_SIGN_MODE_DIRECT, signerData, txBuilder, sk, txConfig, 0)
+	sig, err := tx.SignWithPrivKey(ctx, signing.SignMode_SIGN_MODE_DIRECT, signerData, txBuilder, sk, txConfig, seq)
 	require.NoError(t, err)
 	err = txBuilder.SetSignatures(sig)
 	require.NoError(t, err)
@@ -111,10 +111,11 @@ func ToTx(t *testing.T, k, v string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey
 
 // ToTxs converts the key-values to SetRequest sdk.Msgs and marshals the messages to protobuf wire format.
 // Each message is placed in a separate tx.
-func ToTxs(t *testing.T, kvs map[string]string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey, acc sdk.AccountI, ctx sdk.Context) [][]byte {
+func ToTxs(t *testing.T, kvs map[string]string, chainID string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey, acc sdk.AccountI, startingSeq uint64, ctx sdk.Context) [][]byte {
 	var txs [][]byte
 	for k, v := range kvs {
-		txs = append(txs, ToTx(t, k, v, sk, pk, acc, ctx))
+		txs = append(txs, ToTx(t, k, v, chainID, sk, pk, acc, startingSeq, ctx))
+		startingSeq += 1
 	}
 	// Ensure txs are always returned in the same order.
 	slices.SortFunc(txs, func(x []byte, y []byte) int {
