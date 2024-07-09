@@ -3,6 +3,10 @@ COVER_OUT ?= cover.out
 COVER_HTML ?= cover.html
 PULSAR_PATHS ?= proto/rollup/module,testapp/proto/testapp/module
 
+E2E_ARTIFACTS_PATH ?= e2e/artifacts
+E2E_STATE_SETUP_PATH ?= e2e/optimism/.devnet
+E2E_CONFIG_SETUP_PATH ?= e2e/optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
+
 .PHONY: test
 test:
 	go test -short ./...
@@ -55,7 +59,9 @@ $(COVER_HTML): $(COVER_OUT)
 clean:
 	if [ -f $(COVER_OUT) ]; then rm $(COVER_OUT); fi
 	if [ -f $(COVER_HTML) ]; then rm $(COVER_HTML); fi
-	if [ -d e2e/artifacts ]; then rm -r e2e/artifacts; fi
+	if [ -d ${E2E_ARTIFACTS_PATH} ]; then rm -r ${E2E_ARTIFACTS_PATH}; fi
+	if [ -d ${E2E_STATE_SETUP_PATH} ]; then rm -r ${E2E_STATE_SETUP_PATH}; fi
+	if [ -f $(E2E_CONFIG_SETUP_PATH) ]; then rm $(E2E_CONFIG_SETUP_PATH); fi
 
 .PHONY: setup-e2e
 setup-e2e:
