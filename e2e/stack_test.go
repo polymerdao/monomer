@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"math/big"
 	"net/url"
 	"os"
@@ -41,12 +40,14 @@ func TestE2E(t *testing.T) {
 		t.Skip("skipping e2e tests in short mode")
 	}
 
-	const l1BlockTime = time.Second // We would want 250ms instead, but then Anvil doesn't respond to RPCs (probably a thread starving in Anvil).
+	const l1BlockTime = uint64(1) // We would want 250ms instead, but blocktimes are uints in seconds.
 
-	contractsRootDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/")
+	deployConfigDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/deploy-config")
+	require.NoError(t, err)
+	l1StateDumpDir, err := filepath.Abs("./optimism/.devnet")
 	require.NoError(t, err)
 
-	l1URL := newURL(t, "ws://127.0.0.1:8888")
+	l1URL := newURL(t, "ws://127.0.0.1:8545")
 	monomerEngineURL := newURL(t, "ws://127.0.0.1:8889")
 	monomerCometURL := newURL(t, "http://127.0.0.1:8890")
 	opNodeURL := newURL(t, "http://127.0.0.1:8891")
@@ -61,19 +62,9 @@ func TestE2E(t *testing.T) {
 	}
 	opLogger := log.NewTerminalHandler(openLogFile(t, env, "op"), false)
 
-	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, contractsRootDir, l1BlockTime, &e2e.SelectiveListener{
+	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, l1BlockTime, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {
 			require.NoError(t, opLogger.Handle(context.Background(), r))
-		},
-		HandleCmdOutputCb: func(path string, stdout, stderr io.Reader) {
-			file := openLogFile(t, env, filepath.Base(path))
-			env.Go(func() {
-				_, err := io.Copy(file, io.MultiReader(stdout, stderr))
-				require.NoError(t, err)
-			})
-		},
-		OnAnvilErrCb: func(err error) {
-			t.Log(err)
 		},
 		NodeSelectiveListener: &node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
@@ -118,7 +109,7 @@ func TestE2E(t *testing.T) {
 	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
 	t.Log("Monomer can reject malformed cometbft txs")
 
-	checkTicker := time.NewTicker(l1BlockTime)
+	checkTicker := time.NewTicker(time.Duration(l1BlockTime) * time.Second)
 	defer checkTicker.Stop()
 	for range checkTicker.C {
 		latestBlock, err := monomerClient.BlockByNumber(context.Background(), nil)

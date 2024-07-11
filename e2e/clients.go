@@ -6,29 +6,21 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 )
 
-type AnvilClient struct {
+type L1Client struct {
 	client *rpc.Client
 	*ethclient.Client
 }
 
-func NewAnvilClient(client *rpc.Client) *AnvilClient {
-	return &AnvilClient{
+func NewL1Client(client *rpc.Client) *L1Client {
+	return &L1Client{
 		client: client,
 		Client: ethclient.NewClient(client),
 	}
-}
-
-func (a *AnvilClient) SetBalance(ctx context.Context, account common.Address, balance uint64) error {
-	if err := a.client.CallContext(ctx, nil, "anvil_setBalance", account, hexutil.Uint64(balance)); err != nil {
-		return fmt.Errorf("%s, %d: %v", account, balance, err)
-	}
-	return nil
 }
 
 type MonomerClient struct {

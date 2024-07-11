@@ -2,19 +2,18 @@ package e2e
 
 import (
 	"context"
-	"errors"
+	"encoding/json"
 	"fmt"
-	"io"
 	"net"
-	"os/exec"
+	"os"
 	"path/filepath"
-	"syscall"
-	"time"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
@@ -25,26 +24,19 @@ import (
 	"github.com/polymerdao/monomer/testapp"
 )
 
-const oneETH = uint64(1e18)
-
 type EventListener interface {
 	OPEventListener
 	node.EventListener
-
-	// HandleCmdOutput must not block. It is called at most once for a command.
-	HandleCmdOutput(path string, stdout, stderr io.Reader)
-	// err will never be nil.
-	OnAnvilErr(err error)
 }
 
 type Stack struct {
-	anvilURL         *url.URL
 	monomerEngineURL *url.URL
 	monomerCometURL  *url.URL
 	opNodeURL        *url.URL
-	contractsRootDir string
+	deployConfigDir  string
+	l1stateDumpDir   string
 	eventListener    EventListener
-	l1BlockTime      time.Duration
+	l1BlockTime      uint64
 }
 
 // New assumes all ports are available and that all paths exist and are valid.
@@ -53,89 +45,140 @@ func New(
 	monomerEngineURL,
 	monomerCometURL,
 	opNodeURL *url.URL,
-	contractsRootDir string,
-	l1BlockTime time.Duration,
+	deployConfigDir string,
+	l1stateDumpDir string,
+	l1BlockTime uint64,
 	eventListener EventListener,
 ) *Stack {
 	return &Stack{
-		anvilURL:         anvilURL,
 		monomerEngineURL: monomerEngineURL,
 		monomerCometURL:  monomerCometURL,
 		opNodeURL:        opNodeURL,
-		contractsRootDir: contractsRootDir,
+		deployConfigDir:  deployConfigDir,
+		l1stateDumpDir:   l1stateDumpDir,
 		eventListener:    eventListener,
 		l1BlockTime:      l1BlockTime,
 	}
 }
 
-func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
-	// Run anvil.
-	anvilCmd := exec.CommandContext( //nolint:gosec
-		ctx,
-		"anvil",
-		"--port", s.anvilURL.Port(),
-		"--order", "fifo",
-		"--disable-block-gas-limit",
-		"--gas-price", "0",
-		"--block-time", fmt.Sprint(s.l1BlockTime.Seconds()),
-	)
-	anvilCmd.Cancel = func() error {
-		// Anvil can catch SIGTERMs. The exec package sends a SIGKILL by default.
-		return anvilCmd.Process.Signal(syscall.SIGTERM)
-	}
-	if err := s.startCmd(anvilCmd); err != nil {
-		return err
-	}
-	env.Go(func() {
-		if err := anvilCmd.Wait(); err != nil && !errors.Is(err, ctx.Err()) {
-			s.eventListener.OnAnvilErr(fmt.Errorf("run %s: %v", anvilCmd, err))
+// helper shim to allow decoding of hex nonces
+type auxDumpAccount struct {
+	Balance     string                 `json:"balance"`
+	Nonce       string                 `json:"nonce"`
+	Root        hexutil.Bytes          `json:"root"`
+	CodeHash    hexutil.Bytes          `json:"codeHash"`
+	Code        hexutil.Bytes          `json:"code,omitempty"`
+	Storage     map[common.Hash]string `json:"storage,omitempty"`
+	Address     *common.Address        `json:"address,omitempty"` // Address only present in iterative (line-by-line) mode
+	AddressHash hexutil.Bytes          `json:"key,omitempty"`     // If we don't have address, we can output the key
+}
+
+// helper shim to allow decoding of hex nonces
+type auxDump struct {
+	Root     string                    `json:"root"`
+	Accounts map[string]auxDumpAccount `json:"accounts"`
+	// Next can be set to represent that this dump is only partial, and Next
+	// is where an iterator should be positioned in order to continue the dump.
+	Next []byte `json:"next,omitempty"` // nil if no more accounts
+}
+
+func (d *auxDump) ToStateDump() (*state.Dump, error) {
+	accounts := make(map[string]state.DumpAccount)
+
+	for k, v := range d.Accounts { //nolint:gocritic
+		nonce, err := hexutil.DecodeUint64(v.Nonce)
+		if err != nil {
+			return nil, fmt.Errorf("decode nonce: %v", err)
 		}
-	})
-	// NOTE: should we set a timeout on the context? Might not be worth the complexity.
-	if !s.anvilURL.IsReachable(ctx) {
-		return nil
+
+		accounts[k] = state.DumpAccount{
+			Balance:  v.Balance,
+			Nonce:    nonce,
+			Root:     v.Root,
+			CodeHash: v.CodeHash,
+			Code:     v.Code,
+			Storage:  v.Storage,
+		}
 	}
 
-	// Fund an account.
-	anvilRPCClient, err := rpc.DialContext(ctx, s.anvilURL.String())
+	return &state.Dump{
+		Root:     d.Root,
+		Accounts: accounts,
+		Next:     d.Next,
+	}, nil
+}
+
+func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
+	// configure & run L1
+
+	const networkName = "devnetL1"
+	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join(s.l1stateDumpDir, "addresses.json"))
 	if err != nil {
-		return fmt.Errorf("dial anvil: %v", err)
+		return fmt.Errorf("new l1 deployments: %v", err)
 	}
-	anvil := NewAnvilClient(anvilRPCClient)
-	privKey, err := crypto.GenerateKey()
+	deployConfig, err := opgenesis.NewDeployConfigWithNetwork(networkName, s.deployConfigDir)
+	if err != nil {
+		return fmt.Errorf("new deploy config: %v", err)
+	}
+	deployConfig.SetDeployments(l1Deployments)
+	deployConfig.L1UseClique = false // Allows node to produce blocks without addition config. Clique is a PoA config.
+
+	// Generate a deployer key and pre-fund the account
+	deployerKey, err := crypto.GenerateKey()
 	if err != nil {
 		return fmt.Errorf("generate key: %v", err)
 	}
-	if err := anvil.SetBalance(ctx, crypto.PubkeyToAddress(privKey.PublicKey), 10*oneETH); err != nil { //nolint:gomnd
-		return fmt.Errorf("set balance: %v", err)
+
+	var auxState auxDump
+
+	l1StateJSON, err := os.ReadFile(filepath.Join(s.l1stateDumpDir, "allocs-l1.json"))
+	if err != nil {
+		// check if not found
+		if os.IsNotExist(err) {
+			return fmt.Errorf("allocs-l1.json not found - run `make setup-e2e` from project root")
+		} else {
+			return fmt.Errorf("read allocs-l1.json: %v", err)
+		}
+	}
+	err = json.Unmarshal(l1StateJSON, &auxState)
+	if err != nil {
+		return fmt.Errorf("unmarshal l1 state: %v", err)
 	}
 
-	// Deploy the OP L1 contracts.
-	forgeCmd := exec.CommandContext( //nolint:gosec
-		ctx,
-		"forge",
-		"script",
-		"--root", s.contractsRootDir,
-		"-vvv",
-		fmt.Sprintf("%s:Deploy", filepath.Join(s.contractsRootDir, "scripts", "Deploy.s.sol")),
-		"--rpc-url", s.anvilURL.String(),
-		"--broadcast",
-		"--private-key", common.Bytes2Hex(crypto.FromECDSA(privKey)),
-	)
-	if err := s.startCmd(forgeCmd); err != nil {
-		return err
+	l1state, err := auxState.ToStateDump()
+	if err != nil {
+		return fmt.Errorf("auxState to state dump: %v", err)
 	}
-	if err := forgeCmd.Wait(); err != nil {
-		return fmt.Errorf("run %s: %v", forgeCmd, err)
+
+	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, l1state, l1Deployments)
+	if err != nil {
+		return fmt.Errorf("build l1 developer genesis: %v", err)
 	}
-	latestL1Block, err := anvil.BlockByNumber(ctx, nil)
+
+	l1client, l1HTTPendpoint, err := gethdevnet(s.l1BlockTime, l1genesis)
+	if err != nil {
+		return fmt.Errorf("ethdevnet: %v", err)
+	}
+
+	l1url, err := url.ParseString(l1HTTPendpoint)
+	if err != nil {
+		return fmt.Errorf("new l1 url: %v", err)
+	}
+
+	// NOTE: should we set a timeout on the context? Might not be worth the complexity.
+	if !l1url.IsReachable(ctx) {
+		return fmt.Errorf("l1 url not reachable: %s", l1url.String())
+	}
+
+	l1 := NewL1Client(l1client)
+
+	latestL1Block, err := l1.BlockByNumber(ctx, nil)
 	if err != nil {
 		return fmt.Errorf("get the latest l1 block: %v", err)
 	}
 
 	// Run Monomer.
-	const l2ChainID = 901
-	if err := s.runMonomer(ctx, env, latestL1Block.Time(), l2ChainID); err != nil {
+	if err := s.runMonomer(ctx, env, latestL1Block.Time(), deployConfig.L2ChainID); err != nil {
 		return err
 	}
 	if !s.monomerEngineURL.IsReachable(ctx) {
@@ -151,52 +194,22 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		return fmt.Errorf("get Monomer genesis block hash: %v", err)
 	}
 
-	// Get deploy config and rollup config.
-	// The Optimism repo only includes configs for Hardhat. Fortunately, Anvil is designed to be compatible and works fine here.
-	const networkName = "hardhat"
-	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join(s.contractsRootDir, "deployments", networkName, ".deploy"))
-	if err != nil {
-		return fmt.Errorf("new l1 deployments: %v", err)
-	}
-	deployConfig, err := opgenesis.NewDeployConfigWithNetwork(networkName, filepath.Join(s.contractsRootDir, "deploy-config"))
-	if err != nil {
-		return fmt.Errorf("new deploy config: %v", err)
-	}
-	deployConfig.L1ChainID = 31337     // The file in the Optimism repo mistakenly sets the Hardhat L1 chain ID to 900.
-	deployConfig.L2ChainID = l2ChainID // Ensure Monomer and the deploy config are aligned.
-	deployConfig.SetDeployments(l1Deployments)
 	rollupConfig, err := deployConfig.RollupConfig(latestL1Block, l2GenesisBlockHash, 1)
 	if err != nil {
 		return fmt.Errorf("new rollup config: %v", err)
 	}
 
 	opStack := NewOPStack(
-		s.anvilURL,
+		l1url,
 		s.monomerEngineURL,
 		s.opNodeURL,
 		l1Deployments.L2OutputOracleProxy,
-		privKey,
+		deployerKey,
 		rollupConfig,
 		s.eventListener,
 	)
 	if err := opStack.Run(ctx, env); err != nil {
 		return fmt.Errorf("run the op stack: %v", err)
-	}
-	return nil
-}
-
-func (s *Stack) startCmd(cmd *exec.Cmd) error {
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("get stdout pipe for %s: %v", cmd, err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("get stderr pipe for %s: %v", cmd, err)
-	}
-	s.eventListener.HandleCmdOutput(cmd.Path, stdout, stderr)
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start %s: %v", cmd, err)
 	}
 	return nil
 }

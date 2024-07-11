@@ -12,6 +12,6 @@ From the [OP stack](https://specs.optimism.io/protocol/overview.html#components)
 
 ## Development
 
-We use Go 1.22. To run the e2e tests, you'll need the `foundry` tools and the submodules (`git submodule update --init --recursive`). We use [`buf`](https://buf.build/) to manage protobufs.
+We use Go 1.22. To run the e2e tests, you'll need the submodules (`git submodule update --init --recursive`) and a configured L1 backend (`make setup-e2e`). We use [`buf`](https://buf.build/) to manage protobufs.
 
 The Makefile includes commands for running tests and generating coverage profiles.
