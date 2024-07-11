@@ -136,6 +136,9 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	deployConfig.SetDeployments(l1Deployments)
 	deployConfig.L1UseClique = false // Allows node to produce blocks without addition config. Clique is a PoA config.
 
+	// deployConfig.MaxSequencerDrift = 10    // todo: configure these to prompt op-node to pass deposit tx to monomer in reasonable time
+	// deployConfig.SequencerWindowSize = 2
+
 	// Generate a deployer key and pre-fund the account
 	deployerKey, err := crypto.GenerateKey()
 	if err != nil {
