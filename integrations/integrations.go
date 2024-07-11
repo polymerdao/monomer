@@ -67,7 +67,7 @@ func StartCommandHandler(
 	}
 
 	monomerCtx, cancel := context.WithCancel(context.Background())
-	env.Defer(cancel)
+	defer cancel()
 
 	// Would usually start a Comet node in-process here, but we replace the
 	// Comet node with a Monomer node.
@@ -76,7 +76,6 @@ func StartCommandHandler(
 	}
 
 	<-sigCh
-	cancel()
 
 	return nil
 }
