@@ -122,11 +122,11 @@ func TestBroadcastTx(t *testing.T) {
 	chainID := "0"
 	app := testapp.NewTest(t, chainID)
 	mpool := mempool.New(testutils.NewMemDB(t))
-	broadcastAPI := comet.NewBroadcastAPI(app, mpool)
+	broadcastTxAPI := comet.NewBroadcastTxAPI(app, mpool)
 
-	// Succuss case.
+	// Success case.
 	tx := testapp.ToTx(t, "k1", "v1")
-	result, err := broadcastAPI.BroadcastTx(&jsonrpctypes.Context{}, tx)
+	result, err := broadcastTxAPI.BroadcastTx(&jsonrpctypes.Context{}, tx)
 	require.NoError(t, err)
 	// We trust that the other fields are set correctly.
 	require.Equal(t, uint32(0), result.Code)
@@ -142,7 +142,7 @@ func TestBroadcastTx(t *testing.T) {
 	startLen, err := mpool.Len()
 	require.NoError(t, err)
 
-	result, err = broadcastAPI.BroadcastTx(&jsonrpctypes.Context{}, badTx)
+	result, err = broadcastTxAPI.BroadcastTx(&jsonrpctypes.Context{}, badTx)
 	// API does not error, but returns a non-zero error code.
 	require.NoError(t, err)
 	require.NotEqual(t, uint32(0), result.Code)

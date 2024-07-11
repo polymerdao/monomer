@@ -131,13 +131,13 @@ type Mempool interface {
 	Enqueue(userTxn bfttypes.Tx) error
 }
 
-type BroadcastAPI struct {
+type BroadcastTxAPI struct {
 	app     AppMempool
 	mempool Mempool
 }
 
-func NewBroadcastAPI(app AppMempool, mempool Mempool) *BroadcastAPI {
-	return &BroadcastAPI{
+func NewBroadcastTxAPI(app AppMempool, mempool Mempool) *BroadcastTxAPI {
+	return &BroadcastTxAPI{
 		app:     app,
 		mempool: mempool,
 	}
@@ -145,7 +145,7 @@ func NewBroadcastAPI(app AppMempool, mempool Mempool) *BroadcastAPI {
 
 // BroadcastTxSync returns with the response from CheckTx, but does not wait for DeliverTx (tx execution).
 // More: https://docs.cometbft.com/main/rpc/#/Tx/broadcast_tx_sync
-func (s *BroadcastAPI) BroadcastTx(ctx *jsonrpctypes.Context, tx bfttypes.Tx) (*rpctypes.ResultBroadcastTx, error) {
+func (s *BroadcastTxAPI) BroadcastTx(ctx *jsonrpctypes.Context, tx bfttypes.Tx) (*rpctypes.ResultBroadcastTx, error) {
 	checkTxResp, err := s.app.CheckTx(ctx.Context(), &abcitypes.RequestCheckTx{
 		Tx:   tx,
 		Type: abcitypes.CheckTxType_New,
