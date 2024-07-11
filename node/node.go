@@ -117,12 +117,12 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	// Run Comet server.
 
 	abci := comet.NewABCI(n.app)
-	broadcastAPI := comet.NewBroadcastTx(n.app, mpool)
-	txAPI := comet.NewTx(txStore)
+	broadcastAPI := comet.NewBroadcastAPI(n.app, mpool)
+	txAPI := comet.NewTxAPI(txStore)
 	subscribeWg := conc.NewWaitGroup()
 	env.Defer(subscribeWg.Wait)
-	subscribeAPI := comet.NewSubscriber(eventBus, subscribeWg, &comet.SelectiveListener{})
-	blockAPI := comet.NewBlock(blockStore)
+	subscribeAPI := comet.NewSubscriberAPI(eventBus, subscribeWg, &comet.SelectiveListener{})
+	blockAPI := comet.NewBlockAPI(blockStore)
 	// https://docs.cometbft.com/main/rpc/
 	routes := map[string]*cometserver.RPCFunc{
 		"echo": cometserver.NewRPCFunc(func(_ *jsonrpctypes.Context, msg string) (string, error) {

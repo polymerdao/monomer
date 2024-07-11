@@ -122,7 +122,7 @@ func TestBroadcastTx(t *testing.T) {
 	chainID := "0"
 	app := testapp.NewTest(t, chainID)
 	mpool := mempool.New(testutils.NewMemDB(t))
-	broadcastAPI := comet.NewBroadcastTx(app, mpool)
+	broadcastAPI := comet.NewBroadcastAPI(app, mpool)
 
 	// Succuss case.
 	tx := testapp.ToTx(t, "k1", "v1")
@@ -198,7 +198,7 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 	}()
 	wg := conc.NewWaitGroup()
 	defer wg.Wait()
-	subscribeAPI := comet.NewSubscriber(bus, wg, &comet.SelectiveListener{
+	subscribeAPI := comet.NewSubscriberAPI(bus, wg, &comet.SelectiveListener{
 		OnSubscriptionWriteErrCb: func(err error) {
 			require.NoError(t, err)
 		},
@@ -291,7 +291,7 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 
 func TestTx(t *testing.T) {
 	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
-	txAPI := comet.NewTx(txStore)
+	txAPI := comet.NewTxAPI(txStore)
 	_, err := txAPI.ByHash(&jsonrpctypes.Context{}, []byte{}, true)
 	require.ErrorContains(t, err, "proving is not supported")
 	wsConn := newMockWSConnection(t, nil)
@@ -355,7 +355,7 @@ func TestBlock(t *testing.T) {
 	}
 	blockStore.AddBlock(block)
 
-	blockAPI := comet.NewBlock(blockStore)
+	blockAPI := comet.NewBlockAPI(blockStore)
 	resultBlock, err := blockAPI.ByHeight(&jsonrpctypes.Context{}, block.Header.Height)
 	require.NoError(t, err)
 	require.Equal(t, want, resultBlock)
