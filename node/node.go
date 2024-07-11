@@ -117,12 +117,12 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	// Run Comet server.
 
 	abci := comet.NewABCI(n.app)
-	broadcastAPI := comet.NewBroadcastTx(n.app, mpool)
-	txAPI := comet.NewTx(txStore)
+	broadcastTxAPI := comet.NewBroadcastTxAPI(n.app, mpool)
+	txAPI := comet.NewTxAPI(txStore)
 	subscribeWg := conc.NewWaitGroup()
 	env.Defer(subscribeWg.Wait)
-	subscribeAPI := comet.NewSubscriber(eventBus, subscribeWg, &comet.SelectiveListener{})
-	blockAPI := comet.NewBlock(blockStore)
+	subscribeAPI := comet.NewSubscriberAPI(eventBus, subscribeWg, &comet.SelectiveListener{})
+	blockAPI := comet.NewBlockAPI(blockStore)
 	// https://docs.cometbft.com/main/rpc/
 	routes := map[string]*cometserver.RPCFunc{
 		"echo": cometserver.NewRPCFunc(func(_ *jsonrpctypes.Context, msg string) (string, error) {
@@ -136,8 +136,8 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		"abci_query": cometserver.NewRPCFunc(abci.Query, "path,data,height,prove"),
 		"abci_info":  cometserver.NewRPCFunc(abci.Info, "", cometserver.Cacheable()),
 
-		"broadcast_tx_sync":  cometserver.NewRPCFunc(broadcastAPI.BroadcastTx, "tx"),
-		"broadcast_tx_async": cometserver.NewRPCFunc(broadcastAPI.BroadcastTx, "tx"),
+		"broadcast_tx_sync":  cometserver.NewRPCFunc(broadcastTxAPI.BroadcastTx, "tx"),
+		"broadcast_tx_async": cometserver.NewRPCFunc(broadcastTxAPI.BroadcastTx, "tx"),
 
 		"tx":        cometserver.NewRPCFunc(txAPI.ByHash, "hash,prove"),
 		"tx_search": cometserver.NewRPCFunc(txAPI.Search, "query,prove,page,per_page,order_by"),

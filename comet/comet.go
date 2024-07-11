@@ -131,13 +131,13 @@ type Mempool interface {
 	Enqueue(userTxn bfttypes.Tx) error
 }
 
-type BroadcastTx struct {
+type BroadcastTxAPI struct {
 	app     AppMempool
 	mempool Mempool
 }
 
-func NewBroadcastTx(app AppMempool, mempool Mempool) *BroadcastTx {
-	return &BroadcastTx{
+func NewBroadcastTxAPI(app AppMempool, mempool Mempool) *BroadcastTxAPI {
+	return &BroadcastTxAPI{
 		app:     app,
 		mempool: mempool,
 	}
@@ -145,7 +145,7 @@ func NewBroadcastTx(app AppMempool, mempool Mempool) *BroadcastTx {
 
 // BroadcastTxSync returns with the response from CheckTx, but does not wait for DeliverTx (tx execution).
 // More: https://docs.cometbft.com/main/rpc/#/Tx/broadcast_tx_sync
-func (s *BroadcastTx) BroadcastTx(ctx *jsonrpctypes.Context, tx bfttypes.Tx) (*rpctypes.ResultBroadcastTx, error) {
+func (s *BroadcastTxAPI) BroadcastTx(ctx *jsonrpctypes.Context, tx bfttypes.Tx) (*rpctypes.ResultBroadcastTx, error) {
 	checkTxResp, err := s.app.CheckTx(ctx.Context(), &abcitypes.RequestCheckTx{
 		Tx:   tx,
 		Type: abcitypes.CheckTxType_New,
@@ -179,14 +179,14 @@ type SubscribeEventListener interface {
 	OnSubscriptionCanceled(err error)
 }
 
-type Subscriber struct {
+type SubscriberAPI struct {
 	eventBus      EventBus
 	wg            *conc.WaitGroup
 	eventListener SubscribeEventListener
 }
 
-func NewSubscriber(eventBus EventBus, wg *conc.WaitGroup, eventListener SubscribeEventListener) *Subscriber {
-	return &Subscriber{
+func NewSubscriberAPI(eventBus EventBus, wg *conc.WaitGroup, eventListener SubscribeEventListener) *SubscriberAPI {
+	return &SubscriberAPI{
 		eventBus:      eventBus,
 		wg:            wg,
 		eventListener: eventListener,
@@ -194,7 +194,7 @@ func NewSubscriber(eventBus EventBus, wg *conc.WaitGroup, eventListener Subscrib
 }
 
 // Subscribe to events via websocket.
-func (s *Subscriber) Subscribe(ctx *jsonrpctypes.Context, query string) (*rpctypes.ResultSubscribe, error) {
+func (s *SubscriberAPI) Subscribe(ctx *jsonrpctypes.Context, query string) (*rpctypes.ResultSubscribe, error) {
 	parsedQuery, err := bftquery.New(query)
 	if err != nil {
 		return nil, fmt.Errorf("parse query: %w", err)
@@ -260,7 +260,7 @@ func (s *Subscriber) Subscribe(ctx *jsonrpctypes.Context, query string) (*rpctyp
 
 // Unsubscribe from events via websocket.
 // More: https://docs.cometbft.com/main/rpc/#/ABCI/unsubscribe
-func (s *Subscriber) Unsubscribe(ctx *jsonrpctypes.Context, query string) (*rpctypes.ResultUnsubscribe, error) {
+func (s *SubscriberAPI) Unsubscribe(ctx *jsonrpctypes.Context, query string) (*rpctypes.ResultUnsubscribe, error) {
 	parsedQuery, err := bftquery.New(query)
 	if err != nil {
 		return nil, fmt.Errorf("parse query: %w", err)
@@ -273,7 +273,7 @@ func (s *Subscriber) Unsubscribe(ctx *jsonrpctypes.Context, query string) (*rpct
 
 // UnsubscribeAll unsubscribes from all events via websocket.
 // More: https://docs.cometbft.com/main/rpc/#/ABCI/unsubscribe_all
-func (s *Subscriber) UnsubscribeAll(ctx *jsonrpctypes.Context) (*rpctypes.ResultUnsubscribe, error) {
+func (s *SubscriberAPI) UnsubscribeAll(ctx *jsonrpctypes.Context) (*rpctypes.ResultUnsubscribe, error) {
 	if err := s.eventBus.UnsubscribeAll(ctx.Context(), ctx.RemoteAddr()); err != nil {
 		return nil, fmt.Errorf("unsubscribe all: %v", err)
 	}
@@ -285,19 +285,19 @@ type TxStore interface {
 	Search(ctx context.Context, q *bftquery.Query) ([]*abcitypes.TxResult, error)
 }
 
-type Tx struct {
+type TxAPI struct {
 	txstore TxStore
 }
 
-func NewTx(txStore TxStore) *Tx {
-	return &Tx{
+func NewTxAPI(txStore TxStore) *TxAPI {
+	return &TxAPI{
 		txstore: txStore,
 	}
 }
 
 // https://docs.cometbft.com/main/rpc/#/Tx/tx
 // NOTE: arg `hash` should be a hex string without 0x prefix
-func (s *Tx) ByHash(_ *jsonrpctypes.Context, hash []byte, prove bool) (*rpctypes.ResultTx, error) {
+func (s *TxAPI) ByHash(_ *jsonrpctypes.Context, hash []byte, prove bool) (*rpctypes.ResultTx, error) {
 	if prove {
 		return nil, errProvingNotSupported
 	}
@@ -324,7 +324,7 @@ func (s *Tx) ByHash(_ *jsonrpctypes.Context, hash []byte, prove bool) (*rpctypes
 // param pagePtr: 1-based page number, default (when pagePtr == nil) to 1
 // param perPagePtr: number of txs per page, default (when perPagePtr == nil) to 30
 // param orderBy: {"", "asc", "desc"}, default (when orderBy == "") to "asc"
-func (s *Tx) Search(
+func (s *TxAPI) Search(
 	ctx *jsonrpctypes.Context,
 	query string,
 	prove bool,
@@ -442,18 +442,18 @@ type BlockStore interface {
 	BlockByNumber(int64) *monomer.Block
 }
 
-type Block struct {
+type BlockAPI struct {
 	blockstore BlockStore
 }
 
-func NewBlock(blockStore BlockStore) *Block {
-	return &Block{
+func NewBlockAPI(blockStore BlockStore) *BlockAPI {
+	return &BlockAPI{
 		blockstore: blockStore,
 	}
 }
 
 // https://docs.cometbft.com/main/rpc/#/ABCI/block
-func (s *Block) ByHeight(_ *jsonrpctypes.Context, height int64) (*rpctypes.ResultBlock, error) {
+func (s *BlockAPI) ByHeight(_ *jsonrpctypes.Context, height int64) (*rpctypes.ResultBlock, error) {
 	block := s.blockstore.BlockByNumber(height)
 	if block == nil {
 		return nil, fmt.Errorf("block not found: %d", height)
@@ -462,7 +462,7 @@ func (s *Block) ByHeight(_ *jsonrpctypes.Context, height int64) (*rpctypes.Resul
 }
 
 // https://docs.cometbft.com/main/rpc/#/ABCI/block_by_hash
-func (s *Block) ByHash(_ *jsonrpctypes.Context, hash []byte) (*rpctypes.ResultBlock, error) {
+func (s *BlockAPI) ByHash(_ *jsonrpctypes.Context, hash []byte) (*rpctypes.ResultBlock, error) {
 	block := s.blockstore.BlockByHash(common.BytesToHash(hash))
 	if block == nil {
 		return nil, fmt.Errorf("block not found: %x", hash)
