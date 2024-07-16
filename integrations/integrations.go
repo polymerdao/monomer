@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/cometbft/cometbft/config"
 	"io"
 	"net"
 	"os"
@@ -13,6 +12,7 @@ import (
 	"strings"
 
 	cometdb "github.com/cometbft/cometbft-db"
+	"github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"

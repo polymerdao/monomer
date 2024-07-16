@@ -7,9 +7,8 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/cometbft/cometbft/config"
-
 	cometdb "github.com/cometbft/cometbft-db"
+	"github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
