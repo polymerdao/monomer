@@ -37,11 +37,6 @@ func NewMetrics(namespace string) Metrics {
 	}
 }
 
-func (m *metrics) RecordRPCMethodCall(method string, start time.Time) {
-	methodCallDuration := float64(time.Since(start).Microseconds())
-	m.MethodCalls.WithLabelValues(method).Observe(methodCallDuration)
-}
-
 type noopMetrics struct{}
 
 func NewNoopMetrics() Metrics {

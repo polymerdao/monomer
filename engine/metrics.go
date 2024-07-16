@@ -17,7 +17,7 @@ var (
 	RPCMethodDurationBucketsMicroseconds = []float64{1, 10, 50, 100, 500, 1000, 5000, 10000, 100000}
 )
 
-// Metrics contains metrics collected from the eth package.
+// Metrics contains metrics collected from the engine package.
 type Metrics interface {
 	RecordRPCMethodCall(method string, start time.Time)
 }
@@ -37,15 +37,10 @@ func NewMetrics(namespace string) Metrics {
 	}
 }
 
-func (m *metrics) RecordRPCMethodCall(method string, start time.Time) {
-	methodCallDuration := float64(time.Since(start).Microseconds())
-	m.MethodCalls.WithLabelValues(method).Observe(methodCallDuration)
-}
-
 type noopMetrics struct{}
 
 func NewNoopMetrics() Metrics {
 	return &noopMetrics{}
 }
 
-func (m *noopMetrics) RecordRPCMethodCall(method string, start time.Time) {}
+func (m *noopMetrics) RecordRPCMethodCall(_ string, _ time.Time) {}

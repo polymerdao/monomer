@@ -3,6 +3,7 @@ package metrics
 import (
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"time"
 )
 
 type RPCMetrics struct {
@@ -22,4 +23,9 @@ func NewRPCMetrics(namespace, subsystem, info string, buckets []float64) RPCMetr
 			"method",
 		}),
 	}
+}
+
+func (m *RPCMetrics) RecordRPCMethodCall(method string, start time.Time) {
+	methodCallDuration := float64(time.Since(start).Microseconds())
+	m.MethodCalls.WithLabelValues(method).Observe(methodCallDuration)
 }
