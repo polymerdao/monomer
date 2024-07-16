@@ -17,7 +17,7 @@ type ChainID struct {
 	metrics Metrics
 }
 
-// TODO: look into adding a global rpc_metrics var instead of passing rpc_metrics objects around to constructors
+// TODO: look into adding a global metrics var instead of passing metrics objects around to constructors
 func NewChainID(chainID *hexutil.Big, metrics Metrics) *ChainID {
 	return &ChainID{
 		chainID: chainID,

@@ -90,7 +90,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		return err
 	}
 
-	ethMetrics := n.registerMetrics()
+	ethMetrics, engineMetrics := n.registerMetrics()
 
 	rpcServer := rpc.NewServer()
 	for _, api := range []rpc.API{
@@ -100,6 +100,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID),
 				n.app,
 				blockStore,
+				engineMetrics,
 			),
 		},
 		{

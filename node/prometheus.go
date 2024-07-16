@@ -3,6 +3,7 @@ package node
 import (
 	"context"
 	"fmt"
+	"github.com/polymerdao/monomer/engine"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/eth"
 	"github.com/prometheus/client_golang/prometheus"
@@ -37,9 +38,11 @@ func (n *Node) startPrometheusServer(ctx context.Context, env *environment.Env) 
 	return nil
 }
 
-func (n *Node) registerMetrics() eth.Metrics {
+func (n *Node) registerMetrics() (eth.Metrics, engine.Metrics) {
 	if n.prometheusCfg.IsPrometheusEnabled() {
-		return eth.NewMetrics(n.prometheusCfg.Namespace)
+		return eth.NewMetrics(n.prometheusCfg.Namespace),
+			engine.NewMetrics(n.prometheusCfg.Namespace)
 	}
-	return eth.NewNoopMetrics()
+	return eth.NewNoopMetrics(),
+		engine.NewNoopMetrics()
 }

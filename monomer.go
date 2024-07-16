@@ -90,7 +90,7 @@ func (b *Block) Hash() common.Hash {
 	return b.Header.Hash
 }
 
-// This trick is played by the eth rpc server too. Instead of constructing
+// This trick is played by the eth metrics server too. Instead of constructing
 // an actual eth block, simply create a map with the right keys so the client
 // can unmarshal it into a block
 func (b *Block) ToEthLikeBlock(txs ethtypes.Transactions, inclTxs bool) map[string]any {

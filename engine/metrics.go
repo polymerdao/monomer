@@ -1,4 +1,4 @@
-package eth
+package engine
 
 import (
 	rpcmetrics "github.com/polymerdao/monomer/metrics"
@@ -6,11 +6,11 @@ import (
 )
 
 const (
-	MetricsSubsystem = "eth"
+	MetricsSubsystem = "engine"
 
-	ChainIdMethodName          = "chainId"
-	GetBlockByNumberMethodName = "getBlockByNumber"
-	GetBlockByHashMethodName   = "getBlockByHash"
+	ForkchoiceUpdatedV3MethodName = "forkchoiceUpdatedV3"
+	GetPayloadV3MethodName        = "getPayload"
+	NewPayloadV3MethodName        = "newPayload"
 )
 
 var (
@@ -31,7 +31,7 @@ func NewMetrics(namespace string) Metrics {
 		rpcmetrics.NewRPCMetrics(
 			namespace,
 			MetricsSubsystem,
-			"Duration of each eth RPC method call in microseconds",
+			"Duration of each engine RPC method call in microseconds",
 			RPCMethodDurationBucketsMicroseconds,
 		),
 	}

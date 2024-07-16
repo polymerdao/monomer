@@ -156,12 +156,12 @@ func TestE2E(t *testing.T) {
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
 
 	// TODO: remove in final PR - only used for prometheus testing
-	//start := time.Now()
-	//for time.Since(start) < time.Minute*2 {
-	//	_, err := monomerClient.BlockByNumber(context.Background(), nil)
-	//	require.NoError(t, err)
-	//	time.Sleep(5 * time.Second)
-	//}
+	start := time.Now()
+	for time.Since(start) < time.Minute*2 {
+		_, err := monomerClient.BlockByNumber(context.Background(), nil)
+		require.NoError(t, err)
+		time.Sleep(5 * time.Second)
+	}
 }
 
 func newURL(t *testing.T, address string) *e2eurl.URL {
