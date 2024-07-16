@@ -40,8 +40,9 @@ func (n *Node) startPrometheusServer(ctx context.Context, env *environment.Env) 
 
 func (n *Node) registerMetrics() (eth.Metrics, engine.Metrics) {
 	if n.prometheusCfg.IsPrometheusEnabled() {
-		return eth.NewMetrics(n.prometheusCfg.Namespace),
-			engine.NewMetrics(n.prometheusCfg.Namespace)
+		namespace := n.prometheusCfg.Namespace
+		return eth.NewMetrics(namespace),
+			engine.NewMetrics(namespace)
 	}
 	return eth.NewNoopMetrics(),
 		engine.NewNoopMetrics()

@@ -6,6 +6,10 @@ import (
 	"time"
 )
 
+type Metrics interface {
+	RecordRPCMethodCall(method string, start time.Time)
+}
+
 type RPCMetrics struct {
 	// Count and duration of each RPC method call.
 	MethodCalls *stdprometheus.HistogramVec
@@ -29,3 +33,7 @@ func (m *RPCMetrics) RecordRPCMethodCall(method string, start time.Time) {
 	methodCallDuration := float64(time.Since(start).Microseconds())
 	m.MethodCalls.WithLabelValues(method).Observe(methodCallDuration)
 }
+
+type RPCNoopMetrics struct{}
+
+func (m *RPCNoopMetrics) RecordRPCMethodCall(_ string, _ time.Time) {}

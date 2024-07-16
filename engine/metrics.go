@@ -2,7 +2,6 @@ package engine
 
 import (
 	rpcmetrics "github.com/polymerdao/monomer/metrics"
-	"time"
 )
 
 const (
@@ -19,7 +18,7 @@ var (
 
 // Metrics contains metrics collected from the engine package.
 type Metrics interface {
-	RecordRPCMethodCall(method string, start time.Time)
+	rpcmetrics.Metrics
 }
 
 type metrics struct {
@@ -37,10 +36,10 @@ func NewMetrics(namespace string) Metrics {
 	}
 }
 
-type noopMetrics struct{}
+type noopMetrics struct {
+	rpcmetrics.RPCNoopMetrics
+}
 
 func NewNoopMetrics() Metrics {
 	return &noopMetrics{}
 }
-
-func (m *noopMetrics) RecordRPCMethodCall(_ string, _ time.Time) {}
