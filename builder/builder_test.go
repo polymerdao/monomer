@@ -94,6 +94,7 @@ func TestBuild(t *testing.T) {
 				ChainID:  chainID,
 				AppState: testapp.MakeGenesisAppState(t, app),
 			}
+			require.NoError(t, g.Commit(context.Background(), app, blockStore))
 
 			eventBus := bfttypes.NewEventBus()
 			require.NoError(t, eventBus.Start())
@@ -104,8 +105,6 @@ func TestBuild(t *testing.T) {
 			subChannelLen := len(test.mempool) + len(test.inclusionList) + 1
 			subscription, err := eventBus.Subscribe(context.Background(), "test", &queryAll{}, subChannelLen)
 			require.NoError(t, err)
-
-			require.NoError(t, g.Commit(context.Background(), app, blockStore))
 
 			_, err = app.InitChain(context.Background(), &abcitypes.RequestInitChain{
 				ChainId: chainID.String(),

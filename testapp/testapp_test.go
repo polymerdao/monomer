@@ -4,39 +4,60 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/polymerdao/monomer"
+	"github.com/polymerdao/monomer/app/peptide/store"
+	"github.com/polymerdao/monomer/testutils"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	"github.com/polymerdao/monomer"
+	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	chainID = monomer.ChainID(0)
+)
+
 func TestRollbackToHeight(t *testing.T) {
-	chainID := monomer.ChainID(0).String()
-	app := testapp.NewTest(t, chainID)
+	app := testapp.NewTest(t, chainID.String())
+
+	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+	g := &genesis.Genesis{
+		ChainID:  chainID,
+		AppState: testapp.MakeGenesisAppState(t, app),
+	}
+	require.NoError(t, g.Commit(context.Background(), app, blockStore))
+
 	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
-		ChainId: chainID,
+		ChainId: chainID.String(),
 		AppStateBytes: func() []byte {
-			got, err := json.Marshal(app.DefaultGenesis())
+			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
 			require.NoError(t, err)
-			return got
+			return appStateBytes
 		}(),
-		InitialHeight: 1,
 	})
 	require.NoError(t, err)
-	_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
-	require.NoError(t, err)
+
+	ctx := app.GetContext(false)
+	sk, _, acc := app.TestAccount(ctx)
+	accSeq := acc.GetSequence()
+
+	/*_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
+	require.NoError(t, err)*/
 
 	height := 10
 	newHeight := height / 2
 	notReorgedState := make(map[string]string)
 	reorgedState := make(map[string]string)
 	for i := 2; i < height; i++ {
-		if key, value := build(t, app, chainID, int64(i)); i > newHeight {
+		if key, value := build(t, app, int64(i), ctx, sk, acc, accSeq); i > newHeight {
 			reorgedState[key] = value
 		} else {
 			notReorgedState[key] = value
+			accSeq += 1
 		}
 	}
 
@@ -51,9 +72,11 @@ func TestRollbackToHeight(t *testing.T) {
 	}
 
 	newState := make(map[string]string)
+	// seq -= 4
 	for i := newHeight + 1; i < height; i++ {
-		key, value := build(t, app, chainID, int64(i))
+		key, value := build(t, app, int64(i), ctx, sk, acc, accSeq)
 		newState[key] = value
+		accSeq += 1
 	}
 	{
 		info, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
@@ -64,15 +87,17 @@ func TestRollbackToHeight(t *testing.T) {
 	app.StateContains(t, uint64(height-1), newState)
 }
 
-func build(t *testing.T, app *testapp.App, _ string, height int64) (string, string) {
-	ctx := app.GetContext()
-	sk, pk, ctx := app.TestAccount()
+func build(t *testing.T, app *testapp.App, height int64, ctx sdk.Context, sk *secp256k1.PrivKey, acc sdk.AccountI, seq uint64) (string, string) {
 	key := fmt.Sprintf("k%d", height)
 	value := fmt.Sprintf("v%d", height)
-	_, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
-		Txs:    [][]byte{testapp.ToTx(t, key, value, sk, pk, ctx)},
+	pk := &secp256k1.PubKey{
+		Key: sk.PubKey().Bytes(),
+	}
+	res, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
+		Txs:    [][]byte{testapp.ToTx(t, key, value, chainID.String(), sk, pk, acc, seq, ctx)},
 		Height: height,
 	})
+	fmt.Printf("FinalizeBlockResponse: %v\n", res)
 	require.NoError(t, err)
 	_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
 	require.NoError(t, err)
