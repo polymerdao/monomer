@@ -145,7 +145,7 @@ func TestBroadcastTx(t *testing.T) {
 
 	// Success case.
 	tx := testapp.ToTx(t, "k1", "v1", chainID, sk, acc, acc.GetSequence(), ctx)
-	result, err := broadcastAPI.BroadcastTx(&jsonrpctypes.Context{}, tx)
+	result, err := broadcastTxAPI.BroadcastTx(&jsonrpctypes.Context{}, tx)
 	require.NoError(t, err)
 	// We trust that the other fields are set correctly.
 	require.Equal(t, uint32(0), result.Code)
