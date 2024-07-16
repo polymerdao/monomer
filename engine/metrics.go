@@ -8,8 +8,8 @@ const (
 	MetricsSubsystem = "engine"
 
 	ForkchoiceUpdatedV3MethodName = "forkchoiceUpdatedV3"
-	GetPayloadV3MethodName        = "getPayload"
-	NewPayloadV3MethodName        = "newPayload"
+	GetPayloadV3MethodName        = "getPayloadV3"
+	NewPayloadV3MethodName        = "newPayloadV3"
 )
 
 var (
