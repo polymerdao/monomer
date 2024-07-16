@@ -64,10 +64,7 @@ func TestE2E(t *testing.T) {
 	opLogger := log.NewTerminalHandler(openLogFile(t, env, "op"), false)
 
 	prometheusCfg := &config.InstrumentationConfig{
-		Prometheus:           true,
-		PrometheusListenAddr: "127.0.0.1:26660",
-		MaxOpenConnections:   3,
-		Namespace:            "monomer",
+		Prometheus: false,
 	}
 
 	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, l1BlockTime, prometheusCfg, &e2e.SelectiveListener{
@@ -154,14 +151,6 @@ func TestE2E(t *testing.T) {
 		}
 	}
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
-
-	// TODO: remove in final PR - only used for prometheus testing
-	start := time.Now()
-	for time.Since(start) < time.Minute*2 {
-		_, err := monomerClient.BlockByNumber(context.Background(), nil)
-		require.NoError(t, err)
-		time.Sleep(5 * time.Second)
-	}
 }
 
 func newURL(t *testing.T, address string) *e2eurl.URL {
