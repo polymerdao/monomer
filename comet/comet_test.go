@@ -44,7 +44,7 @@ func TestABCI(t *testing.T) {
 
 	ctx := app.GetContext(false)
 
-	sk, pk, acc := app.TestAccount(ctx)
+	sk, _, acc := app.TestAccount(ctx)
 	fmt.Println("acc.Number:", acc.GetAccountNumber())
 	fmt.Println("acc.Sequence:", acc.GetSequence())
 
@@ -55,7 +55,7 @@ func TestABCI(t *testing.T) {
 	// Build bock with tx.
 	height := int64(1)
 	resultFinalizeBlock, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
-		Txs:    [][]byte{testapp.ToTx(t, k, v, chainID, sk, pk, acc, acc.GetSequence(), ctx)},
+		Txs:    [][]byte{testapp.ToTx(t, k, v, chainID, sk, acc, acc.GetSequence(), ctx)},
 		Height: height,
 	})
 	require.NoError(t, err)
@@ -139,12 +139,12 @@ func TestBroadcastTx(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := app.GetContext(true)
-	sk, pk, acc := app.TestAccount(ctx)
+	sk, _, acc := app.TestAccount(ctx)
 	mpool := mempool.New(testutils.NewMemDB(t))
 	broadcastTxAPI := comet.NewBroadcastTxAPI(app, mpool)
 
 	// Success case.
-	tx := testapp.ToTx(t, "k1", "v1", chainID, sk, pk, acc, acc.GetSequence(), ctx)
+	tx := testapp.ToTx(t, "k1", "v1", chainID, sk, acc, acc.GetSequence(), ctx)
 	result, err := broadcastAPI.BroadcastTx(&jsonrpctypes.Context{}, tx)
 	require.NoError(t, err)
 	// We trust that the other fields are set correctly.

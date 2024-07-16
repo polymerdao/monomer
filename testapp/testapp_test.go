@@ -4,16 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"testing"
+
+	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
-	"github.com/polymerdao/monomer/testutils"
-	"testing"
-
-	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/testapp"
+	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -90,11 +90,8 @@ func TestRollbackToHeight(t *testing.T) {
 func build(t *testing.T, app *testapp.App, height int64, ctx sdk.Context, sk *secp256k1.PrivKey, acc sdk.AccountI, seq uint64) (string, string) {
 	key := fmt.Sprintf("k%d", height)
 	value := fmt.Sprintf("v%d", height)
-	pk := &secp256k1.PubKey{
-		Key: sk.PubKey().Bytes(),
-	}
 	res, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
-		Txs:    [][]byte{testapp.ToTx(t, key, value, chainID.String(), sk, pk, acc, seq, ctx)},
+		Txs:    [][]byte{testapp.ToTx(t, key, value, chainID.String(), sk, acc, seq, ctx)},
 		Height: height,
 	})
 	fmt.Printf("FinalizeBlockResponse: %v\n", res)

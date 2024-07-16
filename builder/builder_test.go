@@ -117,10 +117,10 @@ func TestBuild(t *testing.T) {
 			require.NoError(t, err)
 
 			ctx := app.GetContext(false)
-			sk, pk, acc := app.TestAccount(ctx)
+			sk, _, acc := app.TestAccount(ctx)
 
-			inclusionListTxs := testapp.ToTxs(t, test.inclusionList, chainID.String(), sk, pk, acc, acc.GetSequence(), ctx)
-			mempoolTxs := testapp.ToTxs(t, test.mempool, chainID.String(), sk, pk, acc, uint64(len(inclusionListTxs)), ctx)
+			inclusionListTxs := testapp.ToTxs(t, test.inclusionList, chainID.String(), sk, acc, acc.GetSequence(), ctx)
+			mempoolTxs := testapp.ToTxs(t, test.mempool, chainID.String(), sk, acc, uint64(len(inclusionListTxs)), ctx)
 
 			pool := mempool.New(testutils.NewMemDB(t))
 			for _, tx := range mempoolTxs {
@@ -268,7 +268,7 @@ func TestRollback(t *testing.T) {
 		ChainID:  chainID,
 		AppState: testapp.MakeGenesisAppState(t, app),
 	}
-	sk, pk, acc := app.TestAccount(ctx)
+	sk, _, acc := app.TestAccount(ctx)
 
 	eventBus := bfttypes.NewEventBus()
 	require.NoError(t, eventBus.Start())
@@ -295,7 +295,7 @@ func TestRollback(t *testing.T) {
 	}
 	block, err := b.Build(context.Background(), &builder.Payload{
 		Timestamp:            g.Time + 1,
-		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs, chainID.String(), sk, pk, acc, acc.GetSequence(), ctx)),
+		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs, chainID.String(), sk, acc, acc.GetSequence(), ctx)),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, block)
@@ -330,7 +330,7 @@ func TestRollback(t *testing.T) {
 	require.Equal(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
 
 	// Tx store.
-	for _, tx := range bfttypes.ToTxs(testapp.ToTxs(t, kvs, chainID.String(), sk, pk, acc, acc.GetSequence(), ctx)) {
+	for _, tx := range bfttypes.ToTxs(testapp.ToTxs(t, kvs, chainID.String(), sk, acc, acc.GetSequence(), ctx)) {
 		result, err := txStore.Get(tx.Hash())
 		require.NoError(t, err)
 		require.Nil(t, result)

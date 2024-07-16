@@ -2,13 +2,12 @@ package testapp
 
 import (
 	"context"
-	"cosmossdk.io/math"
 	"encoding/json"
 	"fmt"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	"slices"
 	"testing"
 
+	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -18,6 +17,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/stretchr/testify/require"
@@ -56,7 +56,8 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 	return defaultGenesis
 }
 
-func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey, acc sdk.AccountI, seq uint64, ctx sdk.Context) []byte {
+func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, acc sdk.AccountI, seq uint64, ctx sdk.Context) []byte {
+	pk := sk.PubKey()
 	fromAddr := sdk.AccAddress(pk.Address())
 
 	msg := &testappv1.SetRequest{
@@ -111,10 +112,10 @@ func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, pk *secp256
 
 // ToTxs converts the key-values to SetRequest sdk.Msgs and marshals the messages to protobuf wire format.
 // Each message is placed in a separate tx.
-func ToTxs(t *testing.T, kvs map[string]string, chainID string, sk *secp256k1.PrivKey, pk *secp256k1.PubKey, acc sdk.AccountI, startingSeq uint64, ctx sdk.Context) [][]byte {
+func ToTxs(t *testing.T, kvs map[string]string, chainID string, sk *secp256k1.PrivKey, acc sdk.AccountI, startingSeq uint64, ctx sdk.Context) [][]byte {
 	var txs [][]byte
 	for k, v := range kvs {
-		txs = append(txs, ToTx(t, k, v, chainID, sk, pk, acc, startingSeq, ctx))
+		txs = append(txs, ToTx(t, k, v, chainID, sk, acc, startingSeq, ctx))
 		startingSeq += 1
 	}
 	// Ensure txs are always returned in the same order.

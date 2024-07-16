@@ -161,9 +161,9 @@ func TestE2E(t *testing.T) {
 	chainID := "test"
 	app := testapp.NewTest(t, chainID)
 	appCtx := app.GetContext(true)
-	sk, pk, acc := app.TestAccount(appCtx)
+	sk, _, acc := app.TestAccount(appCtx)
 
-	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue", chainID, sk, pk, acc, acc.GetSequence(), appCtx)
+	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue", chainID, sk, acc, acc.GetSequence(), appCtx)
 	bftTx := bfttypes.Tx(txBytes)
 
 	putTx, err := client.BroadcastTxAsync(ctx, txBytes)
