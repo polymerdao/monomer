@@ -13,7 +13,7 @@ const (
 )
 
 var (
-	RPCMethodDurationBucketsMicroseconds = []float64{1, 10, 50, 100, 500, 1000, 5000, 10000, 100000}
+	RPCMethodDurationBucketsMicroseconds = []float64{1, 10, 50, 100, 500, 1000}
 )
 
 // Metrics contains metrics collected from the engine package.
