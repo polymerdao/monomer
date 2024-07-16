@@ -17,7 +17,7 @@ var (
 // Metrics contains metrics collected from the eth RPC package.
 type Metrics interface {
 	RecordRPCMethodCall(method string)
-	RecordRPCMethodDuration(method string, duration time.Duration)
+	RecordRPCMethodDuration(method string, duration time.Time)
 }
 
 // TODO: should there be a shared rpc metrics struct that can be reused for engine rpc metrics?
@@ -55,8 +55,8 @@ func (m *metrics) RecordRPCMethodCall(method string) {
 	m.numMethodCalls.WithLabelValues(method).Add(1)
 }
 
-func (m *metrics) RecordRPCMethodDuration(method string, duration time.Duration) {
-	m.methodCallDuration.WithLabelValues(method).Observe(float64(duration.Milliseconds()))
+func (m *metrics) RecordRPCMethodDuration(method string, start time.Time) {
+	m.methodCallDuration.WithLabelValues(method).Observe(float64(time.Since(start).Milliseconds()))
 }
 
 // TODO: make one universal noopMetrics?
@@ -66,5 +66,5 @@ func NewNoopMetrics() Metrics {
 	return &noopMetrics{}
 }
 
-func (m *noopMetrics) RecordRPCMethodCall(_ string)                      {}
-func (m *noopMetrics) RecordRPCMethodDuration(_ string, _ time.Duration) {}
+func (m *noopMetrics) RecordRPCMethodCall(_ string)                  {}
+func (m *noopMetrics) RecordRPCMethodDuration(_ string, _ time.Time) {}

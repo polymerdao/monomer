@@ -27,7 +27,7 @@ func NewChainID(chainID *hexutil.Big, metrics Metrics) *ChainID {
 
 func (e *ChainID) ChainId() *hexutil.Big { //nolint:stylecheck
 	e.metrics.RecordRPCMethodCall("eth_chainId")
-	defer e.metrics.RecordRPCMethodDuration("eth_chainId", time.Since(time.Now()))
+	defer e.metrics.RecordRPCMethodDuration("eth_chainId", time.Now())
 
 	return e.chainID
 }
@@ -46,7 +46,7 @@ func NewBlock(blockStore store.BlockStoreReader, metrics Metrics) *Block {
 
 func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error) {
 	e.metrics.RecordRPCMethodCall("eth_getBlockByNumber")
-	defer e.metrics.RecordRPCMethodDuration("eth_getBlockByNumber", time.Since(time.Now()))
+	defer e.metrics.RecordRPCMethodDuration("eth_getBlockByNumber", time.Now())
 
 	b := id.Get(e.blockStore)
 	if b == nil {
@@ -61,7 +61,7 @@ func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error
 
 func (e *Block) GetBlockByHash(hash common.Hash, inclTx bool) (map[string]any, error) {
 	e.metrics.RecordRPCMethodCall("eth_getBlockByHash")
-	defer e.metrics.RecordRPCMethodDuration("eth_getBlockByHash", time.Since(time.Now()))
+	defer e.metrics.RecordRPCMethodDuration("eth_getBlockByHash", time.Now())
 
 	block := e.blockStore.BlockByHash(hash)
 	if block == nil {

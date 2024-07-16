@@ -250,8 +250,8 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		blockdb,
 		mempooldb,
 		txdb,
-		s.eventListener,
 		s.prometheusCfg,
+		s.eventListener,
 	)
 	if err := n.Run(ctx, env); err != nil {
 		return fmt.Errorf("run monomer: %v", err)
