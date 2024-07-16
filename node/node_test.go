@@ -2,11 +2,12 @@ package node_test
 
 import (
 	"context"
-	"github.com/cometbft/cometbft/config"
 	"io"
 	"net"
 	"net/http"
 	"testing"
+
+	"github.com/cometbft/cometbft/config"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
@@ -89,7 +90,7 @@ func TestRun(t *testing.T) {
 	require.NoError(t, cometClient.Call(&msg, "echo", want))
 	require.Equal(t, want, msg)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:26660/metrics", nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:26660/metrics", http.NoBody)
 	require.NoError(t, err)
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)

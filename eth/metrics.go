@@ -12,9 +12,7 @@ const (
 	GetBlockByHashMethodName   = "getBlockByHash"
 )
 
-var (
-	RPCMethodDurationBucketsMicroseconds = []float64{1, 10, 50, 100, 500, 1000}
-)
+var RPCMethodDurationBucketsMicroseconds = []float64{1, 10, 50, 100, 500, 1000}
 
 // Metrics contains metrics collected from the eth package.
 type Metrics interface {

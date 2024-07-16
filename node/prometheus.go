@@ -3,13 +3,14 @@ package node
 import (
 	"context"
 	"fmt"
+	"net"
+	"net/http"
+
 	"github.com/polymerdao/monomer/engine"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/eth"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"net"
-	"net/http"
 )
 
 func (n *Node) startPrometheusServer(ctx context.Context, env *environment.Env) error {

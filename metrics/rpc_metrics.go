@@ -1,9 +1,10 @@
 package metrics
 
 import (
+	"time"
+
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
-	"time"
 )
 
 type Metrics interface {
