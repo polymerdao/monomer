@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/cometbft/cometbft/config"
 	"math/big"
 	"net/url"
 	"os"
@@ -62,7 +63,14 @@ func TestE2E(t *testing.T) {
 	}
 	opLogger := log.NewTerminalHandler(openLogFile(t, env, "op"), false)
 
-	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, l1BlockTime, &e2e.SelectiveListener{
+	prometheusCfg := &config.InstrumentationConfig{
+		Prometheus:           true,
+		PrometheusListenAddr: "127.0.0.1:26660",
+		MaxOpenConnections:   3,
+		Namespace:            "monomer",
+	}
+
+	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, l1BlockTime, prometheusCfg, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {
 			require.NoError(t, opLogger.Handle(context.Background(), r))
 		},
@@ -74,6 +82,9 @@ func TestE2E(t *testing.T) {
 				require.NoError(t, err)
 			},
 			OnCometServeErrCb: func(err error) {
+				require.NoError(t, err)
+			},
+			OnPrometheusServeErrCb: func(err error) {
 				require.NoError(t, err)
 			},
 		},
@@ -143,6 +154,14 @@ func TestE2E(t *testing.T) {
 		}
 	}
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
+
+	// TODO: remove in final PR - only used for prometheus testing
+	//start := time.Now()
+	//for time.Since(start) < time.Minute*2 {
+	//	_, err := monomerClient.BlockByNumber(context.Background(), nil)
+	//	require.NoError(t, err)
+	//	time.Sleep(5 * time.Second)
+	//}
 }
 
 func newURL(t *testing.T, address string) *e2eurl.URL {

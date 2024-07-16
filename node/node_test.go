@@ -2,6 +2,7 @@ package node_test
 
 import (
 	"context"
+	"github.com/cometbft/cometbft/config"
 	"net"
 	"testing"
 
@@ -47,6 +48,9 @@ func TestRun(t *testing.T) {
 		blockdb,
 		mempooldb,
 		txdb,
+		&config.InstrumentationConfig{
+			Prometheus: false,
+		},
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
 				require.NoError(t, err)

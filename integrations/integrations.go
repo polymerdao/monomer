@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/cometbft/cometbft/config"
 	"io"
 	"net"
 	"os"
@@ -209,6 +210,10 @@ func startMonomerNode(
 		blockdb,
 		mempooldb,
 		txdb,
+		&config.InstrumentationConfig{
+			// TODO: enable prom metrics in integrations_test?
+			Prometheus: false,
+		},
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
 				svrCtx.Logger.Error("[Engine HTTP Server]", "error", err)

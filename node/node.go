@@ -8,6 +8,7 @@ import (
 
 	cometdb "github.com/cometbft/cometbft-db"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/config"
 	"github.com/cometbft/cometbft/libs/log"
 	rpctypes "github.com/cometbft/cometbft/rpc/core/types"
 	cometserver "github.com/cometbft/cometbft/rpc/jsonrpc/server"
@@ -32,6 +33,7 @@ type EventListener interface {
 	OnEngineHTTPServeErr(error)
 	OnEngineWebsocketServeErr(error)
 	OnCometServeErr(error)
+	OnPrometheusServeErr(error)
 }
 
 type Node struct {
@@ -42,6 +44,7 @@ type Node struct {
 	blockdb        dbm.DB
 	txdb           cometdb.DB
 	mempooldb      dbm.DB
+	prometheusCfg  *config.InstrumentationConfig
 	eventListener  EventListener
 }
 
@@ -53,6 +56,7 @@ func New(
 	blockdb,
 	mempooldb dbm.DB,
 	txdb cometdb.DB,
+	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
 ) *Node {
 	return &Node{
@@ -63,6 +67,7 @@ func New(
 		blockdb:        blockdb,
 		txdb:           txdb,
 		mempooldb:      mempooldb,
+		prometheusCfg:  prometheusCfg,
 		eventListener:  eventListener,
 	}
 }
@@ -81,6 +86,12 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	}
 	env.DeferErr("stop event bus", eventBus.Stop)
 
+	if err := n.startPrometheusServer(ctx, env); err != nil {
+		return err
+	}
+
+	ethMetrics := n.registerMetrics()
+
 	rpcServer := rpc.NewServer()
 	for _, api := range []rpc.API{
 		{
@@ -97,8 +108,8 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 				*eth.ChainID
 				*eth.Block
 			}{
-				ChainID: eth.NewChainID(n.genesis.ChainID.HexBig()),
-				Block:   eth.NewBlock(blockStore),
+				ChainID: eth.NewChainID(n.genesis.ChainID.HexBig(), ethMetrics),
+				Block:   eth.NewBlock(blockStore, ethMetrics),
 			},
 		},
 	} {
@@ -150,12 +161,11 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		"block_by_hash": cometserver.NewRPCFunc(blockAPI.ByHash, "hash"),
 	}
 
-	mux := http.NewServeMux()
-	cometserver.RegisterRPCFuncs(mux, routes, log.NewNopLogger())
+	cometMux := http.NewServeMux()
+	cometserver.RegisterRPCFuncs(cometMux, routes, log.NewNopLogger())
 	// We want to match cometbft's behavior, which puts the websocket endpoints under the /websocket route.
-	mux.HandleFunc("/websocket", cometserver.NewWebsocketManager(routes).WebsocketHandler)
-
-	cometServer := makeHTTPService(mux, n.cometHTTPAndWS)
+	cometMux.HandleFunc("/websocket", cometserver.NewWebsocketManager(routes).WebsocketHandler)
+	cometServer := makeHTTPService(cometMux, n.cometHTTPAndWS)
 	env.Go(func() {
 		if err := cometServer.Run(ctx); err != nil {
 			n.eventListener.OnCometServeErr(fmt.Errorf("run comet server: %v", err))
