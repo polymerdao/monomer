@@ -89,7 +89,9 @@ func TestRun(t *testing.T) {
 	require.NoError(t, cometClient.Call(&msg, "echo", want))
 	require.Equal(t, want, msg)
 
-	resp, err := http.Get("http://127.0.0.1:26660/metrics")
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:26660/metrics", nil)
+	require.NoError(t, err)
+	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
 	respBodyBz, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
