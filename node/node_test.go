@@ -3,7 +3,9 @@ package node_test
 import (
 	"context"
 	"github.com/cometbft/cometbft/config"
+	"io"
 	"net"
+	"net/http"
 	"testing"
 
 	cometdb "github.com/cometbft/cometbft-db"
@@ -49,7 +51,10 @@ func TestRun(t *testing.T) {
 		mempooldb,
 		txdb,
 		&config.InstrumentationConfig{
-			Prometheus: false,
+			Prometheus:           true,
+			PrometheusListenAddr: "127.0.0.1:26660",
+			MaxOpenConnections:   1,
+			Namespace:            "monomer",
 		},
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
@@ -83,4 +88,14 @@ func TestRun(t *testing.T) {
 	var msg string
 	require.NoError(t, cometClient.Call(&msg, "echo", want))
 	require.Equal(t, want, msg)
+
+	resp, err := http.Get("http://127.0.0.1:26660/metrics")
+	require.NoError(t, err)
+	respBodyBz, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, resp.Body.Close())
+	}()
+	respBody := string(respBodyBz)
+	require.Contains(t, respBody, "monomer_eth_method_call_count{method=\"chainId\"} 1")
 }
