@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	cometdb "github.com/cometbft/cometbft-db"
-	"github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/server"
@@ -210,10 +209,7 @@ func startMonomerNode(
 		blockdb,
 		mempooldb,
 		txdb,
-		&config.InstrumentationConfig{
-			// TODO: enable prom metrics in integrations_test?
-			Prometheus: false,
-		},
+		svrCtx.Config.Instrumentation,
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
 				svrCtx.Logger.Error("[Engine HTTP Server]", "error", err)
@@ -223,6 +219,9 @@ func startMonomerNode(
 			},
 			OnCometServeErrCb: func(err error) {
 				svrCtx.Logger.Error("[CometBFT]", "error", err)
+			},
+			OnPrometheusServeErrCb: func(err error) {
+				svrCtx.Logger.Error("[Prometheus]", "error", err)
 			},
 		},
 	)
