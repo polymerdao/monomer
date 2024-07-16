@@ -17,7 +17,7 @@ type ChainID struct {
 	metrics Metrics
 }
 
-// TODO: look into adding a global metrics var instead of passing metrics objects around to constructors
+// TODO: look into adding a global rpc_metrics var instead of passing rpc_metrics objects around to constructors
 func NewChainID(chainID *hexutil.Big, metrics Metrics) *ChainID {
 	return &ChainID{
 		chainID: chainID,
@@ -26,8 +26,7 @@ func NewChainID(chainID *hexutil.Big, metrics Metrics) *ChainID {
 }
 
 func (e *ChainID) ChainId() *hexutil.Big { //nolint:stylecheck
-	e.metrics.RecordRPCMethodCall("eth_chainId")
-	defer e.metrics.RecordRPCMethodDuration("eth_chainId", time.Now())
+	defer e.metrics.RecordRPCMethodCall(ChainIdMethodName, time.Now())
 
 	return e.chainID
 }
@@ -45,8 +44,7 @@ func NewBlock(blockStore store.BlockStoreReader, metrics Metrics) *Block {
 }
 
 func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error) {
-	e.metrics.RecordRPCMethodCall("eth_getBlockByNumber")
-	defer e.metrics.RecordRPCMethodDuration("eth_getBlockByNumber", time.Now())
+	defer e.metrics.RecordRPCMethodCall(GetBlockByNumberMethodName, time.Now())
 
 	b := id.Get(e.blockStore)
 	if b == nil {
@@ -60,8 +58,7 @@ func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error
 }
 
 func (e *Block) GetBlockByHash(hash common.Hash, inclTx bool) (map[string]any, error) {
-	e.metrics.RecordRPCMethodCall("eth_getBlockByHash")
-	defer e.metrics.RecordRPCMethodDuration("eth_getBlockByHash", time.Now())
+	defer e.metrics.RecordRPCMethodCall(GetBlockByHashMethodName, time.Now())
 
 	block := e.blockStore.BlockByHash(hash)
 	if block == nil {
