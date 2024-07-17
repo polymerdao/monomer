@@ -12,6 +12,64 @@ From the [OP stack](https://specs.optimism.io/protocol/overview.html#components)
 
 ## Development
 
-We use Go 1.22. To run the e2e tests, you'll need the submodules (`git submodule update --init --recursive`) and a configured L1 backend (`make setup-e2e`). We use [`buf`](https://buf.build/) to manage protobufs.
+We use Go 1.22. To run the e2e tests, you'll need the submodules and a configured L1 backend. We use [`buf`](https://buf.build/) to manage protobufs.
 
-The Makefile includes commands for running tests and generating coverage profiles.
+### Prerequisites
+
+1. Install [go](https://go.dev/) 1.22 or higher.
+1. Initialize submodules:
+   ```sh
+   git submodule update --init --recursive
+   ```
+1. Install [jq](https://jqlang.github.io/jq/download/)
+1. Install [foundry](https://book.getfoundry.sh/getting-started/installation)
+1. Install buf:
+   ```sh
+   make install-buf
+   ```
+1. Install golangci-lint:
+
+   ```sh
+   make install-golangci-lint
+
+   ```
+
+1. Install go-test-coverage:
+
+   ```sh
+   make install-go-test-coverage
+
+   ```
+
+### Running tests
+
+1. Set up the environment for end-to-end (e2e) tests:
+   ```sh
+   make setup-e2e
+   ```
+1. Run the e2e tests:
+   ```sh
+   make e2e
+   ```
+1. Run the unit tests:
+   ```sh
+   make test
+   ```
+
+### Code Quality, Linting and Coverage
+
+1. Run linting:
+   ```sh
+   make lint
+   ```
+1. Check test coverage
+   ```sh
+   make check-cover
+   ```
+
+### Cleaning Up
+
+1. Clean up generated files and artifacts:
+   ```sh
+   make clean
+   ```
