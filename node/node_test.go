@@ -20,11 +20,18 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	engineWSAddress       = "127.0.0.1:8889"
+	cometHTTPAddress      = "127.0.0.1:8890"
+	prometheusHTTPAddress = "127.0.0.1:26660"
+	prometheusNamespace   = "monomer"
+)
+
 func TestRun(t *testing.T) {
 	chainID := monomer.ChainID(0)
-	engineWS, err := net.Listen("tcp", "127.0.0.1:0")
+	engineWS, err := net.Listen("tcp", engineWSAddress)
 	require.NoError(t, err)
-	cometListener, err := net.Listen("tcp", "127.0.0.1:0")
+	cometListener, err := net.Listen("tcp", cometHTTPAddress)
 	require.NoError(t, err)
 	app := testapp.NewTest(t, chainID.String())
 	blockdb := dbm.NewMemDB()
@@ -52,9 +59,9 @@ func TestRun(t *testing.T) {
 		txdb,
 		&config.InstrumentationConfig{
 			Prometheus:           true,
-			PrometheusListenAddr: "127.0.0.1:26660",
+			PrometheusListenAddr: prometheusHTTPAddress,
 			MaxOpenConnections:   1,
-			Namespace:            "monomer",
+			Namespace:            prometheusNamespace,
 		},
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
@@ -89,7 +96,7 @@ func TestRun(t *testing.T) {
 	require.NoError(t, cometClient.Call(&msg, "echo", want))
 	require.Equal(t, want, msg)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://127.0.0.1:26660/metrics", http.NoBody)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+prometheusHTTPAddress+"/metrics", http.NoBody)
 	require.NoError(t, err)
 	resp, err := http.DefaultClient.Do(req)
 	require.NoError(t, err)
