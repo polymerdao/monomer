@@ -12,6 +12,7 @@ import (
 	"time"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/config"
 	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/log"
@@ -62,7 +63,11 @@ func TestE2E(t *testing.T) {
 	}
 	opLogger := log.NewTerminalHandler(openLogFile(t, env, "op"), false)
 
-	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, l1BlockTime, &e2e.SelectiveListener{
+	prometheusCfg := &config.InstrumentationConfig{
+		Prometheus: false,
+	}
+
+	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, l1BlockTime, prometheusCfg, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {
 			require.NoError(t, opLogger.Handle(context.Background(), r))
 		},
@@ -74,6 +79,9 @@ func TestE2E(t *testing.T) {
 				require.NoError(t, err)
 			},
 			OnCometServeErrCb: func(err error) {
+				require.NoError(t, err)
+			},
+			OnPrometheusServeErrCb: func(err error) {
 				require.NoError(t, err)
 			},
 		},

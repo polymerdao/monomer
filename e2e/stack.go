@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	cometdb "github.com/cometbft/cometbft-db"
+	"github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -34,6 +35,7 @@ type Stack struct {
 	l1stateDumpDir   string
 	eventListener    EventListener
 	l1BlockTime      uint64
+	prometheusCfg    *config.InstrumentationConfig
 }
 
 // New assumes all ports are available and that all paths exist and are valid.
@@ -45,6 +47,7 @@ func New(
 	deployConfigDir string,
 	l1stateDumpDir string,
 	l1BlockTime uint64,
+	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
 ) *Stack {
 	return &Stack{
@@ -55,6 +58,7 @@ func New(
 		l1stateDumpDir:   l1stateDumpDir,
 		eventListener:    eventListener,
 		l1BlockTime:      l1BlockTime,
+		prometheusCfg:    prometheusCfg,
 	}
 }
 
@@ -196,6 +200,7 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		blockdb,
 		mempooldb,
 		txdb,
+		s.prometheusCfg,
 		s.eventListener,
 	)
 	if err := n.Run(ctx, env); err != nil {

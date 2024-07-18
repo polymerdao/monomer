@@ -2,6 +2,7 @@ package eth
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,29 +14,37 @@ import (
 // var errBlockNotFound = errors.New("block not found") // the op-node checks for this exact string.
 type ChainID struct {
 	chainID *hexutil.Big
+	metrics Metrics
 }
 
-func NewChainID(chainID *hexutil.Big) *ChainID {
+func NewChainID(chainID *hexutil.Big, metrics Metrics) *ChainID {
 	return &ChainID{
 		chainID: chainID,
+		metrics: metrics,
 	}
 }
 
 func (e *ChainID) ChainId() *hexutil.Big { //nolint:stylecheck
+	defer e.metrics.RecordRPCMethodCall(ChainIDMethodName, time.Now())
+
 	return e.chainID
 }
 
 type Block struct {
 	blockStore store.BlockStoreReader
+	metrics    Metrics
 }
 
-func NewBlock(blockStore store.BlockStoreReader) *Block {
+func NewBlock(blockStore store.BlockStoreReader, metrics Metrics) *Block {
 	return &Block{
 		blockStore: blockStore,
+		metrics:    metrics,
 	}
 }
 
 func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error) {
+	defer e.metrics.RecordRPCMethodCall(GetBlockByNumberMethodName, time.Now())
+
 	b := id.Get(e.blockStore)
 	if b == nil {
 		return nil, ethereum.NotFound
@@ -48,6 +57,8 @@ func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error
 }
 
 func (e *Block) GetBlockByHash(hash common.Hash, inclTx bool) (map[string]any, error) {
+	defer e.metrics.RecordRPCMethodCall(GetBlockByHashMethodName, time.Now())
+
 	block := e.blockStore.BlockByHash(hash)
 	if block == nil {
 		return nil, ethereum.NotFound

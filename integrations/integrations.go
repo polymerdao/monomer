@@ -209,6 +209,7 @@ func startMonomerNode(
 		blockdb,
 		mempooldb,
 		txdb,
+		svrCtx.Config.Instrumentation,
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
 				svrCtx.Logger.Error("[Engine HTTP Server]", "error", err)
@@ -218,6 +219,9 @@ func startMonomerNode(
 			},
 			OnCometServeErrCb: func(err error) {
 				svrCtx.Logger.Error("[CometBFT]", "error", err)
+			},
+			OnPrometheusServeErrCb: func(err error) {
+				svrCtx.Logger.Error("[Prometheus]", "error", err)
 			},
 		},
 	)

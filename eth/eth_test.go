@@ -20,7 +20,7 @@ func TestChainId(t *testing.T) {
 	for _, id := range []monomer.ChainID{0, 1, 2, 10} {
 		t.Run(id.String(), func(t *testing.T) {
 			hexID := id.HexBig()
-			require.Equal(t, hexID, eth.NewChainID(hexID).ChainId())
+			require.Equal(t, hexID, eth.NewChainID(hexID, eth.NewNoopMetrics()).ChainId())
 		})
 	}
 }
@@ -73,7 +73,7 @@ func TestGetBlockByNumber(t *testing.T) {
 				"exclude txs": false,
 			} {
 				t.Run(description, func(t *testing.T) {
-					s := eth.NewBlock(blockStore)
+					s := eth.NewBlock(blockStore, eth.NewNoopMetrics())
 					got, err := s.GetBlockByNumber(test.id, includeTxs)
 					if test.want == nil {
 						require.ErrorIs(t, err, ethereum.NotFound)
@@ -103,7 +103,7 @@ func TestGetBlockByHash(t *testing.T) {
 	} {
 		t.Run(description, func(t *testing.T) {
 			t.Run("block hash 1 exists", func(t *testing.T) {
-				e := eth.NewBlock(blockStore)
+				e := eth.NewBlock(blockStore, eth.NewNoopMetrics())
 				got, err := e.GetBlockByHash(block.Header.Hash, inclTx)
 				require.NoError(t, err)
 				require.Equal(t, block.ToEthLikeBlock(ethTxs(t, block.Txs), inclTx), got)
@@ -115,7 +115,7 @@ func TestGetBlockByHash(t *testing.T) {
 				"exclude txs": false,
 			} {
 				t.Run(description, func(t *testing.T) {
-					e := eth.NewBlock(blockStore)
+					e := eth.NewBlock(blockStore, eth.NewNoopMetrics())
 					got, err := e.GetBlockByHash(common.Hash{}, inclTx)
 					require.Nil(t, got)
 					require.ErrorIs(t, err, ethereum.NotFound)
