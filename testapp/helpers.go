@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"slices"
+	"sort"
 	"testing"
 
 	"cosmossdk.io/math"
@@ -113,22 +113,19 @@ func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, acc sdk.Acc
 // ToTxs converts the key-values to SetRequest sdk.Msgs and marshals the messages to protobuf wire format.
 // Each message is placed in a separate tx.
 func ToTxs(t *testing.T, kvs map[string]string, chainID string, sk *secp256k1.PrivKey, acc sdk.AccountI, startingSeq uint64, ctx sdk.Context) [][]byte {
+	// Extract the keys and sort them
+	keys := make([]string, 0, len(kvs))
+	for k := range kvs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+
 	var txs [][]byte
-	for k, v := range kvs {
+	for _, k := range keys {
+		v := kvs[k]
 		txs = append(txs, ToTx(t, k, v, chainID, sk, acc, startingSeq, ctx))
 		startingSeq += 1
 	}
-	// Ensure txs are always returned in the same order.
-	slices.SortFunc(txs, func(x []byte, y []byte) int {
-		stringX := string(x)
-		stringY := string(y)
-		if stringX > stringY {
-			return 1
-		} else if stringX < stringY {
-			return -1
-		}
-		return 0
-	})
 	return txs
 }
 
