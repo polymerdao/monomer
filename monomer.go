@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type Application interface {
@@ -150,16 +151,15 @@ type PayloadAttributes struct {
 	ParentHash            common.Hash
 	Height                int64
 	Transactions          []hexutil.Bytes
-	CosmosTxs             bfttypes.Txs
 	id                    *engine.PayloadID
 }
 
 // ID returns a PaylodID (a hash) from a PayloadAttributes when it's applied to a head block.
 // Hashing does not conform to go-ethereum/miner/payload_building.go
 // PayloadID is only calculated once, and cached for future calls.
-func (p *PayloadAttributes) ID() *engine.PayloadID {
+func (p *PayloadAttributes) ID() (*engine.PayloadID, error) {
 	if p.id != nil {
-		return p.id
+		return p.id, nil
 	}
 	hasher := sha256.New()
 
@@ -171,7 +171,15 @@ func (p *PayloadAttributes) ID() *engine.PayloadID {
 	if p.NoTxPool || len(p.Transactions) == 0 {
 		hashDataAsBinary(hasher, p.NoTxPool)
 		hashDataAsBinary(hasher, uint64(len(p.Transactions)))
-		for _, txData := range p.CosmosTxs {
+		// After deleting cosmosTxd from PayloadAttributes, semantic of ID function changed
+		cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(p.Transactions)
+		if err != nil {
+			return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
+		}
+		if len(cosmosTxs) == 0 {
+			return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("L1 Attributes tx not found"))
+		}
+		for _, txData := range cosmosTxs {
 			hashData(hasher, txData)
 		}
 	}
@@ -179,7 +187,7 @@ func (p *PayloadAttributes) ID() *engine.PayloadID {
 	var out engine.PayloadID
 	copy(out[:], hasher.Sum(nil)[:8])
 	p.id = &out
-	return &out
+	return &out, nil
 }
 
 func hashData(h hash.Hash, data []byte) {

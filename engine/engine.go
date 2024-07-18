@@ -167,7 +167,8 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("gas limit not provided"))
 	}
 
-	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(pa.Transactions)
+	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(pa.Transactions) // After deleting cosmosTxd from PayloadAttributes,
+	//																			we need to calculate AdaptPayloadTxsToCosmosTxs twice
 	if err != nil {
 		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
 	}
@@ -209,13 +210,17 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		ParentHash:            fcs.HeadBlockHash,
 		Height:                e.blockStore.HeadBlock().Header.Height + 1,
 		Transactions:          pa.Transactions,
-		CosmosTxs:             cosmosTxs,
 	}
 
 	// Engine API spec:
 	//   latestValidHash: ... the hash of the most recent valid block in the branch defined by payload and its ancestors.
 	// Recall that "payload" refers to the most recent block appended to the canonical chain, not the payload attributes.
-	return monomer.ValidForkchoiceUpdateResult(&fcs.HeadBlockHash, e.currentPayloadAttributes.ID()), nil
+	pID, err := e.currentPayloadAttributes.ID() // After deleting cosmosTxd from PayloadAttributes,
+	//												we need to calculate AdaptPayloadTxsToCosmosTxs twice
+	if err != nil {
+		return nil, err // TODO: refactor the error
+	}
+	return monomer.ValidForkchoiceUpdateResult(&fcs.HeadBlockHash, pID), nil
 }
 
 func (e *EngineAPI) GetPayloadV1(ctx context.Context, payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
@@ -238,14 +243,28 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 		return nil, engine.InvalidParams.With(errors.New("payload not found"))
 	}
 
-	if payloadID != *e.currentPayloadAttributes.ID() {
+	pID, err := e.currentPayloadAttributes.ID() // After deleting cosmosTxd from PayloadAttributes,
+	//												we need to calculate AdaptPayloadTxsToCosmosTxs twice
+	if err != nil {
+		return nil, err // TODO: refactor the error
+	}
+	if payloadID != *pID {
 		return nil, engine.InvalidParams.With(errors.New("payload is not current"))
+	}
+
+	// After deleting cosmosTxd from PayloadAttributes, we need to calculate AdaptPayloadTxsToCosmosTxs twice
+	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(e.currentPayloadAttributes.Transactions)
+	if err != nil {
+		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
+	}
+	if len(cosmosTxs) == 0 {
+		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("L1 Attributes tx not found"))
 	}
 
 	// TODO: handle time slot based block production
 	// for now assume block is sealed by this call
 	block, err := e.builder.Build(ctx, &builder.Payload{
-		InjectedTransactions: e.currentPayloadAttributes.CosmosTxs,
+		InjectedTransactions: cosmosTxs,
 		GasLimit:             e.currentPayloadAttributes.GasLimit,
 		Timestamp:            e.currentPayloadAttributes.Timestamp,
 		NoTxPool:             e.currentPayloadAttributes.NoTxPool,
