@@ -12,6 +12,7 @@ import (
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bftbytes "github.com/cometbft/cometbft/libs/bytes"
+	"github.com/cometbft/cometbft/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -19,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type Application interface {
@@ -157,7 +157,7 @@ type PayloadAttributes struct {
 // ID returns a PaylodID (a hash) from a PayloadAttributes when it's applied to a head block.
 // Hashing does not conform to go-ethereum/miner/payload_building.go
 // PayloadID is only calculated once, and cached for future calls.
-func (p *PayloadAttributes) ID() (*engine.PayloadID, error) {
+func (p *PayloadAttributes) ID(cosmosTxs *types.Txs) (*engine.PayloadID, error) {
 	if p.id != nil {
 		return p.id, nil
 	}
@@ -171,15 +171,8 @@ func (p *PayloadAttributes) ID() (*engine.PayloadID, error) {
 	if p.NoTxPool || len(p.Transactions) == 0 {
 		hashDataAsBinary(hasher, p.NoTxPool)
 		hashDataAsBinary(hasher, uint64(len(p.Transactions)))
-		// After deleting cosmosTxd from PayloadAttributes, semantic of ID function changed
-		cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(p.Transactions)
-		if err != nil {
-			return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
-		}
-		if len(cosmosTxs) == 0 {
-			return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("L1 Attributes tx not found"))
-		}
-		for _, txData := range cosmosTxs {
+
+		for _, txData := range *cosmosTxs {
 			hashData(hasher, txData)
 		}
 	}
