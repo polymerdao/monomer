@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
@@ -23,6 +24,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer/e2e/url"
@@ -77,6 +79,15 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 
 	if err := op.runNode(ctx, env); err != nil {
 		return err
+	}
+
+	// check balance of privKey - operator must hold an L1 balance to post state roots & batches
+	balance, err := l1.BalanceAt(ctx, crypto.PubkeyToAddress(op.privKey.PublicKey), nil)
+	if err != nil {
+		return fmt.Errorf("get balance: %v", err)
+	}
+	if balance.Cmp(big.NewInt(0)) == 0 {
+		return fmt.Errorf("stack operator balance is 0")
 	}
 
 	// Use the same tx manager config for the op-proposer and op-batcher.
