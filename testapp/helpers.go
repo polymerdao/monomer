@@ -176,33 +176,30 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 }
 
 func (a *App) TestAccount(ctx sdk.Context) (*secp256k1.PrivKey, *secp256k1.PubKey, sdk.AccountI) {
-	fmt.Println("Crypto: Generating test keys...")
 	sk := secp256k1.GenPrivKey()
 	pk := sk.PubKey().(*secp256k1.PubKey)
 
-	fmt.Println("AccountKeeper: Creating test account ...")
 	accAddr := sdk.AccAddress(pk.Address())
 	account := a.accountKeeper.NewAccountWithAddress(ctx, accAddr)
 	a.accountKeeper.SetAccount(ctx, account)
 
-	feeAcc := a.accountKeeper.GetAccount(ctx, accAddr)
-	fmt.Printf("AccountKeeper: Account created with address %v\n", feeAcc)
+	err := account.SetPubKey(sk.PubKey())
+	if err != nil {
+		panic("Failed to set account public key: %v" + err.Error())
+	}
 
 	a.accountKeeper.Params.Set(ctx, authtypes.DefaultParams())
 
-	fmt.Println("BankKeeper: Minting coins ...")
 	coins := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(100000)))
-	err := a.bankKeeper.MintCoins(ctx, minttypes.ModuleName, coins)
+	err = a.bankKeeper.MintCoins(ctx, minttypes.ModuleName, coins)
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Println("BankKeeper: Sending coins to", pk.Address(), "...")
 	err = a.bankKeeper.SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName, accAddr, coins)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("Test account generated.")
 
 	return sk, pk, account
 }

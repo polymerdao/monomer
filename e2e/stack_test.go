@@ -2,8 +2,10 @@ package e2e_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/polymerdao/monomer"
 	"math/big"
 	"net/url"
 	"os"
@@ -33,6 +35,8 @@ import (
 const (
 	artifactsDirectoryName = "artifacts"
 	oneEth                 = 1e18
+	// See /e2e/optimism/packages/contracts-bedrock/deploy-config/mainnet.json
+	chainID = monomer.ChainID(10)
 )
 
 func openLogFile(t *testing.T, env *environment.Env, name string) *os.File {
@@ -158,12 +162,22 @@ func TestE2E(t *testing.T) {
 	client, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
 	require.NoError(t, err, "create Comet client")
 
-	chainID := "test"
-	app := testapp.NewTest(t, chainID)
-	appCtx := app.GetContext(true)
+	app := testapp.NewTest(t, chainID.String())
+	_, err = app.InitChain(context.Background(), &abcitypes.RequestInitChain{
+		ChainId: chainID.String(),
+		AppStateBytes: func() []byte {
+			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
+			require.NoError(t, err)
+			return appStateBytes
+		}(),
+	})
+
+	require.NoError(t, err)
+	appCtx := app.GetContext(false)
 	sk, _, acc := app.TestAccount(appCtx)
 
-	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue", chainID, sk, acc, acc.GetSequence(), appCtx)
+	k, v := "userTxKey", "userTxValue"
+	txBytes := testapp.ToTx(t, k, v, chainID.String(), sk, acc, acc.GetSequence(), appCtx)
 	bftTx := bfttypes.Tx(txBytes)
 
 	putTx, err := client.BroadcastTxAsync(ctx, txBytes)
