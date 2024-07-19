@@ -149,16 +149,16 @@ type PayloadAttributes struct {
 	ParentBeaconBlockRoot *common.Hash
 	ParentHash            common.Hash
 	Height                int64
-	Transactions          []hexutil.Bytes
+	CosmosTxs             bfttypes.Txs
 	id                    *engine.PayloadID
 }
 
 // ID returns a PaylodID (a hash) from a PayloadAttributes when it's applied to a head block.
 // Hashing does not conform to go-ethereum/miner/payload_building.go
 // PayloadID is only calculated once, and cached for future calls.
-func (p *PayloadAttributes) ID(cosmosTxs *bfttypes.Txs) (*engine.PayloadID, error) {
+func (p *PayloadAttributes) ID() *engine.PayloadID {
 	if p.id != nil {
-		return p.id, nil
+		return p.id
 	}
 	hasher := sha256.New()
 
@@ -167,11 +167,11 @@ func (p *PayloadAttributes) ID(cosmosTxs *bfttypes.Txs) (*engine.PayloadID, erro
 	hashData(hasher, p.PrevRandao[:])
 	hashData(hasher, p.SuggestedFeeRecipient[:])
 	hashDataAsBinary(hasher, p.GasLimit)
-	if p.NoTxPool || len(p.Transactions) == 0 {
+	if p.NoTxPool || len(p.CosmosTxs) == 0 {
 		hashDataAsBinary(hasher, p.NoTxPool)
-		hashDataAsBinary(hasher, uint64(len(p.Transactions)))
+		hashDataAsBinary(hasher, uint64(len(p.CosmosTxs)))
 
-		for _, txData := range *cosmosTxs {
+		for _, txData := range p.CosmosTxs {
 			hashData(hasher, txData)
 		}
 	}
@@ -179,7 +179,7 @@ func (p *PayloadAttributes) ID(cosmosTxs *bfttypes.Txs) (*engine.PayloadID, erro
 	var out engine.PayloadID
 	copy(out[:], hasher.Sum(nil)[:8])
 	p.id = &out
-	return &out, nil
+	return &out
 }
 
 func hashData(h hash.Hash, data []byte) {
