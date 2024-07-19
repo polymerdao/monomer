@@ -78,7 +78,7 @@ func TestBuild(t *testing.T) {
 			inclusionListTxs := testapp.ToTxs(t, test.inclusionList)
 			mempoolTxs := testapp.ToTxs(t, test.mempool)
 
-			pool := mempool.New(testutils.NewMemDB(t))
+			pool := mempool.New(testutils.NewMemDB(t), mempool.NewNoopMetrics())
 			for _, tx := range mempoolTxs {
 				require.NoError(t, pool.Enqueue(tx))
 			}
@@ -194,7 +194,7 @@ func TestBuild(t *testing.T) {
 }
 
 func TestRollback(t *testing.T) {
-	pool := mempool.New(testutils.NewMemDB(t))
+	pool := mempool.New(testutils.NewMemDB(t), mempool.NewNoopMetrics())
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
 

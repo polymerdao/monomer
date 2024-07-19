@@ -25,7 +25,7 @@ func NewChainID(chainID *hexutil.Big, metrics Metrics) *ChainID {
 }
 
 func (e *ChainID) ChainId() *hexutil.Big { //nolint:stylecheck
-	defer e.metrics.RecordRPCMethodCall(ChainIDMethodName, time.Now())
+	defer e.metrics.RecordMethodCall(ChainIDMethodName, time.Now())
 
 	return e.chainID
 }
@@ -43,7 +43,7 @@ func NewBlock(blockStore store.BlockStoreReader, metrics Metrics) *Block {
 }
 
 func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error) {
-	defer e.metrics.RecordRPCMethodCall(GetBlockByNumberMethodName, time.Now())
+	defer e.metrics.RecordMethodCall(GetBlockByNumberMethodName, time.Now())
 
 	b := id.Get(e.blockStore)
 	if b == nil {
@@ -57,7 +57,7 @@ func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error
 }
 
 func (e *Block) GetBlockByHash(hash common.Hash, inclTx bool) (map[string]any, error) {
-	defer e.metrics.RecordRPCMethodCall(GetBlockByHashMethodName, time.Now())
+	defer e.metrics.RecordMethodCall(GetBlockByHashMethodName, time.Now())
 
 	block := e.blockStore.BlockByHash(hash)
 	if block == nil {

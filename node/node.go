@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -78,7 +79,6 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		return err
 	}
 	txStore := txstore.NewTxStore(n.txdb)
-	mpool := mempool.New(n.mempooldb)
 
 	eventBus := bfttypes.NewEventBus()
 	if err := eventBus.Start(); err != nil {
@@ -89,8 +89,9 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	if err := n.startPrometheusServer(ctx, env); err != nil {
 		return err
 	}
+	ethMetrics, engineMetrics, cometMetrics, mempoolMetrics := n.registerMetrics()
 
-	ethMetrics, engineMetrics := n.registerMetrics()
+	mpool := mempool.New(n.mempooldb, mempoolMetrics)
 
 	rpcServer := rpc.NewServer()
 	for _, api := range []rpc.API{
@@ -128,22 +129,24 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 
 	// Run Comet server.
 
-	abci := comet.NewABCI(n.app)
-	broadcastTxAPI := comet.NewBroadcastTxAPI(n.app, mpool)
-	txAPI := comet.NewTxAPI(txStore)
+	abci := comet.NewABCI(n.app, cometMetrics)
+	broadcastTxAPI := comet.NewBroadcastTxAPI(n.app, mpool, cometMetrics)
+	txAPI := comet.NewTxAPI(txStore, cometMetrics)
 	subscribeWg := conc.NewWaitGroup()
 	env.Defer(subscribeWg.Wait)
-	subscribeAPI := comet.NewSubscriberAPI(eventBus, subscribeWg, &comet.SelectiveListener{})
-	blockAPI := comet.NewBlockAPI(blockStore)
+	subscribeAPI := comet.NewSubscriberAPI(eventBus, subscribeWg, cometMetrics, &comet.SelectiveListener{})
+	blockAPI := comet.NewBlockAPI(blockStore, cometMetrics)
 	// https://docs.cometbft.com/main/rpc/
 	routes := map[string]*cometserver.RPCFunc{
 		"echo": cometserver.NewRPCFunc(func(_ *jsonrpctypes.Context, msg string) (string, error) {
+			cometMetrics.RecordMethodCall("echo", time.Now())
 			return msg, nil
 		}, "msg"),
 		"health": cometserver.NewRPCFunc(func(_ *jsonrpctypes.Context) (*rpctypes.ResultHealth, error) {
+			cometMetrics.RecordMethodCall("health", time.Now())
 			return &rpctypes.ResultHealth{}, nil
 		}, ""),
-		"status": cometserver.NewRPCFunc(comet.NewStatus(blockStore, nil).Status, ""), // TODO start block
+		"status": cometserver.NewRPCFunc(comet.NewStatusAPI(blockStore, nil, cometMetrics).Status, ""), // TODO start block
 
 		"abci_query": cometserver.NewRPCFunc(abci.Query, "path,data,height,prove"),
 		"abci_info":  cometserver.NewRPCFunc(abci.Info, "", cometserver.Cacheable()),

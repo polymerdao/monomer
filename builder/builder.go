@@ -103,7 +103,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 			// we need to fix db consistency in general, so we're just panicing on errors for now.
 			length, err := b.mempool.Len()
 			if err != nil {
-				panic(fmt.Errorf("enqueue: %v", err))
+				panic(fmt.Errorf("mempool length: %v", err))
 			}
 			if length == 0 {
 				break

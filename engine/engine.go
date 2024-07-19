@@ -77,7 +77,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 ) (*eth.ForkchoiceUpdatedResult, error) {
 	e.lock.Lock()
 	defer e.lock.Unlock()
-	defer e.metrics.RecordRPCMethodCall(ForkchoiceUpdatedV3MethodName, time.Now())
+	defer e.metrics.RecordMethodCall(ForkchoiceUpdatedV3MethodName, time.Now())
 
 	// OP spec:
 	//   - headBlockHash: block hash of the head of the canonical chain. Labeled "unsafe" in user JSON-RPC.
@@ -238,7 +238,7 @@ func (e *EngineAPI) GetPayloadV2(ctx context.Context, payloadID engine.PayloadID
 func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID) (*eth.ExecutionPayloadEnvelope, error) {
 	e.lock.RLock()
 	defer e.lock.RUnlock()
-	defer e.metrics.RecordRPCMethodCall(GetPayloadV3MethodName, time.Now())
+	defer e.metrics.RecordMethodCall(GetPayloadV3MethodName, time.Now())
 
 	if e.currentPayloadAttributes == nil {
 		return nil, engine.InvalidParams.With(errors.New("payload not found"))
@@ -307,7 +307,7 @@ func (e *EngineAPI) NewPayloadV2(payload eth.ExecutionPayload) (*eth.PayloadStat
 func (e *EngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
 	e.lock.Lock()
 	defer e.lock.Unlock()
-	defer e.metrics.RecordRPCMethodCall(NewPayloadV3MethodName, time.Now())
+	defer e.metrics.RecordMethodCall(NewPayloadV3MethodName, time.Now())
 
 	if e.blockStore.BlockByHash(payload.BlockHash) == nil {
 		return &eth.PayloadStatusV1{

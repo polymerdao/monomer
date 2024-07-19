@@ -3,6 +3,8 @@ package node
 import (
 	"context"
 	"fmt"
+	"github.com/polymerdao/monomer/comet"
+	"github.com/polymerdao/monomer/mempool"
 	"net"
 	"net/http"
 
@@ -39,12 +41,16 @@ func (n *Node) startPrometheusServer(ctx context.Context, env *environment.Env) 
 	return nil
 }
 
-func (n *Node) registerMetrics() (eth.Metrics, engine.Metrics) {
+func (n *Node) registerMetrics() (eth.Metrics, engine.Metrics, comet.Metrics, mempool.Metrics) {
 	if n.prometheusCfg.IsPrometheusEnabled() {
 		namespace := n.prometheusCfg.Namespace
 		return eth.NewMetrics(namespace),
-			engine.NewMetrics(namespace)
+			engine.NewMetrics(namespace),
+			comet.NewMetrics(namespace),
+			mempool.NewMetrics(namespace)
 	}
 	return eth.NewNoopMetrics(),
-		engine.NewNoopMetrics()
+		engine.NewNoopMetrics(),
+		comet.NewNoopMetrics(),
+		mempool.NewNoopMetrics()
 }

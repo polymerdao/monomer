@@ -23,12 +23,14 @@ type storageElem struct {
 }
 
 type Pool struct {
-	db dbm.DB
+	db      dbm.DB
+	metrics Metrics
 }
 
-func New(db dbm.DB) *Pool {
+func New(db dbm.DB, metrics Metrics) *Pool {
 	return &Pool{
-		db: db,
+		db:      db,
+		metrics: metrics,
 	}
 }
 
@@ -83,7 +85,11 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) error {
 		return err
 	}
 
-	return batch.WriteSync()
+	if err := batch.WriteSync(); err != nil {
+		return err
+	}
+	p.metrics.RecordEnqueueMempoolTx()
+	return nil
 }
 
 // Dequeue returns the transaction with the highest priority from the pool
@@ -135,6 +141,8 @@ func (p *Pool) Dequeue() (comettypes.Tx, error) {
 	if err := batch.WriteSync(); err != nil {
 		return nil, err
 	}
+
+	p.metrics.RecordDequeueMempoolTx()
 
 	return headElem.Txn, nil
 }
