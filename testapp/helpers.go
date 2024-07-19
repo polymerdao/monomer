@@ -54,8 +54,8 @@ func ToTx(t *testing.T, k, v string) []byte {
 		// This is just a dummy address. The signature and gas checks are disabled in testapp.go,
 		// so this works for now.
 		FromAddress: "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
-		Key:   k,
-		Value: v,
+		Key:         k,
+		Value:       v,
 	})
 	require.NoError(t, err)
 	tx := &sdktx.Tx{

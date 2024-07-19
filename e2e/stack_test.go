@@ -66,12 +66,6 @@ func TestE2E(t *testing.T) {
 	prometheusCfg := &config.InstrumentationConfig{
 		Prometheus: false,
 	}
-	//prometheusCfg := &config.InstrumentationConfig{
-	//	Prometheus:           true,
-	//	PrometheusListenAddr: ":26660",
-	//	MaxOpenConnections:   1,
-	//	Namespace:            "monomer",
-	//}
 
 	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, l1BlockTime, prometheusCfg, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {

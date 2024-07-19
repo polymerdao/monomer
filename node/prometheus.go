@@ -3,14 +3,14 @@ package node
 import (
 	"context"
 	"fmt"
-	"github.com/polymerdao/monomer/comet"
-	"github.com/polymerdao/monomer/mempool"
 	"net"
 	"net/http"
 
+	"github.com/polymerdao/monomer/comet"
 	"github.com/polymerdao/monomer/engine"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/eth"
+	"github.com/polymerdao/monomer/mempool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
