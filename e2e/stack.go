@@ -86,12 +86,6 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	deployConfig.SetDeployments(l1Deployments)
 	deployConfig.L1UseClique = false // Allows node to produce blocks without addition config. Clique is a PoA config.
 
-	// Generate a deployer key and pre-fund the account
-	deployerKey, err := crypto.GenerateKey()
-	if err != nil {
-		return fmt.Errorf("generate key: %v", err)
-	}
-
 	var auxState auxDump
 
 	l1StateJSON, err := os.ReadFile(filepath.Join(s.l1stateDumpDir, "allocs-l1.json"))
@@ -131,7 +125,6 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 			Address:    userAddress,
 			PrivateKey: privateKey,
 		})
-		fmt.Println("funded userAddress", userAddress.Hex())
 	}
 
 	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, l1state, l1Deployments)
@@ -188,7 +181,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		s.monomerEngineURL,
 		s.opNodeURL,
 		l1Deployments.L2OutputOracleProxy,
-		deployerKey,
+		s.L1Users[0].PrivateKey,
 		rollupConfig,
 		s.eventListener,
 	)
