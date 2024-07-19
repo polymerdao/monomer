@@ -12,7 +12,6 @@ import (
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bftbytes "github.com/cometbft/cometbft/libs/bytes"
-	"github.com/cometbft/cometbft/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -157,7 +156,7 @@ type PayloadAttributes struct {
 // ID returns a PaylodID (a hash) from a PayloadAttributes when it's applied to a head block.
 // Hashing does not conform to go-ethereum/miner/payload_building.go
 // PayloadID is only calculated once, and cached for future calls.
-func (p *PayloadAttributes) ID(cosmosTxs *types.Txs) (*engine.PayloadID, error) {
+func (p *PayloadAttributes) ID(cosmosTxs *bfttypes.Txs) (*engine.PayloadID, error) {
 	if p.id != nil {
 		return p.id, nil
 	}
