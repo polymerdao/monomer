@@ -170,7 +170,6 @@ func (p *PayloadAttributes) ID() *engine.PayloadID {
 	if p.NoTxPool || len(p.CosmosTxs) == 0 {
 		hashDataAsBinary(hasher, p.NoTxPool)
 		hashDataAsBinary(hasher, uint64(len(p.CosmosTxs)))
-
 		for _, txData := range p.CosmosTxs {
 			hashData(hasher, txData)
 		}
