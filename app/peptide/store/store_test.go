@@ -8,7 +8,7 @@ import (
 	dbm "github.com/cometbft/cometbft-db"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
-	eetypes "github.com/polymerdao/monomer/app/node/types"
+	eetypes "github.com/polymerdao/monomer/node/node.go"
 	"github.com/stretchr/testify/require"
 )
 
