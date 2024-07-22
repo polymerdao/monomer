@@ -213,7 +213,6 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		ParentBeaconBlockRoot: pa.ParentBeaconBlockRoot,
 		ParentHash:            fcs.HeadBlockHash,
 		Height:                e.blockStore.HeadBlock().Header.Height + 1,
-		Transactions:          pa.Transactions,
 		CosmosTxs:             cosmosTxs,
 	}
 

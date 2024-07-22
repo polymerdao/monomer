@@ -149,7 +149,6 @@ type PayloadAttributes struct {
 	ParentBeaconBlockRoot *common.Hash
 	ParentHash            common.Hash
 	Height                int64
-	Transactions          []hexutil.Bytes
 	CosmosTxs             bfttypes.Txs
 	id                    *engine.PayloadID
 }
@@ -168,9 +167,9 @@ func (p *PayloadAttributes) ID() *engine.PayloadID {
 	hashData(hasher, p.PrevRandao[:])
 	hashData(hasher, p.SuggestedFeeRecipient[:])
 	hashDataAsBinary(hasher, p.GasLimit)
-	if p.NoTxPool || len(p.Transactions) == 0 {
+	if p.NoTxPool || len(p.CosmosTxs) == 0 {
 		hashDataAsBinary(hasher, p.NoTxPool)
-		hashDataAsBinary(hasher, uint64(len(p.Transactions)))
+		hashDataAsBinary(hasher, uint64(len(p.CosmosTxs)))
 		for _, txData := range p.CosmosTxs {
 			hashData(hasher, txData)
 		}
