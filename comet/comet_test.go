@@ -54,7 +54,7 @@ func TestABCI(t *testing.T) {
 	_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
 	require.NoError(t, err)
 
-	abci := comet.NewABCI(app)
+	abci := comet.NewABCI(app, comet.NewNoopMetrics())
 
 	// Info.
 	infoResult, err := abci.Info(&jsonrpctypes.Context{})
@@ -87,7 +87,7 @@ func TestStatus(t *testing.T) {
 			Time:    time.Now(),
 		},
 	}
-	statusAPI := comet.NewStatus(blockStore, startBlock)
+	statusAPI := comet.NewStatusAPI(blockStore, startBlock, comet.NewNoopMetrics())
 	result, err := statusAPI.Status(&jsonrpctypes.Context{})
 	require.NoError(t, err)
 	require.Equal(t, &rpctypes.ResultStatus{
@@ -121,8 +121,8 @@ func TestStatus(t *testing.T) {
 func TestBroadcastTx(t *testing.T) {
 	chainID := "0"
 	app := testapp.NewTest(t, chainID)
-	mpool := mempool.New(testutils.NewMemDB(t))
-	broadcastTxAPI := comet.NewBroadcastTxAPI(app, mpool)
+	mpool := mempool.New(testutils.NewMemDB(t), mempool.NewNoopMetrics())
+	broadcastTxAPI := comet.NewBroadcastTxAPI(app, mpool, comet.NewNoopMetrics())
 
 	// Success case.
 	tx := testapp.ToTx(t, "k1", "v1")
@@ -198,7 +198,7 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 	}()
 	wg := conc.NewWaitGroup()
 	defer wg.Wait()
-	subscribeAPI := comet.NewSubscriberAPI(bus, wg, &comet.SelectiveListener{
+	subscribeAPI := comet.NewSubscriberAPI(bus, wg, comet.NewNoopMetrics(), &comet.SelectiveListener{
 		OnSubscriptionWriteErrCb: func(err error) {
 			require.NoError(t, err)
 		},
@@ -291,7 +291,7 @@ func TestSubscribeUnsubscribe(t *testing.T) {
 
 func TestTx(t *testing.T) {
 	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
-	txAPI := comet.NewTxAPI(txStore)
+	txAPI := comet.NewTxAPI(txStore, comet.NewNoopMetrics())
 	_, err := txAPI.ByHash(&jsonrpctypes.Context{}, []byte{}, true)
 	require.ErrorContains(t, err, "proving is not supported")
 	wsConn := newMockWSConnection(t, nil)
@@ -355,7 +355,7 @@ func TestBlock(t *testing.T) {
 	}
 	blockStore.AddBlock(block)
 
-	blockAPI := comet.NewBlockAPI(blockStore)
+	blockAPI := comet.NewBlockAPI(blockStore, comet.NewNoopMetrics())
 	resultBlock, err := blockAPI.ByHeight(&jsonrpctypes.Context{}, block.Header.Height)
 	require.NoError(t, err)
 	require.Equal(t, want, resultBlock)

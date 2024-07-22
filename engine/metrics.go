@@ -19,16 +19,16 @@ type Metrics interface {
 	rpcmetrics.Metrics
 }
 
-type metrics struct {
+type engineMetrics struct {
 	rpcmetrics.RPCMetrics
 }
 
 func NewMetrics(namespace string) Metrics {
-	return &metrics{
+	return &engineMetrics{
 		rpcmetrics.NewRPCMetrics(
 			namespace,
 			MetricsSubsystem,
-			"Duration of each engine RPC method call in microseconds",
+			"Duration of each engine API method call in microseconds",
 			RPCMethodDurationBucketsMicroseconds,
 		),
 	}

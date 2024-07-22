@@ -11,7 +11,7 @@ import (
 )
 
 func TestMempool(t *testing.T) {
-	pool := mempool.New(testutils.NewMemDB(t))
+	pool := mempool.New(testutils.NewMemDB(t), mempool.NewNoopMetrics())
 
 	t.Run("empty pool", func(t *testing.T) {
 		l, err := pool.Len()

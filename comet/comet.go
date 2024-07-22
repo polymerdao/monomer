@@ -29,12 +29,14 @@ type AppABCI interface {
 }
 
 type ABCI struct {
-	app AppABCI
+	app     AppABCI
+	metrics Metrics
 }
 
-func NewABCI(app AppABCI) *ABCI {
+func NewABCI(app AppABCI, metrics Metrics) *ABCI {
 	return &ABCI{
-		app: app,
+		app:     app,
+		metrics: metrics,
 	}
 }
 
@@ -45,6 +47,8 @@ func (s *ABCI) Query(
 	height int64,
 	prove bool,
 ) (*rpctypes.ResultABCIQuery, error) {
+	defer s.metrics.RecordMethodCall("query", time.Now())
+
 	resp, err := s.app.Query(ctx.Context(), &abcitypes.RequestQuery{
 		Path:   path,
 		Data:   data,
@@ -60,6 +64,8 @@ func (s *ABCI) Query(
 }
 
 func (s *ABCI) Info(ctx *jsonrpctypes.Context) (*rpctypes.ResultABCIInfo, error) {
+	defer s.metrics.RecordMethodCall("info", time.Now())
+
 	resp, err := s.app.Info(ctx.Context(), &abcitypes.RequestInfo{})
 	if err != nil {
 		return nil, fmt.Errorf("info: %v", err)
@@ -73,22 +79,26 @@ type HeadBlocker interface {
 	HeadBlock() *monomer.Block
 }
 
-type Status struct {
+type StatusAPI struct {
 	blockstore HeadBlocker
 	startBlock *bfttypes.Block
+	metrics    Metrics
 }
 
-func NewStatus(blockStore HeadBlocker, startBlock *bfttypes.Block) *Status {
-	return &Status{
+func NewStatusAPI(blockStore HeadBlocker, startBlock *bfttypes.Block, metrics Metrics) *StatusAPI {
+	return &StatusAPI{
 		blockstore: blockStore,
 		startBlock: startBlock,
+		metrics:    metrics,
 	}
 }
 
 // Status returns CometBFT status including node info, pubkey, latest block hash, app hash, block height, and block
 // time.
 // More: https://docs.cometbft.com/main/rpc/#/ABCI/status
-func (s *Status) Status(_ *jsonrpctypes.Context) (*rpctypes.ResultStatus, error) {
+func (s *StatusAPI) Status(_ *jsonrpctypes.Context) (*rpctypes.ResultStatus, error) {
+	defer s.metrics.RecordMethodCall("status", time.Now())
+
 	block := s.blockstore.HeadBlock()
 	if block == nil {
 		return nil, errors.New("head block not found")
@@ -134,18 +144,22 @@ type Mempool interface {
 type BroadcastTxAPI struct {
 	app     AppMempool
 	mempool Mempool
+	metrics Metrics
 }
 
-func NewBroadcastTxAPI(app AppMempool, mempool Mempool) *BroadcastTxAPI {
+func NewBroadcastTxAPI(app AppMempool, mempool Mempool, metrics Metrics) *BroadcastTxAPI {
 	return &BroadcastTxAPI{
 		app:     app,
 		mempool: mempool,
+		metrics: metrics,
 	}
 }
 
 // BroadcastTxSync returns with the response from CheckTx, but does not wait for DeliverTx (tx execution).
 // More: https://docs.cometbft.com/main/rpc/#/Tx/broadcast_tx_sync
 func (s *BroadcastTxAPI) BroadcastTx(ctx *jsonrpctypes.Context, tx bfttypes.Tx) (*rpctypes.ResultBroadcastTx, error) {
+	defer s.metrics.RecordMethodCall("broadcastTx", time.Now())
+
 	checkTxResp, err := s.app.CheckTx(ctx.Context(), &abcitypes.RequestCheckTx{
 		Tx:   tx,
 		Type: abcitypes.CheckTxType_New,
@@ -158,6 +172,7 @@ func (s *BroadcastTxAPI) BroadcastTx(ctx *jsonrpctypes.Context, tx bfttypes.Tx) 
 			return nil, fmt.Errorf("enqueue in mempool: %v", err)
 		}
 	}
+
 	return &rpctypes.ResultBroadcastTx{
 		Code:      checkTxResp.GetCode(),
 		Log:       checkTxResp.GetLog(),
@@ -182,13 +197,15 @@ type SubscribeEventListener interface {
 type SubscriberAPI struct {
 	eventBus      EventBus
 	wg            *conc.WaitGroup
+	metrics       Metrics
 	eventListener SubscribeEventListener
 }
 
-func NewSubscriberAPI(eventBus EventBus, wg *conc.WaitGroup, eventListener SubscribeEventListener) *SubscriberAPI {
+func NewSubscriberAPI(eventBus EventBus, wg *conc.WaitGroup, metrics Metrics, eventListener SubscribeEventListener) *SubscriberAPI {
 	return &SubscriberAPI{
 		eventBus:      eventBus,
 		wg:            wg,
+		metrics:       metrics,
 		eventListener: eventListener,
 	}
 }
@@ -210,6 +227,8 @@ func (s *SubscriberAPI) Subscribe(ctx *jsonrpctypes.Context, query string) (*rpc
 	if err != nil {
 		return nil, fmt.Errorf("subscribe to event bus: %w", err)
 	}
+
+	s.metrics.RecordSubscribe(query)
 
 	subscriptionID := ctx.JSONReq.ID
 
@@ -237,6 +256,7 @@ func (s *SubscriberAPI) Subscribe(ctx *jsonrpctypes.Context, query string) (*rpc
 			case <-sub.Canceled():
 				err = sub.Err()
 				if errors.Is(err, bftpubsub.ErrUnsubscribed) {
+					s.metrics.RecordUnsubscribe(query)
 					err = nil
 				} else {
 					var reason string
@@ -287,17 +307,21 @@ type TxStore interface {
 
 type TxAPI struct {
 	txstore TxStore
+	metrics Metrics
 }
 
-func NewTxAPI(txStore TxStore) *TxAPI {
+func NewTxAPI(txStore TxStore, metrics Metrics) *TxAPI {
 	return &TxAPI{
 		txstore: txStore,
+		metrics: metrics,
 	}
 }
 
 // https://docs.cometbft.com/main/rpc/#/Tx/tx
 // NOTE: arg `hash` should be a hex string without 0x prefix
 func (s *TxAPI) ByHash(_ *jsonrpctypes.Context, hash []byte, prove bool) (*rpctypes.ResultTx, error) {
+	defer s.metrics.RecordMethodCall("tx_byHash", time.Now())
+
 	if prove {
 		return nil, errProvingNotSupported
 	}
@@ -332,6 +356,8 @@ func (s *TxAPI) Search(
 	perPagePtr *int,
 	orderBy string,
 ) (*rpctypes.ResultTxSearch, error) {
+	defer s.metrics.RecordMethodCall("tx_search", time.Now())
+
 	if prove {
 		return nil, errProvingNotSupported
 	}
@@ -444,16 +470,20 @@ type BlockStore interface {
 
 type BlockAPI struct {
 	blockstore BlockStore
+	metrics    Metrics
 }
 
-func NewBlockAPI(blockStore BlockStore) *BlockAPI {
+func NewBlockAPI(blockStore BlockStore, metrics Metrics) *BlockAPI {
 	return &BlockAPI{
 		blockstore: blockStore,
+		metrics:    metrics,
 	}
 }
 
 // https://docs.cometbft.com/main/rpc/#/ABCI/block
 func (s *BlockAPI) ByHeight(_ *jsonrpctypes.Context, height int64) (*rpctypes.ResultBlock, error) {
+	defer s.metrics.RecordMethodCall("block_byHeight", time.Now())
+
 	block := s.blockstore.BlockByNumber(height)
 	if block == nil {
 		return nil, fmt.Errorf("block not found: %d", height)
@@ -463,6 +493,8 @@ func (s *BlockAPI) ByHeight(_ *jsonrpctypes.Context, height int64) (*rpctypes.Re
 
 // https://docs.cometbft.com/main/rpc/#/ABCI/block_by_hash
 func (s *BlockAPI) ByHash(_ *jsonrpctypes.Context, hash []byte) (*rpctypes.ResultBlock, error) {
+	defer s.metrics.RecordMethodCall("block_byHash", time.Now())
+
 	block := s.blockstore.BlockByHash(common.BytesToHash(hash))
 	if block == nil {
 		return nil, fmt.Errorf("block not found: %x", hash)

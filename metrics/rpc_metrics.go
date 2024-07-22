@@ -8,7 +8,7 @@ import (
 )
 
 type Metrics interface {
-	RecordRPCMethodCall(method string, start time.Time)
+	RecordMethodCall(method string, start time.Time)
 }
 
 type RPCMetrics struct {
@@ -30,11 +30,11 @@ func NewRPCMetrics(namespace, subsystem, info string, buckets []float64) RPCMetr
 	}
 }
 
-func (m *RPCMetrics) RecordRPCMethodCall(method string, start time.Time) {
+func (m *RPCMetrics) RecordMethodCall(method string, start time.Time) {
 	methodCallDuration := float64(time.Since(start).Microseconds())
 	m.MethodCalls.WithLabelValues(method).Observe(methodCallDuration)
 }
 
 type RPCNoopMetrics struct{}
 
-func (m *RPCNoopMetrics) RecordRPCMethodCall(_ string, _ time.Time) {}
+func (m *RPCNoopMetrics) RecordMethodCall(_ string, _ time.Time) {}

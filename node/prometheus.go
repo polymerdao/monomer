@@ -6,9 +6,11 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/polymerdao/monomer/comet"
 	"github.com/polymerdao/monomer/engine"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/eth"
+	"github.com/polymerdao/monomer/mempool"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
@@ -39,12 +41,16 @@ func (n *Node) startPrometheusServer(ctx context.Context, env *environment.Env) 
 	return nil
 }
 
-func (n *Node) registerMetrics() (eth.Metrics, engine.Metrics) {
+func (n *Node) registerMetrics() (eth.Metrics, engine.Metrics, comet.Metrics, mempool.Metrics) {
 	if n.prometheusCfg.IsPrometheusEnabled() {
 		namespace := n.prometheusCfg.Namespace
 		return eth.NewMetrics(namespace),
-			engine.NewMetrics(namespace)
+			engine.NewMetrics(namespace),
+			comet.NewMetrics(namespace),
+			mempool.NewMetrics(namespace)
 	}
 	return eth.NewNoopMetrics(),
-		engine.NewNoopMetrics()
+		engine.NewNoopMetrics(),
+		comet.NewNoopMetrics(),
+		mempool.NewNoopMetrics()
 }

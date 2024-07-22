@@ -57,7 +57,7 @@ type Module struct {
 }
 
 var (
-	_ module.AppModule  = (*Module)(nil)
+	_ module.AppModule      = (*Module)(nil)
 	_ module.HasABCIGenesis = (*Module)(nil)
 )
 

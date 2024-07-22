@@ -19,12 +19,12 @@ type Metrics interface {
 	rpcmetrics.Metrics
 }
 
-type metrics struct {
+type ethMetrics struct {
 	rpcmetrics.RPCMetrics
 }
 
 func NewMetrics(namespace string) Metrics {
-	return &metrics{
+	return &ethMetrics{
 		rpcmetrics.NewRPCMetrics(
 			namespace,
 			MetricsSubsystem,
