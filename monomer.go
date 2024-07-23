@@ -19,6 +19,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type Application interface {
@@ -72,9 +73,23 @@ type Block struct {
 // Hash returns a unique hash of the block, used as the block identifier
 func (b *Block) Hash() common.Hash {
 	if b.Header.Hash == (common.Hash{}) {
-		// We exclude the tx commitment.
-		// TODO better hashing technique than using Ethereum's.
-		b.Header.Hash = (&ethtypes.Header{
+		ethBlock, err := b.ToEth()
+		if err != nil {
+			// TODO: this panic is quite ugly. Perhaps we should just use Ethereum types everywhere?
+			panic(fmt.Errorf("could not convert to eth block: %v", err))
+		}
+		b.Header.Hash = ethBlock.Hash()
+	}
+	return b.Header.Hash
+}
+
+func (b *Block) ToEth() (*ethtypes.Block, error) {
+	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(b.Txs)
+	if err != nil {
+		return nil, fmt.Errorf("adapt txs: %v", err)
+	}
+	return ethtypes.NewBlock(
+		&ethtypes.Header{
 			ParentHash:      b.Header.ParentHash,
 			Root:            common.BytesToHash(b.Header.AppHash), // TODO actually take the keccak
 			Number:          big.NewInt(b.Header.Height),
@@ -85,47 +100,12 @@ func (b *Block) Hash() common.Hash {
 			ReceiptHash:     ethtypes.EmptyReceiptsHash,
 			BaseFee:         common.Big0,
 			WithdrawalsHash: &ethtypes.EmptyWithdrawalsHash,
-		}).Hash()
-	}
-	return b.Header.Hash
-}
-
-// This trick is played by the eth rpc server too. Instead of constructing
-// an actual eth block, simply create a map with the right keys so the client
-// can unmarshal it into a block
-func (b *Block) ToEthLikeBlock(txs ethtypes.Transactions, inclTxs bool) map[string]any {
-	excessBlobGas := hexutil.Uint64(0)
-	blockGasUsed := hexutil.Uint64(0)
-	result := map[string]any{
-		// These are the ones that make sense to polymer.
-		"parentHash": b.Header.ParentHash,
-		"stateRoot":  common.BytesToHash(b.Header.AppHash),
-		"number":     (*hexutil.Big)(big.NewInt(b.Header.Height)),
-		"gasLimit":   hexutil.Uint64(b.Header.GasLimit),
-		"mixHash":    common.Hash{},
-		"timestamp":  hexutil.Uint64(b.Header.Time),
-		"hash":       b.Hash(),
-
-		// these are required fields that need to be part of the header or
-		// the eth client will complain during unmarshalling
-		"sha3Uncles":            ethtypes.EmptyUncleHash,
-		"receiptsRoot":          ethtypes.EmptyReceiptsHash,
-		"baseFeePerGas":         (*hexutil.Big)(common.Big0),
-		"difficulty":            (*hexutil.Big)(common.Big0),
-		"extraData":             []byte{},
-		"gasUsed":               hexutil.Uint64(0),
-		"logsBloom":             ethtypes.Bloom(make([]byte, ethtypes.BloomByteLength)),
-		"withdrawalsRoot":       ethtypes.EmptyWithdrawalsHash,
-		"withdrawals":           ethtypes.Withdrawals{},
-		"blobGasUsed":           &blockGasUsed,
-		"excessBlobGas":         &excessBlobGas,
-		"parentBeaconBlockRoot": common.Hash{},
-		"transactionsRoot":      ethtypes.DeriveSha(txs, trie.NewStackTrie(nil)),
-	}
-	if inclTxs {
-		result["transactions"] = txs
-	}
-	return result
+		},
+		txs,
+		nil,
+		[]*ethtypes.Receipt{},
+		trie.NewStackTrie(nil),
+	), nil
 }
 
 func (b *Block) ToCometLikeBlock() *bfttypes.Block {
