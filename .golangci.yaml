@@ -113,7 +113,7 @@ linters:
 issues:
   # Excluding configuration per-path, per-linter, per-text and per-source
   exclude-rules:
-    - path: _test\.go
+    - path: (testutils)|(_test\.go)
       linters:
         - gomnd
         - funlen
@@ -125,6 +125,7 @@ issues:
       source: "^//go:generate "
   exclude-dirs:
     - app # This code is left over and will be changed soon.
+    - eth/internal/ethapi
 
 run:
   timeout: 5m

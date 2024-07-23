@@ -12,32 +12,43 @@ import (
 	"github.com/polymerdao/monomer/gen/rollup/v1"
 )
 
+var errL1AttributesNotFound = errors.New("L1 attributes tx not found")
+
+// AdaptPayloadTxsToCosmosTxs assumes the deposit transactions come first.
 func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 	if len(ethTxs) == 0 {
 		return bfttypes.Txs{}, nil
 	}
 
-	// Pack deposit txs into a single sdk.Msg.
+	// Count number of deposit txs.
 	var numDepositTxs int
 	for _, txBytes := range ethTxs {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
-			break
+			return nil, fmt.Errorf("unmarshal binary: %v", err)
 		}
-		numDepositTxs++
+		if tx.IsDepositTx() {
+			numDepositTxs++
+		} else {
+			break // Assume deposit transactions must come first.
+		}
 	}
-	var txs [][]byte
-	for _, txBytes := range ethTxs {
-		txs = append(txs, txBytes)
+	if numDepositTxs == 0 {
+		return nil, errL1AttributesNotFound
 	}
 
+	// Pack deposit txs into an SDK Msg.
+	var depositTxsBytes [][]byte
+	for _, depositTx := range ethTxs[:numDepositTxs] {
+		depositTxsBytes = append(depositTxsBytes, depositTx)
+	}
 	msgAny, err := codectypes.NewAnyWithValue(&rollupv1.ApplyL1TxsRequest{
-		TxBytes: txs,
+		TxBytes: depositTxsBytes,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("new any with value: %v", err)
 	}
-	txBytes, err := (&sdktx.Tx{
+	depositSDKMsgBytes, err := (&sdktx.Tx{
 		Body: &sdktx.TxBody{
 			Messages: []*codectypes.Any{msgAny},
 		},
@@ -47,10 +58,10 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 	}
 
 	// Unpack Cosmos txs from ethTxs.
-	cosmosTxs := bfttypes.ToTxs([][]byte{txBytes})
-	for _, txBytes := range txs[numDepositTxs:] {
+	cosmosTxs := bfttypes.ToTxs([][]byte{depositSDKMsgBytes})
+	for _, cosmosTx := range ethTxs[numDepositTxs:] {
 		var tx ethtypes.Transaction
-		if err := tx.UnmarshalBinary(txBytes); err != nil {
+		if err := tx.UnmarshalBinary(cosmosTx); err != nil {
 			return nil, fmt.Errorf("unmarshal binary tx: %v", err)
 		}
 		cosmosTxs = append(cosmosTxs, tx.Data())
@@ -98,11 +109,15 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 
 	// Pack Cosmos txs into Ethereum txs.
 	for _, txBytes := range txsBytes[1:] {
-		txs = append(txs, ethtypes.NewTx(&ethtypes.DynamicFeeTx{
-			// TODO maybe fill in other fields?
-			Data: txBytes,
-		}))
+		txs = append(txs, AdaptNonDepositCosmosTxToEthTx(txBytes))
 	}
 
 	return txs, nil
+}
+
+func AdaptNonDepositCosmosTxToEthTx(cosmosTx bfttypes.Tx) *ethtypes.Transaction {
+	return ethtypes.NewTx(&ethtypes.DynamicFeeTx{
+		// TODO maybe fill in other fields?
+		Data: cosmosTx,
+	})
 }

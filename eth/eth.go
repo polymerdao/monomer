@@ -7,11 +7,11 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
+	"github.com/polymerdao/monomer/eth/internal/ethapi"
 )
 
-// var errBlockNotFound = errors.New("block not found") // the op-node checks for this exact string.
 type ChainID struct {
 	chainID *hexutil.Big
 	metrics Metrics
@@ -42,30 +42,34 @@ func NewBlock(blockStore store.BlockStoreReader, metrics Metrics) *Block {
 	}
 }
 
-func (e *Block) GetBlockByNumber(id BlockID, inclTx bool) (map[string]any, error) {
+func (e *Block) GetBlockByNumber(id BlockID, fullTx bool) (map[string]any, error) {
 	defer e.metrics.RecordRPCMethodCall(GetBlockByNumberMethodName, time.Now())
 
-	b := id.Get(e.blockStore)
-	if b == nil {
+	block := id.Get(e.blockStore)
+	if block == nil {
 		return nil, ethereum.NotFound
 	}
-	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(b.Txs)
-	if err != nil {
-		return nil, fmt.Errorf("adapt cosmos txs: %v", err)
-	}
-	return b.ToEthLikeBlock(txs, inclTx), nil
+	return toRPCBlock(block, fullTx)
 }
 
-func (e *Block) GetBlockByHash(hash common.Hash, inclTx bool) (map[string]any, error) {
+func (e *Block) GetBlockByHash(hash common.Hash, fullTx bool) (map[string]any, error) {
 	defer e.metrics.RecordRPCMethodCall(GetBlockByHashMethodName, time.Now())
 
 	block := e.blockStore.BlockByHash(hash)
 	if block == nil {
 		return nil, ethereum.NotFound
 	}
-	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
+	return toRPCBlock(block, fullTx)
+}
+
+func toRPCBlock(block *monomer.Block, fullTx bool) (map[string]any, error) {
+	ethBlock, err := block.ToEth()
 	if err != nil {
-		return nil, fmt.Errorf("adapt cosmos txs: %v", err)
+		return nil, fmt.Errorf("convert to eth block: %v", err)
 	}
-	return block.ToEthLikeBlock(txs, inclTx), nil
+	rpcBlock, err := ethapi.SimpleRPCMarshalBlock(ethBlock, fullTx)
+	if err != nil {
+		return nil, fmt.Errorf("rpc marshal block: %v", err)
+	}
+	return rpcBlock, nil
 }
