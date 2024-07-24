@@ -153,9 +153,9 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		return nil, fmt.Errorf("commit: %v", err)
 	}
 
-	block := &monomer.Block{
-		Header: header,
-		Txs:    txs,
+	block, err := monomer.MakeBlock(header, txs)
+	if err != nil {
+		return nil, fmt.Errorf("make block: %v", err)
 	}
 
 	// Append block.

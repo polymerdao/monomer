@@ -14,7 +14,6 @@ import (
 	jsonrpctypes "github.com/cometbft/cometbft/rpc/jsonrpc/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/cometbft/cometbft/version"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
@@ -75,9 +74,8 @@ func TestABCI(t *testing.T) {
 
 func TestStatus(t *testing.T) {
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
-	headBlock := &monomer.Block{
-		Header: &monomer.Header{},
-	}
+	headBlock, err := monomer.MakeBlock(&monomer.Header{}, nil)
+	require.NoError(t, err)
 	blockStore.AddBlock(headBlock)
 	headCometBlock := headBlock.ToCometLikeBlock()
 	startBlock := &bfttypes.Block{
@@ -340,12 +338,10 @@ func TestTx(t *testing.T) {
 
 func TestBlock(t *testing.T) {
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
-	block := &monomer.Block{
-		Header: &monomer.Header{
-			Height: 3,
-			Hash:   common.BytesToHash([]byte{1, 2, 3}),
-		},
-	}
+	block, err := monomer.MakeBlock(&monomer.Header{
+		Height: 3,
+	}, nil)
+	require.NoError(t, err)
 	cometBlock := block.ToCometLikeBlock()
 	want := &rpctypes.ResultBlock{
 		BlockID: bfttypes.BlockID{
@@ -360,7 +356,7 @@ func TestBlock(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, want, resultBlock)
 
-	resultBlock, err = blockAPI.ByHash(&jsonrpctypes.Context{}, block.Hash().Bytes())
+	resultBlock, err = blockAPI.ByHash(&jsonrpctypes.Context{}, block.Header.Hash.Bytes())
 	require.NoError(t, err)
 	require.Equal(t, want, resultBlock)
 }
