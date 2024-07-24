@@ -145,18 +145,15 @@ func TestBuild(t *testing.T) {
 			if !test.noTxPool {
 				allTxs = append(allTxs, mempoolTxs...)
 			}
-			wantBlock := &monomer.Block{
-				Header: &monomer.Header{
-					ChainID:    g.ChainID,
-					Height:     postBuildInfo.GetLastBlockHeight(),
-					Time:       payload.Timestamp,
-					ParentHash: genesisBlock.Hash(),
-					AppHash:    preBuildInfo.GetLastBlockAppHash(),
-					GasLimit:   payload.GasLimit,
-				},
-				Txs: bfttypes.ToTxs(allTxs),
-			}
-			wantBlock.Hash()
+			wantBlock, err := monomer.MakeBlock(&monomer.Header{
+				ChainID:    g.ChainID,
+				Height:     postBuildInfo.GetLastBlockHeight(),
+				Time:       payload.Timestamp,
+				ParentHash: genesisBlock.Header.Hash,
+				AppHash:    preBuildInfo.GetLastBlockAppHash(),
+				GasLimit:   payload.GasLimit,
+			}, bfttypes.ToTxs(allTxs))
+			require.NoError(t, err)
 			require.Equal(t, wantBlock, builtBlock)
 			require.Equal(t, wantBlock, gotBlock)
 
@@ -232,11 +229,11 @@ func TestRollback(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, block)
-	require.NoError(t, blockStore.UpdateLabel(eth.Unsafe, block.Hash()))
-	require.NoError(t, blockStore.UpdateLabel(eth.Safe, block.Hash()))
-	require.NoError(t, blockStore.UpdateLabel(eth.Finalized, block.Hash()))
+	require.NoError(t, blockStore.UpdateLabel(eth.Unsafe, block.Header.Hash))
+	require.NoError(t, blockStore.UpdateLabel(eth.Safe, block.Header.Hash))
+	require.NoError(t, blockStore.UpdateLabel(eth.Finalized, block.Header.Hash))
 
-	require.NoError(t, b.Rollback(context.Background(), genesisBlock.Hash(), genesisBlock.Hash(), genesisBlock.Hash()))
+	require.NoError(t, b.Rollback(context.Background(), genesisBlock.Header.Hash, genesisBlock.Header.Hash, genesisBlock.Header.Hash))
 
 	// Application.
 	for k := range kvs {

@@ -76,10 +76,9 @@ func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *types.Transaction, depositT
 	}
 	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxBytes)
 	require.NoError(t, err)
-	return &monomer.Block{
-		Header: &monomer.Header{},
-		Txs:    cosmosTxs,
-	}
+	block, err := monomer.MakeBlock(&monomer.Header{}, cosmosTxs)
+	require.NoError(t, err)
+	return block
 }
 
 // GenerateBlock generates a valid block (up to stateless validation). The block is not meant to be executed.

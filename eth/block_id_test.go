@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/eth"
@@ -60,11 +59,8 @@ func TestBlockIDUnmarshalValidJSON(t *testing.T) {
 
 func TestBlockIDGet(t *testing.T) {
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
-	block := &monomer.Block{
-		Header: &monomer.Header{
-			Hash: common.Hash{1},
-		},
-	}
+	block, err := monomer.MakeBlock(&monomer.Header{}, nil)
+	require.NoError(t, err)
 	blockStore.AddBlock(block)
 	require.NoError(t, blockStore.UpdateLabel(opeth.Unsafe, block.Header.Hash))
 

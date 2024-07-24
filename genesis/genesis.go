@@ -39,28 +39,26 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 		return fmt.Errorf("init chain: %v", err)
 	}
 
-	block := &monomer.Block{
-		Header: &monomer.Header{
-			Height:   initialHeight,
-			ChainID:  g.ChainID,
-			Time:     g.Time,
-			GasLimit: defaultGasLimit,
-		},
+	block, err := monomer.MakeBlock(&monomer.Header{
+		Height:   initialHeight,
+		ChainID:  g.ChainID,
+		Time:     g.Time,
+		GasLimit: defaultGasLimit,
+	}, nil)
+	if err != nil {
+		return fmt.Errorf("make block: %v", err)
 	}
 
 	cometHeader := block.Header.ToComet()
-	response, err := app.FinalizeBlock(ctx, &abci.RequestFinalizeBlock{
+	if _, err := app.FinalizeBlock(ctx, &abci.RequestFinalizeBlock{
 		Hash:               cometHeader.Hash(),
 		Height:             cometHeader.Height,
 		Time:               cometHeader.Time,
 		NextValidatorsHash: cometHeader.NextValidatorsHash,
 		ProposerAddress:    cometHeader.ProposerAddress,
-	})
-	if err != nil {
+	}); err != nil {
 		return fmt.Errorf("finalize block: %v", err)
 	}
-
-	block.Header.AppHash = response.GetAppHash()
 
 	if _, err := app.Commit(ctx, &abci.RequestCommit{}); err != nil {
 		return fmt.Errorf("commit: %v", err)
@@ -68,7 +66,7 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 
 	blockStore.AddBlock(block)
 	for _, label := range []eth.BlockLabel{eth.Unsafe, eth.Safe, eth.Finalized} {
-		if err := blockStore.UpdateLabel(label, block.Hash()); err != nil {
+		if err := blockStore.UpdateLabel(label, block.Header.Hash); err != nil {
 			panic(fmt.Errorf("update label: %v", err)) // TODO a big problem if this panics. DB would be corrupted.
 		}
 	}
