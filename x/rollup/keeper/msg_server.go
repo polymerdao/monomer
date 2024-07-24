@@ -105,7 +105,10 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollupv1.ApplyL1TxsReque
 }
 
 // TODO: implement InitiateWithdrawal handler
-func (k *Keeper) InitiateWithdrawal(goCtx context.Context, msg *rollupv1.InitiateWithdrawalRequest) (*rollupv1.InitiateWithdrawalResponse, error) { //nolint:gocritic
+func (k *Keeper) InitiateWithdrawal(
+	goCtx context.Context,
+	msg *rollupv1.InitiateWithdrawalRequest,
+) (*rollupv1.InitiateWithdrawalResponse, error) {
 	return &rollupv1.InitiateWithdrawalResponse{}, nil
 }
 
