@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"errors"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
