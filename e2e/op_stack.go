@@ -85,9 +85,8 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 	balance, err := l1.BalanceAt(ctx, crypto.PubkeyToAddress(op.privKey.PublicKey), nil)
 	if err != nil {
 		return fmt.Errorf("get balance: %v", err)
-	}
-	if balance.Cmp(big.NewInt(0)) == 0 {
-		return fmt.Errorf("stack operator balance is 0")
+	} else if balance.Cmp(big.NewInt(0)) == 0 {
+		return errors.New("stack operator balance is 0")
 	}
 
 	// Use the same tx manager config for the op-proposer and op-batcher.
