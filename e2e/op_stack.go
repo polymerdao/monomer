@@ -3,10 +3,10 @@ package e2e
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
-	"errors"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
