@@ -104,6 +104,11 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollupv1.ApplyL1TxsReque
 	return &rollupv1.ApplyL1TxsResponse{}, nil
 }
 
+// TODO: implement InitiateWithdrawal handler
+func (k *Keeper) InitiateWithdrawal(goCtx context.Context, msg *rollupv1.InitiateWithdrawalRequest) (*rollupv1.InitiateWithdrawalResponse, error) { //nolint:gocritic
+	return &rollupv1.InitiateWithdrawalResponse{}, nil
+}
+
 // MintETH mints ETH to an account where the amount is in wei, the smallest unit of ETH
 func (k *Keeper) MintETH(ctx *sdk.Context, addr sdk.AccAddress, amount sdkmath.Int) error {
 	coin := sdk.NewCoin(types.ETH, amount)
