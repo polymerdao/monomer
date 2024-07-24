@@ -192,9 +192,11 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	//   It must return STATUS_VALID if all of the transactions could be executed without error.
 	// TODO checktx doesn't actually run the tx, it only does basic validation.
 	for _, txBytes := range cosmosTxs {
-		if _, err := e.txValidator.CheckTx(context.Background(), &abci.RequestCheckTx{
+		if checkTxResult, err := e.txValidator.CheckTx(context.Background(), &abci.RequestCheckTx{
 			Tx: txBytes,
-		}); err != nil {
+		}); err != nil { // a catch-all for errors unrelated to the actual validation.
+			return nil, engine.GenericServerError.With(fmt.Errorf("CheckTx: %v", err))
+		} else if checkTxResult.IsErr() { // validation error.
 			return &eth.ForkchoiceUpdatedResult{
 				PayloadStatus: eth.PayloadStatusV1{
 					Status:          eth.ExecutionInvalid,
