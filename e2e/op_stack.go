@@ -244,7 +244,6 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 		return fmt.Errorf("start batch submitting: %v", err)
 	}
 
-	fmt.Println("batcher started")
 	/*
 		There appears to be a deadlock in StopBatchSubmitting.
 		This was most likely fixed in a more recent OP-stack version, based on the significant diff.
