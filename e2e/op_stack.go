@@ -109,6 +109,7 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 		Signer: func(ctx context.Context, address common.Address, tx *ethtypes.Transaction) (*ethtypes.Transaction, error) {
 			return opcrypto.PrivateKeySignerFn(op.privKey, l1ChainID)(address, tx)
 		},
+		From: crypto.PubkeyToAddress(op.privKey.PublicKey),
 	}
 
 	if err := op.runProposer(ctx, env, l1, txManagerConfig); err != nil {
@@ -242,6 +243,7 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 	if err := batchSubmitter.StartBatchSubmitting(); err != nil {
 		return fmt.Errorf("start batch submitting: %v", err)
 	}
+
 	/*
 		There appears to be a deadlock in StopBatchSubmitting.
 		This was most likely fixed in a more recent OP-stack version, based on the significant diff.
