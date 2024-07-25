@@ -118,6 +118,7 @@ func TestBuild(t *testing.T) {
 
 			ctx := app.GetContext(false)
 			sk, _, acc := app.TestAccount(ctx)
+			require.NoError(t, acc.SetAccountNumber(4))
 
 			inclusionListTxs := testapp.ToTxs(t, test.inclusionList, chainID.String(), sk, acc, acc.GetSequence(), ctx)
 			mempoolTxs := testapp.ToTxs(t, test.mempool, chainID.String(), sk, acc, uint64(len(inclusionListTxs)), ctx)

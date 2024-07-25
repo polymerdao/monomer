@@ -43,6 +43,7 @@ func TestRollbackToHeight(t *testing.T) {
 
 	ctx := app.GetContext(false)
 	sk, _, acc := app.TestAccount(ctx)
+	require.NoError(t, acc.SetAccountNumber(4))
 	accSeq := acc.GetSequence()
 
 	/*_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
@@ -90,11 +91,10 @@ func TestRollbackToHeight(t *testing.T) {
 func build(t *testing.T, app *testapp.App, height int64, ctx sdk.Context, sk *secp256k1.PrivKey, acc sdk.AccountI, seq uint64) (string, string) {
 	key := fmt.Sprintf("k%d", height)
 	value := fmt.Sprintf("v%d", height)
-	res, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
+	_, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
 		Txs:    [][]byte{testapp.ToTx(t, key, value, chainID.String(), sk, acc, seq, ctx)},
 		Height: height,
 	})
-	fmt.Printf("FinalizeBlockResponse: %v\n", res)
 	require.NoError(t, err)
 	_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
 	require.NoError(t, err)

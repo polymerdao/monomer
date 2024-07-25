@@ -45,8 +45,7 @@ func TestABCI(t *testing.T) {
 	ctx := app.GetContext(false)
 
 	sk, _, acc := app.TestAccount(ctx)
-	fmt.Println("acc.Number:", acc.GetAccountNumber())
-	fmt.Println("acc.Sequence:", acc.GetSequence())
+	require.NoError(t, acc.SetAccountNumber(4))
 
 	// data to store and retrieve
 	k := "k1"
@@ -54,12 +53,11 @@ func TestABCI(t *testing.T) {
 
 	// Build bock with tx.
 	height := int64(1)
-	resultFinalizeBlock, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
+	_, err = app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
 		Txs:    [][]byte{testapp.ToTx(t, k, v, chainID, sk, acc, acc.GetSequence(), ctx)},
 		Height: height,
 	})
 	require.NoError(t, err)
-	t.Logf("resultFinalizeBlock: %v", resultFinalizeBlock)
 	_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
 	require.NoError(t, err)
 

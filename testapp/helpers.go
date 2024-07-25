@@ -99,9 +99,8 @@ func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, acc sdk.Acc
 	require.NoError(t, err)
 
 	tx := txBuilder.GetTx()
-	signers, err := tx.GetSigners()
+	_, err = tx.GetSigners()
 	require.NoError(t, err)
-	fmt.Printf("Signers: %v\n", signers)
 
 	signedTx := txBuilder.GetTx()
 	txBytes, err := txConfig.TxEncoder()(signedTx)
@@ -176,7 +175,8 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 }
 
 func (a *App) TestAccount(ctx sdk.Context) (*secp256k1.PrivKey, *secp256k1.PubKey, sdk.AccountI) {
-	skPath := path.Join("..", "testing.private.key")
+	// set the path to be at the project root
+	skPath := path.Join("..", "integrations", "testdata", "testing.private.key")
 	skBytes, err := os.ReadFile(skPath)
 	if err != nil {
 		panic("Failed to read private key: " + err.Error())
@@ -188,14 +188,6 @@ func (a *App) TestAccount(ctx sdk.Context) (*secp256k1.PrivKey, *secp256k1.PubKe
 		Key: sk.PubKey().Bytes(),
 	}
 
-	valSk := secp256k1.GenPrivKey()
-	valPk := secp256k1.PubKey{
-		Key: valSk.PubKey().Bytes(),
-	}
-
-	valAccAddr := sdk.AccAddress(valPk.Address())
-	fmt.Print("Validator address: %s\n", valAccAddr.String())
-
 	accAddr := sdk.AccAddress(pk.Address())
 
 	account := a.accountKeeper.NewAccountWithAddress(ctx, accAddr)
@@ -204,6 +196,10 @@ func (a *App) TestAccount(ctx sdk.Context) (*secp256k1.PrivKey, *secp256k1.PubKe
 	err = account.SetPubKey(sk.PubKey())
 	if err != nil {
 		panic("Failed to set account public key: %v" + err.Error())
+	}
+	err = account.SetAccountNumber(0)
+	if err != nil {
+		panic("Failed to set account number: %v" + err.Error())
 	}
 
 	a.accountKeeper.Params.Set(ctx, authtypes.DefaultParams())

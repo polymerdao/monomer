@@ -36,7 +36,7 @@ const (
 	artifactsDirectoryName = "artifacts"
 	oneEth                 = 1e18
 	// See /e2e/optimism/packages/contracts-bedrock/deploy-config/mainnet.json
-	chainID = monomer.ChainID(10)
+	chainID = monomer.ChainID(901)
 )
 
 func openLogFile(t *testing.T, env *environment.Env, name string) *os.File {

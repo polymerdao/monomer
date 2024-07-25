@@ -3,6 +3,7 @@ package integrations
 import (
 	"context"
 	"encoding/json"
+	"github.com/polymerdao/monomer"
 	"io"
 	stdURL "net/url"
 	"path/filepath"
@@ -31,7 +32,7 @@ import (
 )
 
 const (
-	chainID = "test"
+	chainID = monomer.ChainID(901)
 )
 
 // Application Constructor `appCreator` for testing
@@ -41,7 +42,7 @@ func mockAppCreator(
 	_ io.Writer,
 	_ servertypes.AppOptions,
 ) servertypes.Application {
-	app, err := testapp.New(db, "1")
+	app, err := testapp.New(db, chainID.String())
 	if err != nil {
 		panic(err)
 	}
@@ -85,9 +86,9 @@ func TestStartCommandHandler(t *testing.T) {
 
 	require.True(t, cmtListenURL.IsReachable(context.Background()))
 
-	app := testapp.NewTest(t, chainID)
+	app := testapp.NewTest(t, chainID.String())
 	_, err = app.InitChain(context.Background(), &abcitypes.RequestInitChain{
-		ChainId: chainID,
+		ChainId: chainID.String(),
 		AppStateBytes: func() []byte {
 			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
 			require.NoError(t, err)
@@ -104,7 +105,7 @@ func TestStartCommandHandler(t *testing.T) {
 	require.NoError(t, err, "could not create CometBFT client")
 	t.Log("CometBFT client created", "bftClient", bftClient)
 
-	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue", chainID, sk, acc, acc.GetSequence(), appCtx)
+	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue", chainID.String(), sk, acc, acc.GetSequence(), appCtx)
 	bftTx := bfttypes.Tx(txBytes)
 
 	putTx, err := bftClient.BroadcastTxAsync(appCtx, txBytes)
