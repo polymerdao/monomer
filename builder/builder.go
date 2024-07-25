@@ -132,14 +132,15 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	if currentHead == nil {
 		return nil, fmt.Errorf("block not found at height: %d", currentHeight)
 	}
-	appHash := info.GetLastBlockAppHash()
+	cosmosAppHash := info.GetLastBlockAppHash()
 	ethStateRoot := b.ethStateTrie.Hash().Bytes()
+	monomerAppHash := crypto.Keccak256(cosmosAppHash, ethStateRoot)
 	header := &monomer.Header{
 		ChainID:    b.chainID,
 		Height:     currentHeight + 1,
 		Time:       payload.Timestamp,
 		ParentHash: currentHead.Header.Hash,
-		AppHash:    crypto.Keccak256(appHash, ethStateRoot),
+		AppHash:    monomerAppHash,
 		GasLimit:   payload.GasLimit,
 	}
 

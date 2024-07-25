@@ -217,10 +217,9 @@ func prepareBlockStoreAndApp(
 	} else if appHeight < blockStoreHeight {
 		return fmt.Errorf("app height %d is behind block store height %d", appHeight, blockStoreHeight)
 	}
-
 	// Commit genesis.
 	if blockStoreHeight == 0 { // We know appHeight == blockStoreHeight at this point.
-		if err := g.Commit(ctx, app, blockStore, ethStateTrie); err != nil {
+		if err := g.Commit(ctx, app, blockStore, ethStateTrie.Hash().Bytes()); err != nil {
 			return fmt.Errorf("commit genesis: %v", err)
 		}
 	}
