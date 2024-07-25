@@ -13,21 +13,24 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/builder"
+	"github.com/polymerdao/monomer/monomerdb"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
-type BlockStore interface {
-	store.BlockStoreReader
-	UpdateLabel(label eth.BlockLabel, hash common.Hash) error
+type DB interface {
+	HeaderByHash(hash common.Hash) (*monomer.Header, error)
+	Height() (uint64, error)
+	UpdateLabels(unsafe, safe, finalized common.Hash) error
+	HeaderByHeight(height uint64) (*monomer.Header, error)
+	HeadHeader() (*monomer.Header, error)
 }
 
 // EngineAPI implements the Engine API. It assumes it is the sole block proposer.
 type EngineAPI struct {
 	builder                  *builder.Builder
 	txValidator              TxValidator
-	blockStore               BlockStore
+	blockStore               DB
 	currentPayloadAttributes *monomer.PayloadAttributes
 	metrics                  Metrics
 	lock                     sync.RWMutex
@@ -40,7 +43,7 @@ type TxValidator interface {
 func NewEngineAPI(
 	b *builder.Builder,
 	txValidator TxValidator,
-	blockStore BlockStore,
+	blockStore DB,
 	metrics Metrics,
 ) *EngineAPI {
 	return &EngineAPI{
@@ -83,51 +86,50 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	//     Nodes may apply L2 blocks out of band ahead of time, and then reorg when L1 data conflicts.
 	//   - safeBlockHash: block hash of the canonical chain, derived from L1 data, unlikely to reorg.
 	//   - finalizedBlockHash: irreversible block hash, matches lower boundary of the dispute period.
-
-	headBlock := e.blockStore.BlockByHash(fcs.HeadBlockHash)
-
 	// Engine API spec:
 	//   Before updating the forkchoice state, client software MUST ensure the validity of the payload referenced by
 	//   forkchoiceState.headBlockHash...
-	// Because we assume we're the only proposer, this is equivalent to checking if the head block is present in the block store.
-	if headBlock == nil {
+	headHeader, err := e.blockStore.HeaderByHash(fcs.HeadBlockHash)
+	if errors.Is(err, monomerdb.ErrNotFound) {
 		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf("head block not found"))
+	} else if err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
 	}
 
 	// Engine API spec:
 	//   Client software MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash
 	//   is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not
 	//   belong to the chain defined by forkchoiceState.headBlockHash.
-	if safeBlock := e.blockStore.BlockByHash(fcs.SafeBlockHash); safeBlock == nil {
-		return nil, engine.InvalidPayloadAttributes.With(errors.New("safe block not found"))
-	} else if safeBlock.Header.Height > headBlock.Header.Height {
+	if safeHeader, err := e.blockStore.HeaderByHash(fcs.SafeBlockHash); errors.Is(err, monomerdb.ErrNotFound) {
+		return nil, engine.InvalidForkChoiceState.With(errors.New("safe block not found"))
+	} else if err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
+	} else if safeHeader.Height > headHeader.Height {
 		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf("safe block at height %d comes after head block at height %d",
-			safeBlock.Header.Height, headBlock.Header.Height))
+			safeHeader.Height, headHeader.Height))
 	}
-	if finalizedBlock := e.blockStore.BlockByHash(fcs.FinalizedBlockHash); finalizedBlock == nil {
+	if finalizedHeader, err := e.blockStore.HeaderByHash(fcs.FinalizedBlockHash); errors.Is(err, monomerdb.ErrNotFound) {
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("finalized block not found"))
-	} else if finalizedBlock.Header.Height > headBlock.Header.Height {
+	} else if err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
+	} else if finalizedHeader.Height > headHeader.Height {
 		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf(
-			"finalized block at height %d comes after head block at height %d", finalizedBlock.Header.Height,
-			headBlock.Header.Height))
+			"finalized block at height %d comes after head block at height %d", finalizedHeader.Height,
+			headHeader.Height))
 	}
 
 	// It is possible for reorgs to occur on unsafe block consolidation when the batcher's txs don't land on L1 in time.
-	if headBlock.Header.Height < e.blockStore.HeadBlock().Header.Height {
+	if height, err := e.blockStore.Height(); err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("get height: %v", err))
+	} else if uint64(headHeader.Height) < height {
 		if err := e.builder.Rollback(ctx, fcs.HeadBlockHash, fcs.SafeBlockHash, fcs.FinalizedBlockHash); err != nil {
 			return nil, engine.GenericServerError.With(fmt.Errorf("rollback: %v", err))
 		}
 	}
 
 	// Update block labels.
-	if err := e.blockStore.UpdateLabel(eth.Unsafe, fcs.HeadBlockHash); err != nil {
-		return nil, engine.GenericServerError.With(fmt.Errorf("update unsafe label: %v", err))
-	}
-	if err := e.blockStore.UpdateLabel(eth.Safe, fcs.SafeBlockHash); err != nil {
-		return nil, engine.GenericServerError.With(fmt.Errorf("update safe label: %v", err))
-	}
-	if err := e.blockStore.UpdateLabel(eth.Finalized, fcs.FinalizedBlockHash); err != nil {
-		return nil, engine.GenericServerError.With(fmt.Errorf("update finalized label: %v", err))
+	if err := e.blockStore.UpdateLabels(fcs.HeadBlockHash, fcs.SafeBlockHash, fcs.FinalizedBlockHash); err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("update labels: %v", err))
 	}
 
 	if pa == nil {
@@ -136,9 +138,15 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		return monomer.ValidForkchoiceUpdateResult(&fcs.HeadBlockHash, nil), nil
 	}
 
+	parentHeader, err := e.blockStore.HeadHeader()
+	if err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("get head header: %v", err))
+	}
+
 	// Ethereum execution specs:
 	//   https://github.com/ethereum/execution-specs/blob/119208cf1a13d5002074bcee3b8ea4ef096eeb0d/src/ethereum/shanghai/fork.py#L298
-	if headTime := e.blockStore.HeadBlock().Header.Time; uint64(pa.Timestamp) <= headTime {
+	// Validate the payload's timestamp is after the timestamp on its parent block.
+	if headTime := parentHeader.Time; uint64(pa.Timestamp) <= headTime {
 		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("timestamp too small: parent timestamp %d, got %d", headTime,
 			pa.Timestamp))
 	}
@@ -206,7 +214,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		GasLimit:              uint64(*pa.GasLimit),
 		ParentBeaconBlockRoot: pa.ParentBeaconBlockRoot,
 		ParentHash:            fcs.HeadBlockHash,
-		Height:                e.blockStore.HeadBlock().Header.Height + 1,
+		Height:                parentHeader.Height + 1,
 		CosmosTxs:             cosmosTxs,
 	}
 
@@ -302,14 +310,19 @@ func (e *EngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStat
 	defer e.lock.Unlock()
 	defer e.metrics.RecordRPCMethodCall(NewPayloadV3MethodName, time.Now())
 
-	if e.blockStore.BlockByHash(payload.BlockHash) == nil {
+	if _, err := e.blockStore.HeaderByHash(payload.BlockHash); errors.Is(err, monomerdb.ErrNotFound) {
 		return &eth.PayloadStatusV1{
 			Status: eth.ExecutionInvalidBlockHash,
 		}, engine.InvalidParams.With(errors.New("block not found"))
+	} else if err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("header by hash: %v", err))
 	}
-	headBlockHash := e.blockStore.HeadBlock().Header.Hash
+	headHeader, err := e.blockStore.HeadHeader()
+	if err != nil {
+		return nil, engine.GenericServerError.With(fmt.Errorf("head header: %v", err))
+	}
 	return &eth.PayloadStatusV1{
 		Status:          eth.ExecutionValid,
-		LatestValidHash: &headBlockHash, // TODO should we be using unsafe head instead?
+		LatestValidHash: &headHeader.Hash, // TODO should we be using unsafe head instead?
 	}, nil
 }

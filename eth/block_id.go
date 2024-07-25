@@ -7,7 +7,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 )
 
 type BlockID struct {
@@ -34,9 +33,14 @@ func (id *BlockID) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (id *BlockID) Get(s store.BlockStoreReader) *monomer.Block {
+type BlockIDDatabase interface {
+	BlockByLabel(eth.BlockLabel) (*monomer.Block, error)
+	BlockByHeight(uint64) (*monomer.Block, error)
+}
+
+func (id *BlockID) Get(s BlockIDDatabase) (*monomer.Block, error) {
 	if id.Label != "" {
 		return s.BlockByLabel(id.Label)
 	}
-	return s.BlockByNumber(id.Height)
+	return s.BlockByHeight(uint64(id.Height))
 }

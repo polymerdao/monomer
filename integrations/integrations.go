@@ -8,9 +8,12 @@ import (
 	"io"
 	"net"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
+	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
@@ -22,6 +25,7 @@ import (
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
+	"github.com/polymerdao/monomer/monomerdb/localdb"
 	"github.com/polymerdao/monomer/node"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
@@ -166,11 +170,21 @@ func startMonomerNode(
 		return fmt.Errorf("create CometBFT listener: %v", err)
 	}
 
-	blockdb, err := dbm.NewDB("blockstore", dbm.BackendType(svrCtx.Config.DBBackend), svrCtx.Config.RootDir)
-	if err != nil {
-		return fmt.Errorf("create block db: %v", err)
+	var blockPebbleDB *pebble.DB
+	if backendType := dbm.BackendType(svrCtx.Config.DBBackend); backendType == dbm.MemDBBackend {
+		blockPebbleDB, err = pebble.Open("", &pebble.Options{
+			FS: vfs.NewMem(),
+		})
+	} else {
+		if backendType != dbm.PebbleDBBackend {
+			svrCtx.Logger.Info("Overriding provided db backend for the blockstore", "provided", backendType, "using", dbm.PebbleDBBackend)
+		}
+		blockPebbleDB, err = pebble.Open(filepath.Join(svrCtx.Config.RootDir, "blockstore"), nil)
 	}
-	env.DeferErr("close block db", blockdb.Close)
+	if err != nil {
+		return fmt.Errorf("open blockstore: %v", err)
+	}
+	env.DeferErr("close block db", blockPebbleDB.Close)
 
 	txdb, err := cometdb.NewDB("tx", cometdb.BackendType(svrCtx.Config.DBBackend), svrCtx.Config.RootDir)
 	if err != nil {
@@ -222,7 +236,7 @@ func startMonomerNode(
 		},
 		engineWS,
 		cometListener,
-		blockdb,
+		localdb.New(blockPebbleDB),
 		mempooldb,
 		txdb,
 		ethstatedb,

@@ -15,7 +15,6 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/cometbft/cometbft/version"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/comet"
 	"github.com/polymerdao/monomer/gen/testapp/v1"
@@ -73,10 +72,10 @@ func TestABCI(t *testing.T) {
 }
 
 func TestStatus(t *testing.T) {
-	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+	blockStore := testutils.NewLocalMemDB(t)
 	headBlock, err := monomer.MakeBlock(&monomer.Header{}, bfttypes.Txs{})
 	require.NoError(t, err)
-	blockStore.AddBlock(headBlock)
+	require.NoError(t, blockStore.AppendBlock(headBlock))
 	headCometBlock := headBlock.ToCometLikeBlock()
 	startBlock := &bfttypes.Block{
 		Header: bfttypes.Header{
@@ -337,7 +336,7 @@ func TestTx(t *testing.T) {
 }
 
 func TestBlock(t *testing.T) {
-	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+	blockStore := testutils.NewLocalMemDB(t)
 	block, err := monomer.MakeBlock(&monomer.Header{
 		Height: 3,
 	}, bfttypes.Txs{})
@@ -349,7 +348,7 @@ func TestBlock(t *testing.T) {
 		},
 		Block: cometBlock,
 	}
-	blockStore.AddBlock(block)
+	require.NoError(t, blockStore.AppendBlock(block))
 
 	blockAPI := comet.NewBlockAPI(blockStore)
 	resultBlock, err := blockAPI.ByHeight(&jsonrpctypes.Context{}, block.Header.Height)

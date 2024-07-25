@@ -13,14 +13,19 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/trie"
-	"github.com/polymerdao/monomer/app/peptide/store"
+	"github.com/polymerdao/monomer"
 )
 
 const commonHashLength = 32
 
+type ProofBlockDB interface {
+	HeadBlock() (*monomer.Block, error)
+	BlockByHeight(uint64) (*monomer.Block, error)
+}
+
 type ProofProvider struct {
 	database   state.Database
-	blockStore store.BlockStoreReader
+	blockStore ProofBlockDB
 }
 
 // proofList implements ethdb.KeyValueWriter and collects the proofs as
@@ -36,7 +41,7 @@ func (n *proofList) Delete(key []byte) error {
 	panic("not supported")
 }
 
-func NewProofProvider(db state.Database, blockStore store.BlockStoreReader) *ProofProvider {
+func NewProofProvider(db state.Database, blockStore ProofBlockDB) *ProofProvider {
 	return &ProofProvider{
 		database:   db,
 		blockStore: blockStore,
@@ -46,17 +51,20 @@ func NewProofProvider(db state.Database, blockStore store.BlockStoreReader) *Pro
 // getState returns the state.StateBD and Header of block at the given number.
 // If the passed number is nil, it returns the the db and header of the latest block.
 func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.Header, error) {
-	var ethBlock *types.Block
+	var block *monomer.Block
 	var err error
 
 	if blockNumber == nil {
-		ethBlock, err = p.blockStore.HeadBlock().ToEth()
+		block, err = p.blockStore.HeadBlock()
 	} else {
-		ethBlock, err = p.blockStore.BlockByNumber(blockNumber.Int64()).ToEth()
+		block, err = p.blockStore.BlockByHeight(blockNumber.Uint64())
 	}
-
 	if err != nil {
-		return nil, types.Header{}, fmt.Errorf("getting eth block %d: %w", blockNumber, err)
+		return nil, types.Header{}, fmt.Errorf("get eth block %d: %w", blockNumber, err)
+	}
+	ethBlock, err := block.ToEth()
+	if err != nil {
+		return nil, types.Header{}, fmt.Errorf("convert block to Ethereum representation: %v", err)
 	}
 
 	header := ethBlock.Header()
