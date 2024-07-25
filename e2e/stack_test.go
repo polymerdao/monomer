@@ -89,7 +89,8 @@ func TestE2E(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	require.NoError(t, stack.Run(ctx, env))
+	_, err = stack.Run(ctx, env)
+	require.NoError(t, err)
 	// To avoid flaky tests, hang until the Monomer server is ready.
 	// We rely on the `go test` timeout to ensure the tests don't hang forever (default is 10 minutes).
 	require.True(t, monomerEngineURL.IsReachable(ctx))
