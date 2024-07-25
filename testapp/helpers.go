@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"path"
 	"sort"
 	"testing"
 
-	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client/tx"
@@ -17,7 +18,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/stretchr/testify/require"
@@ -176,30 +176,37 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 }
 
 func (a *App) TestAccount(ctx sdk.Context) (*secp256k1.PrivKey, *secp256k1.PubKey, sdk.AccountI) {
-	sk := secp256k1.GenPrivKey()
-	pk := sk.PubKey().(*secp256k1.PubKey)
+	skPath := path.Join("..", "testing.private.key")
+	skBytes, err := os.ReadFile(skPath)
+	if err != nil {
+		panic("Failed to read private key: " + err.Error())
+	}
+	sk := secp256k1.PrivKey{
+		Key: skBytes,
+	}
+	pk := secp256k1.PubKey{
+		Key: sk.PubKey().Bytes(),
+	}
+
+	valSk := secp256k1.GenPrivKey()
+	valPk := secp256k1.PubKey{
+		Key: valSk.PubKey().Bytes(),
+	}
+
+	valAccAddr := sdk.AccAddress(valPk.Address())
+	fmt.Print("Validator address: %s\n", valAccAddr.String())
 
 	accAddr := sdk.AccAddress(pk.Address())
+
 	account := a.accountKeeper.NewAccountWithAddress(ctx, accAddr)
 	a.accountKeeper.SetAccount(ctx, account)
 
-	err := account.SetPubKey(sk.PubKey())
+	err = account.SetPubKey(sk.PubKey())
 	if err != nil {
 		panic("Failed to set account public key: %v" + err.Error())
 	}
 
 	a.accountKeeper.Params.Set(ctx, authtypes.DefaultParams())
 
-	coins := sdk.NewCoins(sdk.NewCoin("stake", math.NewInt(100000)))
-	err = a.bankKeeper.MintCoins(ctx, minttypes.ModuleName, coins)
-	if err != nil {
-		panic(err)
-	}
-
-	err = a.bankKeeper.SendCoinsFromModuleToAccount(ctx, minttypes.ModuleName, accAddr, coins)
-	if err != nil {
-		panic(err)
-	}
-
-	return sk, pk, account
+	return &sk, &pk, account
 }

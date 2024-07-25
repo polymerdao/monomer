@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 
 	runtimev1alpha1 "cosmossdk.io/api/cosmos/app/runtime/v1alpha1"
 	appv1alpha1 "cosmossdk.io/api/cosmos/app/v1alpha1"
 	authmodulev1 "cosmossdk.io/api/cosmos/auth/module/v1"
 	bankmodulev1 "cosmossdk.io/api/cosmos/bank/module/v1"
+	genutilmodulev1 "cosmossdk.io/api/cosmos/genutil/module/v1"
 	mintmodulev1 "cosmossdk.io/api/cosmos/mint/module/v1"
 	stakingmodulev1 "cosmossdk.io/api/cosmos/staking/module/v1"
 	txconfigv1 "cosmossdk.io/api/cosmos/tx/config/v1"
@@ -31,6 +33,7 @@ import (
 	_ "github.com/cosmos/cosmos-sdk/x/bank"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	_ "github.com/cosmos/cosmos-sdk/x/genutil"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	_ "github.com/cosmos/cosmos-sdk/x/mint"
 	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
@@ -100,6 +103,7 @@ var modules = []string{
 	minttypes.ModuleName,
 	testmodule.ModuleName,
 	rolluptypes.ModuleName,
+	genutiltypes.ModuleName,
 }
 
 func New(appdb dbm.DB, chainID string) (*App, error) {
@@ -164,6 +168,10 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 			{
 				Name:   rolluptypes.ModuleName,
 				Config: appconfig.WrapAny(&rollupmodulev1.Module{}),
+			},
+			{
+				Name:   genutiltypes.ModuleName,
+				Config: appconfig.WrapAny(&genutilmodulev1.Module{}),
 			},
 		},
 	}

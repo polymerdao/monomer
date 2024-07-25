@@ -23,8 +23,17 @@
           "send_enabled": [],
           "default_send_enabled": true
         },
-        "balances": [],
-        "supply": [],
+        "balances": [
+          {
+            "address": "cosmos1njy4en7rm7d8d23u3hut4cts4c89zft5dx0k8l",
+            "coins": [
+              {
+                "denom": "ustake",
+                "amount": "1000000000000000"
+              }
+            ]
+          }
+        ],
         "denom_metadata": [],
         "send_enabled": []
       },
