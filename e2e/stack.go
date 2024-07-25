@@ -229,6 +229,9 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	env.DeferErr("close mempool db", mempooldb.Close)
 	rawstatedb := rawdb.NewMemoryDatabase()
 	ethstatedb, err := state.New(types.EmptyRootHash, state.NewDatabase(rawstatedb), nil)
+	if err != nil {
+		return fmt.Errorf("create eth state db: %v", err)
+	}
 	env.DeferErr("close eth state db", rawstatedb.Close)
 	n := node.New(
 		app,
