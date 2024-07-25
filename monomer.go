@@ -71,7 +71,7 @@ type Block struct {
 }
 
 // NewBlock creates a new block. The header and txs must be non-nil. It performs no other validation.
-func NewBlock(h *Header, txs bfttypes.Txs) *Block {
+func NewBlock(h *Header, txs bfttypes.Txs, ethStateTrie *trie.StateTrie) *Block {
 	if h == nil || txs == nil {
 		panic("header or txs is nil")
 	}
@@ -88,7 +88,14 @@ func SetHeader(block *Block) (*Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("convert block to Ethereum representation: %v", err)
 	}
-	block.Header.Hash = ethBlock.Hash()
+	if ethStateTrie == nil {
+		return nil, fmt.Errorf("nil eth state trie")
+	}
+
+	// The monomer block hash uses the hash of the application state root
+	// and the Ethereum state trie root.
+	monomerHashes := append(ethBlock.Hash().Bytes(), ethStateTrie.Hash().Bytes()...)
+	block.Header.Hash = common.BytesToHash(monomerHashes)
 	return block, nil
 }
 

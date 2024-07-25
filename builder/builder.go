@@ -10,6 +10,7 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/trie"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
@@ -17,12 +18,13 @@ import (
 )
 
 type Builder struct {
-	mempool    *mempool.Pool
-	app        monomer.Application
-	blockStore store.BlockStore
-	txStore    txstore.TxStore
-	eventBus   *bfttypes.EventBus
-	chainID    monomer.ChainID
+	mempool      *mempool.Pool
+	app          monomer.Application
+	blockStore   store.BlockStore
+	txStore      txstore.TxStore
+	eventBus     *bfttypes.EventBus
+	chainID      monomer.ChainID
+	ethStateTrie *trie.StateTrie
 }
 
 func New(
@@ -32,14 +34,16 @@ func New(
 	txStore txstore.TxStore,
 	eventBus *bfttypes.EventBus,
 	chainID monomer.ChainID,
+	ethStateTrie *trie.StateTrie,
 ) *Builder {
 	return &Builder{
-		mempool:    mpool,
-		app:        app,
-		blockStore: blockStore,
-		txStore:    txStore,
-		eventBus:   eventBus,
-		chainID:    chainID,
+		mempool:      mpool,
+		app:          app,
+		blockStore:   blockStore,
+		txStore:      txStore,
+		eventBus:     eventBus,
+		chainID:      chainID,
+		ethStateTrie: ethStateTrie,
 	}
 }
 
@@ -153,7 +157,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		return nil, fmt.Errorf("commit: %v", err)
 	}
 
-	block, err := monomer.MakeBlock(header, txs)
+	block, err := monomer.MakeBlock(header, txs, b.ethStateTrie)
 	if err != nil {
 		return nil, fmt.Errorf("make block: %v", err)
 	}

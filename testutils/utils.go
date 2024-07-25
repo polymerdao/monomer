@@ -76,7 +76,7 @@ func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *types.Transaction, depositT
 	}
 	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxBytes)
 	require.NoError(t, err)
-	block, err := monomer.MakeBlock(&monomer.Header{}, cosmosTxs)
+	block, err := monomer.MakeBlock(&monomer.Header{}, cosmosTxs, nil) // TODO: update ethStateTrie for tests
 	require.NoError(t, err)
 	return block
 }
