@@ -34,6 +34,8 @@ type EventListener interface {
 type StackConfig struct {
 	L1URL *url.URL
 	*rollup.Config
+	Operator L1User
+	Users    []L1User
 }
 
 type Stack struct {
@@ -114,6 +116,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	// Fund test EOA accounts
+	l1users := make([]L1User, 0)
 	for range 1 {
 		privateKey, err := crypto.GenerateKey()
 		if err != nil {
@@ -127,7 +130,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 			Address: &userAddress,
 		}
 		l1state.OnAccount(user.Address, user)
-		s.L1Users = append(s.L1Users, L1User{
+		l1users = append(l1users, L1User{
 			Address:    userAddress,
 			PrivateKey: privateKey,
 		})
@@ -187,7 +190,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		s.monomerEngineURL,
 		s.opNodeURL,
 		l1Deployments.L2OutputOracleProxy,
-		s.L1Users[0].PrivateKey,
+		l1users[0].PrivateKey,
 		rollupConfig,
 		s.eventListener,
 	)
@@ -196,8 +199,10 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	return &StackConfig{
-		L1URL:  l1url,
-		Config: rollupConfig,
+		L1URL:    l1url,
+		Config:   rollupConfig,
+		Operator: s.L1Users[0],
+		Users:    l1users[1:],
 	}, nil
 }
 
