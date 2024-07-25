@@ -2,6 +2,7 @@ package builder_test
 
 import (
 	"context"
+	"github.com/ethereum/go-ethereum/crypto"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -84,6 +85,8 @@ func TestBuild(t *testing.T) {
 			}
 			blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 			txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
+			ethStateTrie := testutils.NewEthStateTrie(t)
+			ethStateRoot := ethStateTrie.Hash().Bytes()
 
 			var chainID monomer.ChainID
 			app := testapp.NewTest(t, chainID.String())
@@ -102,7 +105,7 @@ func TestBuild(t *testing.T) {
 			subscription, err := eventBus.Subscribe(context.Background(), "test", &queryAll{}, subChannelLen)
 			require.NoError(t, err)
 
-			require.NoError(t, g.Commit(context.Background(), app, blockStore))
+			require.NoError(t, g.Commit(context.Background(), app, blockStore, ethStateRoot))
 
 			b := builder.New(
 				pool,
@@ -111,6 +114,7 @@ func TestBuild(t *testing.T) {
 				txStore,
 				eventBus,
 				g.ChainID,
+				ethStateTrie,
 			)
 
 			payload := &builder.Payload{
@@ -145,12 +149,13 @@ func TestBuild(t *testing.T) {
 			if !test.noTxPool {
 				allTxs = append(allTxs, mempoolTxs...)
 			}
+			wantAppHash := crypto.Keccak256(preBuildInfo.GetLastBlockAppHash(), ethStateRoot)
 			wantBlock, err := monomer.MakeBlock(&monomer.Header{
 				ChainID:    g.ChainID,
 				Height:     postBuildInfo.GetLastBlockHeight(),
 				Time:       payload.Timestamp,
 				ParentHash: genesisBlock.Header.Hash,
-				AppHash:    preBuildInfo.GetLastBlockAppHash(),
+				AppHash:    wantAppHash,
 				GasLimit:   payload.GasLimit,
 			}, bfttypes.ToTxs(allTxs))
 			require.NoError(t, err)
@@ -194,6 +199,8 @@ func TestRollback(t *testing.T) {
 	pool := mempool.New(testutils.NewMemDB(t))
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
+	ethStateTrie := testutils.NewEthStateTrie(t)
+	ethStateRoot := ethStateTrie.Hash().Bytes()
 
 	var chainID monomer.ChainID
 	app := testapp.NewTest(t, chainID.String())
@@ -208,7 +215,7 @@ func TestRollback(t *testing.T) {
 		require.NoError(t, eventBus.Stop())
 	})
 
-	require.NoError(t, g.Commit(context.Background(), app, blockStore))
+	require.NoError(t, g.Commit(context.Background(), app, blockStore, ethStateRoot))
 	genesisBlock := blockStore.HeadBlock()
 
 	b := builder.New(
@@ -218,6 +225,7 @@ func TestRollback(t *testing.T) {
 		txStore,
 		eventBus,
 		g.ChainID,
+		ethStateTrie,
 	)
 
 	kvs := map[string]string{

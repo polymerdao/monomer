@@ -13,7 +13,10 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/polymerdao/monomer"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
@@ -34,6 +37,24 @@ func NewMemDB(t *testing.T) dbm.DB {
 		require.NoError(t, db.Close())
 	})
 	return db
+}
+
+func NewEthStateDB(t *testing.T) *state.StateDB {
+	rawstatedb := rawdb.NewMemoryDatabase()
+	t.Cleanup(func() {
+		require.NoError(t, rawstatedb.Close())
+	})
+	ethstatedb, err := state.New(types.EmptyRootHash, state.NewDatabase(rawstatedb), nil)
+	require.NoError(t, err)
+	return ethstatedb
+}
+
+func NewEthStateTrie(t *testing.T) *trie.StateTrie {
+	statedb := NewEthStateDB(t)
+	ethStateTrieId := trie.StateTrieID(gethtypes.EmptyRootHash)
+	ethStateTrie, err := trie.NewStateTrie(ethStateTrieId, statedb.Database().TrieDB())
+	require.NoError(t, err)
+	return ethStateTrie
 }
 
 // GenerateEthTxs generates an L1 attributes tx, deposit tx, and cosmos tx packed in an Ethereum transaction.

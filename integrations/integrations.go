@@ -5,6 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
 	"io"
 	"net"
 	"os"
@@ -181,6 +184,10 @@ func startMonomerNode(
 	}
 	env.DeferErr("close mempool db", mempooldb.Close)
 
+	rawstatedb := rawdb.NewMemoryDatabase()
+	ethstatedb, err := state.New(types.EmptyRootHash, state.NewDatabase(rawstatedb), nil)
+	env.DeferErr("close eth state db", rawstatedb.Close)
+
 	monomerGenesisPath := svrCtx.Config.GenesisFile()
 
 	appGenesis, err := genutiltypes.AppGenesisFromFile(monomerGenesisPath)
@@ -209,6 +216,7 @@ func startMonomerNode(
 		blockdb,
 		mempooldb,
 		txdb,
+		ethstatedb,
 		svrCtx.Config.Instrumentation,
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {

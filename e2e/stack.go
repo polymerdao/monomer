@@ -5,6 +5,8 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/types"
 	"net"
 	"os"
 	"path/filepath"
@@ -225,6 +227,9 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	env.DeferErr("close tx db", txdb.Close)
 	mempooldb := dbm.NewMemDB()
 	env.DeferErr("close mempool db", mempooldb.Close)
+	rawstatedb := rawdb.NewMemoryDatabase()
+	ethstatedb, err := state.New(types.EmptyRootHash, state.NewDatabase(rawstatedb), nil)
+	env.DeferErr("close eth state db", rawstatedb.Close)
 	n := node.New(
 		app,
 		&genesis.Genesis{
@@ -237,6 +242,7 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		blockdb,
 		mempooldb,
 		txdb,
+		ethstatedb,
 		s.prometheusCfg,
 		s.eventListener,
 	)
