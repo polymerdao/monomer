@@ -51,7 +51,7 @@ func (id ChainID) Big() *big.Int {
 
 type Header struct {
 	ChainID    ChainID
-	Height     int64
+	Height     uint64
 	Time       uint64
 	ParentHash common.Hash
 	StateRoot  common.Hash
@@ -62,7 +62,7 @@ type Header struct {
 func (h *Header) ToComet() *bfttypes.Header {
 	return &bfttypes.Header{
 		ChainID: h.ChainID.String(),
-		Height:  h.Height,
+		Height:  int64(h.Height),
 		Time:    time.Unix(int64(h.Time), 0),
 		AppHash: h.StateRoot.Bytes(),
 	}
@@ -106,7 +106,7 @@ func (h *Header) ToEth() *ethtypes.Header {
 	return &ethtypes.Header{
 		ParentHash:      h.ParentHash,
 		Root:            h.StateRoot,
-		Number:          big.NewInt(h.Height),
+		Number:          new(big.Int).SetUint64(h.Height),
 		GasLimit:        h.GasLimit,
 		MixDigest:       common.Hash{},
 		Time:            h.Time,

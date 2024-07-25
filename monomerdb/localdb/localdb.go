@@ -43,7 +43,7 @@ func (db *DB) AppendBlock(block *monomer.Block) error {
 	if err != nil {
 		return fmt.Errorf("marshal header into cbor: %v", err)
 	}
-	heightBytes := marshalUint64(uint64(block.Header.Height))
+	heightBytes := marshalUint64(block.Header.Height)
 	return db.update(func(b *pebble.Batch) error {
 		if err := b.Set(bucketHeaderByHeight.Key(heightBytes), headerBytes, nil); err != nil {
 			return fmt.Errorf("set block by height: %v", err)
@@ -266,7 +266,7 @@ func (db *DB) BlockByHash(hash common.Hash) (*monomer.Block, error) {
 		if err != nil {
 			return fmt.Errorf("get header by hash: %w", err)
 		}
-		txs, err = txsInRange(s, marshalUint64(uint64(header.Height)), marshalUint64(uint64(header.Height+1)))
+		txs, err = txsInRange(s, marshalUint64(header.Height), marshalUint64(header.Height+1))
 		if err != nil {
 			return err
 		}
@@ -286,7 +286,7 @@ func (db *DB) BlockByLabel(label eth.BlockLabel) (*monomer.Block, error) {
 		if err != nil {
 			return fmt.Errorf("get header by label: %w", err)
 		}
-		txs, err = txsInRange(s, marshalUint64(uint64(header.Height)), marshalUint64(uint64(header.Height+1)))
+		txs, err = txsInRange(s, marshalUint64(header.Height), marshalUint64(header.Height+1))
 		if err != nil {
 			return err
 		}

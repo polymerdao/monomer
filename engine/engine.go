@@ -121,7 +121,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	// It is possible for reorgs to occur on unsafe block consolidation when the batcher's txs don't land on L1 in time.
 	if height, err := e.blockStore.Height(); err != nil {
 		return nil, engine.GenericServerError.With(fmt.Errorf("get height: %v", err))
-	} else if uint64(headHeader.Height) < height {
+	} else if headHeader.Height < height {
 		if err := e.builder.Rollback(ctx, fcs.HeadBlockHash, fcs.SafeBlockHash, fcs.FinalizedBlockHash); err != nil {
 			return nil, engine.GenericServerError.With(fmt.Errorf("rollback: %v", err))
 		}
@@ -214,7 +214,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		GasLimit:              uint64(*pa.GasLimit),
 		ParentBeaconBlockRoot: pa.ParentBeaconBlockRoot,
 		ParentHash:            fcs.HeadBlockHash,
-		Height:                parentHeader.Height + 1,
+		Height:                int64(parentHeader.Height + 1),
 		CosmosTxs:             cosmosTxs,
 	}
 

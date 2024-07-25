@@ -69,7 +69,7 @@ func TestCommit(t *testing.T) {
 			// Block store.
 			block, err := monomer.MakeBlock(&monomer.Header{
 				ChainID:   test.genesis.ChainID,
-				Height:    info.GetLastBlockHeight(),
+				Height:    uint64(info.GetLastBlockHeight()),
 				Time:      test.genesis.Time,
 				GasLimit:  30_000_000, // We cheat a little and copy the default gas limit here.
 				StateRoot: evm.MonomerGenesisRootHash,

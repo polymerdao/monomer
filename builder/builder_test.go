@@ -157,7 +157,7 @@ func TestBuild(t *testing.T) {
 			ethStateRoot := gotBlock.Header.StateRoot
 			header := &monomer.Header{
 				ChainID:    g.ChainID,
-				Height:     postBuildInfo.GetLastBlockHeight(),
+				Height:     uint64(postBuildInfo.GetLastBlockHeight()),
 				Time:       payload.Timestamp,
 				ParentHash: genesisHeader.Header.Hash,
 				StateRoot:  ethStateRoot,
@@ -181,7 +181,7 @@ func TestBuild(t *testing.T) {
 					// We don't check the full result, which would be difficult and a bit overkill.
 					// We only verify that the main info is correct.
 					require.Equal(t, uint32(i), got.Index)
-					require.Equal(t, wantBlock.Header.Height, got.Height)
+					require.Equal(t, wantBlock.Header.Height, uint64(got.Height))
 					require.Equal(t, tx, bfttypes.Tx(got.Tx))
 				}
 
@@ -272,7 +272,7 @@ func TestRollback(t *testing.T) {
 	// Block store.
 	height, err := blockStore.Height()
 	require.NoError(t, err)
-	require.Equal(t, uint64(genesisHeader.Height), height)
+	require.Equal(t, genesisHeader.Height, height)
 	// We trust that the other parts of a block store rollback were done as well.
 
 	// Eth state db after rollback.
