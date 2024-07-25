@@ -82,11 +82,11 @@ func (b *Builder) Rollback(ctx context.Context, unsafe, safe, finalized common.H
 		return fmt.Errorf("rollback block store: %v", err)
 	}
 
-	if err := b.txStore.RollbackToHeight(targetHeight, int64(currentHeight)); err != nil {
+	if err := b.txStore.RollbackToHeight(targetHeight, currentHeight); err != nil {
 		return fmt.Errorf("rollback tx store: %v", err)
 	}
 
-	if err := b.app.RollbackToHeight(ctx, uint64(targetHeight)); err != nil {
+	if err := b.app.RollbackToHeight(ctx, targetHeight); err != nil {
 		return fmt.Errorf("rollback app: %v", err)
 	}
 
@@ -181,7 +181,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		}
 
 		txResults = append(txResults, &abcitypes.TxResult{
-			Height: header.Height,
+			Height: int64(header.Height),
 			Index:  uint32(i),
 			// This should work https://docs.cometbft.com/v0.38/spec/abci/abci++_methods#finalizeblock
 			// The application shouldn't return the execTxResults in a different order than the corresponding txs.
@@ -190,7 +190,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		})
 	}
 
-	ethStateRoot, err := ethState.Commit(uint64(header.Height), true)
+	ethStateRoot, err := ethState.Commit(header.Height, true)
 	if err != nil {
 		return nil, fmt.Errorf("commit ethereum state: %v", err)
 	}

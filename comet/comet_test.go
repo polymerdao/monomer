@@ -351,7 +351,7 @@ func TestBlock(t *testing.T) {
 	require.NoError(t, blockStore.AppendBlock(block))
 
 	blockAPI := comet.NewBlockAPI(blockStore)
-	resultBlock, err := blockAPI.ByHeight(&jsonrpctypes.Context{}, block.Header.Height)
+	resultBlock, err := blockAPI.ByHeight(&jsonrpctypes.Context{}, int64(block.Header.Height))
 	require.NoError(t, err)
 	require.Equal(t, want, resultBlock)
 

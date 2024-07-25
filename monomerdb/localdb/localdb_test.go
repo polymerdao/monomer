@@ -42,7 +42,7 @@ func testHeadBlock(t *testing.T, db *localdb.DB, block *monomer.Block) {
 	// Height
 	height, err := db.Height()
 	require.NoError(t, err)
-	require.Equal(t, uint64(block.Header.Height), height)
+	require.Equal(t, block.Header.Height, height)
 
 	// HeadBlock
 	headBlock, err := db.HeadBlock()
@@ -62,10 +62,10 @@ func testHeadBlock(t *testing.T, db *localdb.DB, block *monomer.Block) {
 	}
 
 	// HeaderByHeight
-	_, err = db.HeaderByHeight(uint64(block.Header.Height) + 1)
+	_, err = db.HeaderByHeight(block.Header.Height + 1)
 	require.ErrorIs(t, err, monomerdb.ErrNotFound)
 
-	h, err := db.HeaderByHeight(uint64(block.Header.Height))
+	h, err := db.HeaderByHeight(block.Header.Height)
 	require.NoError(t, err)
 	require.Equal(t, block.Header, h)
 
@@ -85,10 +85,10 @@ func testHeadBlock(t *testing.T, db *localdb.DB, block *monomer.Block) {
 	}
 
 	// BlockByHeight
-	_, err = db.BlockByHeight(uint64(block.Header.Height) + 1)
+	_, err = db.BlockByHeight(block.Header.Height + 1)
 	require.ErrorIs(t, err, monomerdb.ErrNotFound)
 
-	b, err := db.BlockByHeight(uint64(block.Header.Height))
+	b, err := db.BlockByHeight(block.Header.Height)
 	require.NoError(t, err)
 	require.Equal(t, block, b)
 
@@ -135,7 +135,7 @@ func TestRollback(t *testing.T) {
 	for _, removedBlock := range []*monomer.Block{block2, block3} {
 		t.Run(fmt.Sprintf("block %d rolled back", removedBlock.Header.Height), func(t *testing.T) {
 			// HeaderByHeight
-			_, err := db.HeaderByHeight(uint64(removedBlock.Header.Height))
+			_, err := db.HeaderByHeight(removedBlock.Header.Height)
 			require.ErrorIs(t, err, monomerdb.ErrNotFound)
 
 			// HeaderByHash
@@ -143,7 +143,7 @@ func TestRollback(t *testing.T) {
 			require.ErrorIs(t, err, monomerdb.ErrNotFound)
 
 			// BlockByHeight
-			_, err = db.BlockByHeight(uint64(removedBlock.Header.Height))
+			_, err = db.BlockByHeight(removedBlock.Header.Height)
 			require.ErrorIs(t, err, monomerdb.ErrNotFound)
 
 			// BlockByHash
