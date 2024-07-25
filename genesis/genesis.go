@@ -7,6 +7,7 @@ import (
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
@@ -44,7 +45,7 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 		ChainID:  g.ChainID,
 		Time:     g.Time,
 		GasLimit: defaultGasLimit,
-	}, nil)
+	}, bfttypes.Txs{})
 	if err != nil {
 		return fmt.Errorf("make block: %v", err)
 	}

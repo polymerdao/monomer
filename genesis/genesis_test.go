@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/polymerdao/monomer"
@@ -69,7 +70,7 @@ func TestCommit(t *testing.T) {
 				Height:   info.GetLastBlockHeight(),
 				Time:     test.genesis.Time,
 				GasLimit: 30_000_000, // We cheat a little and copy the default gas limit here.
-			}, nil)
+			}, bfttypes.Txs{})
 			require.NoError(t, err)
 			require.Equal(t, block, blockStore.BlockByNumber(info.GetLastBlockHeight()))
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Unsafe))
