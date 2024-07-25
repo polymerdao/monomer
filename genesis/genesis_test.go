@@ -50,7 +50,7 @@ func TestCommit(t *testing.T) {
 			})
 			blockStore := store.NewBlockStore(blockstoredb)
 			ethStateTrie := testutils.NewEthStateTrie(t)
-			ethStateRoot := ethStateTrie.Hash().Bytes()
+			ethStateRoot := ethStateTrie.Hash()
 
 			require.NoError(t, test.genesis.Commit(context.Background(), app, blockStore, ethStateRoot))
 
@@ -73,7 +73,7 @@ func TestCommit(t *testing.T) {
 				Height:   info.GetLastBlockHeight(),
 				Time:     test.genesis.Time,
 				GasLimit: 30_000_000, // We cheat a little and copy the default gas limit here.
-				AppHash:  ethStateRoot,
+				AppHash:  ethStateRoot.Bytes(),
 			}, bfttypes.Txs{})
 			require.NoError(t, err)
 			require.Equal(t, block, blockStore.BlockByNumber(info.GetLastBlockHeight()))

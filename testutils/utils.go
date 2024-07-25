@@ -49,9 +49,10 @@ func NewEthStateDB(t *testing.T) *state.StateDB {
 }
 
 func NewEthStateTrie(t *testing.T) *trie.StateTrie {
-	statedb := NewEthStateDB(t)
-	ethStateTrieID := trie.StateTrieID(gethtypes.EmptyRootHash)
-	ethStateTrie, err := trie.NewStateTrie(ethStateTrieID, statedb.Database().TrieDB())
+	ethStateTrie, err := trie.NewStateTrie(
+		trie.StateTrieID(gethtypes.EmptyRootHash),
+		NewEthStateDB(t).Database().TrieDB(),
+	)
 	require.NoError(t, err)
 	return ethStateTrie
 }

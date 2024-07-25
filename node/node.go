@@ -219,7 +219,7 @@ func prepareBlockStoreAndApp(
 	}
 	// Commit genesis.
 	if blockStoreHeight == 0 { // We know appHeight == blockStoreHeight at this point.
-		if err := g.Commit(ctx, app, blockStore, ethStateTrie.Hash().Bytes()); err != nil {
+		if err := g.Commit(ctx, app, blockStore, ethStateTrie.Hash()); err != nil {
 			return fmt.Errorf("commit genesis: %v", err)
 		}
 	}
