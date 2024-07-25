@@ -30,8 +30,8 @@ var (
 
 // L2ApplicationStateRootProviderMetaData contains all meta data concerning the L2ApplicationStateRootProvider contract.
 var L2ApplicationStateRootProviderMetaData = &bind.MetaData{
-	ABI: "[{\"type\":\"function\",\"name\":\"l2ApplicationStateRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setL2ApplicationStateRoot\",\"inputs\":[{\"name\":\"_l2ApplicationStateRoot\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"}]",
-	Bin: "0x6080604052348015600f57600080fd5b5060b180601d6000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c80633135b57e1460375780635ea22b90146051575b600080fd5b603f60005481565b60405190815260200160405180910390f35b6061605c3660046063565b600055565b005b600060208284031215607457600080fd5b503591905056fea26469706673582212202da08dfbfdcdecf8e74d3aa993b2e08ec7307bcd69aa323e62ca5bb5844ffe0864736f6c63430008190033",
+	ABI: "[{\"type\":\"function\",\"name\":\"l2ApplicationStateRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setL2ApplicationStateRoot\",\"inputs\":[{\"name\":\"_l2ApplicationStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"}]",
+	Bin: "0x6080604052348015600f57600080fd5b5060b180601d6000396000f3fe6080604052348015600f57600080fd5b506004361060325760003560e01c80633135b57e14603757806389b72f86146051575b600080fd5b603f60005481565b60405190815260200160405180910390f35b6061605c3660046063565b600055565b005b600060208284031215607457600080fd5b503591905056fea26469706673582212205323d48cb3c9db241bd671b86ca8e28dd31c3921a9fa92dc80c40a311e5067a564736f6c63430008190033",
 }
 
 // L2ApplicationStateRootProviderABI is the input ABI used to generate the binding from.
@@ -203,16 +203,16 @@ func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderTransactorR
 
 // L2ApplicationStateRoot is a free data retrieval call binding the contract method 0x3135b57e.
 //
-// Solidity: function l2ApplicationStateRoot() view returns(uint256)
-func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderCaller) L2ApplicationStateRoot(opts *bind.CallOpts) (*big.Int, error) {
+// Solidity: function l2ApplicationStateRoot() view returns(bytes32)
+func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderCaller) L2ApplicationStateRoot(opts *bind.CallOpts) ([32]byte, error) {
 	var out []interface{}
 	err := _L2ApplicationStateRootProvider.contract.Call(opts, &out, "l2ApplicationStateRoot")
 
 	if err != nil {
-		return *new(*big.Int), err
+		return *new([32]byte), err
 	}
 
-	out0 := *abi.ConvertType(out[0], new(*big.Int)).(**big.Int)
+	out0 := *abi.ConvertType(out[0], new([32]byte)).(*[32]byte)
 
 	return out0, err
 
@@ -220,35 +220,35 @@ func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderCaller) L2A
 
 // L2ApplicationStateRoot is a free data retrieval call binding the contract method 0x3135b57e.
 //
-// Solidity: function l2ApplicationStateRoot() view returns(uint256)
-func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderSession) L2ApplicationStateRoot() (*big.Int, error) {
+// Solidity: function l2ApplicationStateRoot() view returns(bytes32)
+func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderSession) L2ApplicationStateRoot() ([32]byte, error) {
 	return _L2ApplicationStateRootProvider.Contract.L2ApplicationStateRoot(&_L2ApplicationStateRootProvider.CallOpts)
 }
 
 // L2ApplicationStateRoot is a free data retrieval call binding the contract method 0x3135b57e.
 //
-// Solidity: function l2ApplicationStateRoot() view returns(uint256)
-func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderCallerSession) L2ApplicationStateRoot() (*big.Int, error) {
+// Solidity: function l2ApplicationStateRoot() view returns(bytes32)
+func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderCallerSession) L2ApplicationStateRoot() ([32]byte, error) {
 	return _L2ApplicationStateRootProvider.Contract.L2ApplicationStateRoot(&_L2ApplicationStateRootProvider.CallOpts)
 }
 
-// SetL2ApplicationStateRoot is a paid mutator transaction binding the contract method 0x5ea22b90.
+// SetL2ApplicationStateRoot is a paid mutator transaction binding the contract method 0x89b72f86.
 //
-// Solidity: function setL2ApplicationStateRoot(uint256 _l2ApplicationStateRoot) returns()
-func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderTransactor) SetL2ApplicationStateRoot(opts *bind.TransactOpts, _l2ApplicationStateRoot *big.Int) (*types.Transaction, error) {
+// Solidity: function setL2ApplicationStateRoot(bytes32 _l2ApplicationStateRoot) returns()
+func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderTransactor) SetL2ApplicationStateRoot(opts *bind.TransactOpts, _l2ApplicationStateRoot [32]byte) (*types.Transaction, error) {
 	return _L2ApplicationStateRootProvider.contract.Transact(opts, "setL2ApplicationStateRoot", _l2ApplicationStateRoot)
 }
 
-// SetL2ApplicationStateRoot is a paid mutator transaction binding the contract method 0x5ea22b90.
+// SetL2ApplicationStateRoot is a paid mutator transaction binding the contract method 0x89b72f86.
 //
-// Solidity: function setL2ApplicationStateRoot(uint256 _l2ApplicationStateRoot) returns()
-func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderSession) SetL2ApplicationStateRoot(_l2ApplicationStateRoot *big.Int) (*types.Transaction, error) {
+// Solidity: function setL2ApplicationStateRoot(bytes32 _l2ApplicationStateRoot) returns()
+func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderSession) SetL2ApplicationStateRoot(_l2ApplicationStateRoot [32]byte) (*types.Transaction, error) {
 	return _L2ApplicationStateRootProvider.Contract.SetL2ApplicationStateRoot(&_L2ApplicationStateRootProvider.TransactOpts, _l2ApplicationStateRoot)
 }
 
-// SetL2ApplicationStateRoot is a paid mutator transaction binding the contract method 0x5ea22b90.
+// SetL2ApplicationStateRoot is a paid mutator transaction binding the contract method 0x89b72f86.
 //
-// Solidity: function setL2ApplicationStateRoot(uint256 _l2ApplicationStateRoot) returns()
-func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderTransactorSession) SetL2ApplicationStateRoot(_l2ApplicationStateRoot *big.Int) (*types.Transaction, error) {
+// Solidity: function setL2ApplicationStateRoot(bytes32 _l2ApplicationStateRoot) returns()
+func (_L2ApplicationStateRootProvider *L2ApplicationStateRootProviderTransactorSession) SetL2ApplicationStateRoot(_l2ApplicationStateRoot [32]byte) (*types.Transaction, error) {
 	return _L2ApplicationStateRootProvider.Contract.SetL2ApplicationStateRoot(&_L2ApplicationStateRootProvider.TransactOpts, _l2ApplicationStateRoot)
 }
