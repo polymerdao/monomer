@@ -3,7 +3,6 @@ package integrations
 import (
 	"context"
 	"encoding/json"
-	"github.com/polymerdao/monomer"
 	"io"
 	stdURL "net/url"
 	"path/filepath"
@@ -24,6 +23,7 @@ import (
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/gogoproto/grpc"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e/url"
 	testapp "github.com/polymerdao/monomer/testapp"
 	"github.com/sourcegraph/conc"
