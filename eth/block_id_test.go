@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"testing"
 
+	bfttypes "github.com/cometbft/cometbft/types"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
@@ -59,7 +60,7 @@ func TestBlockIDUnmarshalValidJSON(t *testing.T) {
 
 func TestBlockIDGet(t *testing.T) {
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
-	block, err := monomer.MakeBlock(&monomer.Header{}, nil)
+	block, err := monomer.MakeBlock(&monomer.Header{}, bfttypes.Txs{})
 	require.NoError(t, err)
 	blockStore.AddBlock(block)
 	require.NoError(t, blockStore.UpdateLabel(opeth.Unsafe, block.Header.Hash))

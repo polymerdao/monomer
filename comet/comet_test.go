@@ -74,7 +74,7 @@ func TestABCI(t *testing.T) {
 
 func TestStatus(t *testing.T) {
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
-	headBlock, err := monomer.MakeBlock(&monomer.Header{}, nil)
+	headBlock, err := monomer.MakeBlock(&monomer.Header{}, bfttypes.Txs{})
 	require.NoError(t, err)
 	blockStore.AddBlock(headBlock)
 	headCometBlock := headBlock.ToCometLikeBlock()
@@ -340,7 +340,7 @@ func TestBlock(t *testing.T) {
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	block, err := monomer.MakeBlock(&monomer.Header{
 		Height: 3,
-	}, nil)
+	}, bfttypes.Txs{})
 	require.NoError(t, err)
 	cometBlock := block.ToCometLikeBlock()
 	want := &rpctypes.ResultBlock{
