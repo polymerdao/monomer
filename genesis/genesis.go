@@ -23,11 +23,7 @@ type Genesis struct {
 const defaultGasLimit = 30_000_000
 
 // Commit assumes the application has not been initialized and that the block store is empty.
-func (g *Genesis) Commit(
-	ctx context.Context,
-	app monomer.Application,
-	blockStore store.BlockStoreWriter,
-	ethStateTrie *trie.StateTrie) error {
+func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStore store.BlockStoreWriter) error {
 	appStateBytes, err := json.Marshal(g.AppState)
 	if err != nil {
 		return fmt.Errorf("marshal app state: %v", err)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/crypto"
 	"slices"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -131,12 +132,14 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	if currentHead == nil {
 		return nil, fmt.Errorf("block not found at height: %d", currentHeight)
 	}
+	appHash := info.GetLastBlockAppHash()
+	ethStateRoot := b.ethStateTrie.Hash().Bytes()
 	header := &monomer.Header{
 		ChainID:    b.chainID,
 		Height:     currentHeight + 1,
 		Time:       payload.Timestamp,
 		ParentHash: currentHead.Header.Hash,
-		AppHash:    info.GetLastBlockAppHash(),
+		AppHash:    crypto.Keccak256(appHash, ethStateRoot),
 		GasLimit:   payload.GasLimit,
 	}
 
@@ -157,7 +160,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		return nil, fmt.Errorf("commit: %v", err)
 	}
 
-	block, err := monomer.MakeBlock(header, txs, b.ethStateTrie)
+	block, err := monomer.MakeBlock(header, txs)
 	if err != nil {
 		return nil, fmt.Errorf("make block: %v", err)
 	}
