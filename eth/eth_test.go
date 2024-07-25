@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/eth"
 	"github.com/polymerdao/monomer/eth/internal/ethapi"
 	"github.com/polymerdao/monomer/testutils"
@@ -26,14 +25,14 @@ func TestChainId(t *testing.T) {
 }
 
 func TestGetBlockByNumber(t *testing.T) {
-	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+	blockStore := testutils.NewLocalMemDB(t)
 
 	block := testutils.GenerateBlock(t)
 	wantEthBlock, err := block.ToEth()
 	require.NoError(t, err)
 
-	blockStore.AddBlock(block)
-	require.NoError(t, blockStore.UpdateLabel(opeth.Unsafe, block.Header.Hash))
+	require.NoError(t, blockStore.AppendBlock(block))
+	require.NoError(t, blockStore.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
 
 	tests := map[string]struct {
 		id   eth.BlockID
@@ -45,15 +44,17 @@ func TestGetBlockByNumber(t *testing.T) {
 			},
 			want: wantEthBlock,
 		},
-		"safe block does not exist": {
+		"safe block exists": {
 			id: eth.BlockID{
 				Label: opeth.Safe,
 			},
+			want: wantEthBlock,
 		},
-		"finalized block does not exist": {
+		"finalized block exists": {
 			id: eth.BlockID{
 				Label: opeth.Finalized,
 			},
+			want: wantEthBlock,
 		},
 		"block 0 exists": {
 			id:   eth.BlockID{},
@@ -92,9 +93,9 @@ func TestGetBlockByNumber(t *testing.T) {
 }
 
 func TestGetBlockByHash(t *testing.T) {
-	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+	blockStore := testutils.NewLocalMemDB(t)
 	block := testutils.GenerateBlock(t)
-	blockStore.AddBlock(block)
+	require.NoError(t, blockStore.AppendBlock(block))
 
 	for description, fullTx := range map[string]bool{
 		"include txs": true,
@@ -132,7 +133,7 @@ func TestGetBlockByHash(t *testing.T) {
 
 func TestGetProof(t *testing.T) {
 	someAddress := common.HexToAddress("0xabc")
-	blockstore := store.NewBlockStore(testutils.NewMemDB(t)) // this blockstore contains no blocks.
+	blockstore := testutils.NewLocalMemDB(t)
 
 	proofProvider := eth.NewProofProvider(nil, blockstore)
 

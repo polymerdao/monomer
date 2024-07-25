@@ -7,13 +7,11 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
-	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/bindings/generated"
 	"github.com/polymerdao/monomer/contracts"
 	"github.com/polymerdao/monomer/evm"
@@ -50,11 +48,7 @@ func TestCommit(t *testing.T) {
 			app := testapp.NewTest(t, test.genesis.ChainID.String())
 			test.genesis.AppState = testapp.MakeGenesisAppState(t, app, test.kvs...)
 
-			blockstoredb := dbm.NewMemDB()
-			t.Cleanup(func() {
-				require.NoError(t, blockstoredb.Close())
-			})
-			blockStore := store.NewBlockStore(blockstoredb)
+			blockStore := testutils.NewLocalMemDB(t)
 			ethstatedb := testutils.NewEthStateDB(t)
 
 			require.NoError(t, test.genesis.Commit(context.Background(), app, blockStore, ethstatedb))
@@ -81,10 +75,18 @@ func TestCommit(t *testing.T) {
 				StateRoot: evm.MonomerGenesisRootHash,
 			}, bfttypes.Txs{})
 			require.NoError(t, err)
-			require.Equal(t, block, blockStore.BlockByNumber(info.GetLastBlockHeight()))
-			require.Equal(t, block, blockStore.BlockByLabel(eth.Unsafe))
-			require.Equal(t, block, blockStore.BlockByLabel(eth.Safe))
-			require.Equal(t, block, blockStore.BlockByLabel(eth.Finalized))
+			gotBlock, err := blockStore.BlockByHeight(uint64(info.GetLastBlockHeight()))
+			require.NoError(t, err)
+			require.Equal(t, block, gotBlock)
+			gotBlock, err = blockStore.BlockByLabel(eth.Unsafe)
+			require.NoError(t, err)
+			require.Equal(t, block, gotBlock)
+			gotBlock, err = blockStore.BlockByLabel(eth.Safe)
+			require.NoError(t, err)
+			require.Equal(t, block, gotBlock)
+			gotBlock, err = blockStore.BlockByLabel(eth.Finalized)
+			require.NoError(t, err)
+			require.Equal(t, block, gotBlock)
 
 			// Eth state db.
 			ethState, err := state.New(evm.MonomerGenesisRootHash, ethstatedb, nil)

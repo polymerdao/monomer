@@ -69,16 +69,16 @@ func (s *ABCI) Info(ctx *jsonrpctypes.Context) (*rpctypes.ResultABCIInfo, error)
 	}, nil
 }
 
-type HeadBlocker interface {
-	HeadBlock() *monomer.Block
+type HeadHeader interface {
+	HeadHeader() (*monomer.Header, error)
 }
 
 type Status struct {
-	blockstore HeadBlocker
+	blockstore HeadHeader
 	startBlock *bfttypes.Block
 }
 
-func NewStatus(blockStore HeadBlocker, startBlock *bfttypes.Block) *Status {
+func NewStatus(blockStore HeadHeader, startBlock *bfttypes.Block) *Status {
 	return &Status{
 		blockstore: blockStore,
 		startBlock: startBlock,
@@ -89,16 +89,16 @@ func NewStatus(blockStore HeadBlocker, startBlock *bfttypes.Block) *Status {
 // time.
 // More: https://docs.cometbft.com/main/rpc/#/ABCI/status
 func (s *Status) Status(_ *jsonrpctypes.Context) (*rpctypes.ResultStatus, error) {
-	block := s.blockstore.HeadBlock()
-	if block == nil {
-		return nil, errors.New("head block not found")
+	headHeader, err := s.blockstore.HeadHeader()
+	if err != nil {
+		return nil, err
 	}
-	headCometBlock := block.ToCometLikeBlock()
+	headCometHeader := headHeader.ToComet()
 	status := &rpctypes.ResultStatus{
 		NodeInfo: p2p.DefaultNodeInfo{
 			DefaultNodeID:   "",
 			ListenAddr:      "",
-			Network:         headCometBlock.ChainID,
+			Network:         headCometHeader.ChainID,
 			Version:         version.TMCoreSemVer,
 			Channels:        []byte("0123456789"),
 			Moniker:         "monomer",
@@ -106,10 +106,10 @@ func (s *Status) Status(_ *jsonrpctypes.Context) (*rpctypes.ResultStatus, error)
 		},
 		// We need SyncInfo so the CosmJS tmClient doesn't complain.
 		SyncInfo: rpctypes.SyncInfo{
-			LatestBlockHash:   headCometBlock.Hash(),
-			LatestAppHash:     headCometBlock.AppHash,
-			LatestBlockHeight: headCometBlock.Height,
-			LatestBlockTime:   headCometBlock.Time,
+			LatestBlockHash:   headCometHeader.Hash(),
+			LatestAppHash:     headCometHeader.AppHash,
+			LatestBlockHeight: headCometHeader.Height,
+			LatestBlockTime:   headCometHeader.Time,
 
 			EarliestBlockHash:   s.startBlock.Hash(),
 			EarliestAppHash:     s.startBlock.AppHash,
@@ -437,16 +437,16 @@ func paginate(pagePtr, pageSizePtr *int, totalCount int) (int, int, error) {
 	return skipCount, pageSize, nil
 }
 
-type BlockStore interface {
-	BlockByHash(common.Hash) *monomer.Block
-	BlockByNumber(int64) *monomer.Block
+type DB interface {
+	BlockByHash(common.Hash) (*monomer.Block, error)
+	BlockByHeight(uint64) (*monomer.Block, error)
 }
 
 type BlockAPI struct {
-	blockstore BlockStore
+	blockstore DB
 }
 
-func NewBlockAPI(blockStore BlockStore) *BlockAPI {
+func NewBlockAPI(blockStore DB) *BlockAPI {
 	return &BlockAPI{
 		blockstore: blockStore,
 	}
@@ -454,18 +454,18 @@ func NewBlockAPI(blockStore BlockStore) *BlockAPI {
 
 // https://docs.cometbft.com/main/rpc/#/ABCI/block
 func (s *BlockAPI) ByHeight(_ *jsonrpctypes.Context, height int64) (*rpctypes.ResultBlock, error) {
-	block := s.blockstore.BlockByNumber(height)
-	if block == nil {
-		return nil, fmt.Errorf("block not found: %d", height)
+	block, err := s.blockstore.BlockByHeight(uint64(height))
+	if err != nil {
+		return nil, err
 	}
 	return rpcBlock(block.ToCometLikeBlock()), nil
 }
 
 // https://docs.cometbft.com/main/rpc/#/ABCI/block_by_hash
 func (s *BlockAPI) ByHash(_ *jsonrpctypes.Context, hash []byte) (*rpctypes.ResultBlock, error) {
-	block := s.blockstore.BlockByHash(common.BytesToHash(hash))
-	if block == nil {
-		return nil, fmt.Errorf("block not found: %x", hash)
+	block, err := s.blockstore.BlockByHash(common.BytesToHash(hash))
+	if err != nil {
+		return nil, err
 	}
 	return rpcBlock(block.ToCometLikeBlock()), nil
 }

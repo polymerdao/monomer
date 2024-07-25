@@ -2,7 +2,6 @@ package builder
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -11,12 +10,10 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/evm"
@@ -25,10 +22,19 @@ import (
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
+type DB interface {
+	Height() (uint64, error)
+	HeaderByHash(hash common.Hash) (*monomer.Header, error)
+	Rollback(unsafe, safe, finalized common.Hash) error
+	HeaderByHeight(height uint64) (*monomer.Header, error)
+	HeadHeader() (*monomer.Header, error)
+	AppendBlock(*monomer.Block) error
+}
+
 type Builder struct {
 	mempool    *mempool.Pool
 	app        monomer.Application
-	blockStore store.BlockStore
+	blockStore DB
 	txStore    txstore.TxStore
 	eventBus   *bfttypes.EventBus
 	chainID    monomer.ChainID
@@ -38,7 +44,7 @@ type Builder struct {
 func New(
 	mpool *mempool.Pool,
 	app monomer.Application,
-	blockStore store.BlockStore,
+	blockStore DB,
 	txStore txstore.TxStore,
 	eventBus *bfttypes.EventBus,
 	chainID monomer.ChainID,
@@ -60,33 +66,23 @@ func New(
 // assumptions:
 //   - all hashes exist in the block store.
 //   - finalized.Height <= safe.Height <= head.Height
-func (b *Builder) Rollback(ctx context.Context, head, safe, finalized common.Hash) error {
-	headBlock := b.blockStore.HeadBlock()
-	if headBlock == nil {
-		return errors.New("head block not found")
+func (b *Builder) Rollback(ctx context.Context, unsafe, safe, finalized common.Hash) error {
+	currentHeight, err := b.blockStore.Height()
+	if err != nil {
+		return fmt.Errorf("get height: %v", err)
 	}
-	currentHeight := headBlock.Header.Height
 
-	block := b.blockStore.BlockByHash(head)
-	if block == nil {
-		return fmt.Errorf("block not found with hash %s", head)
+	unsafeHeader, err := b.blockStore.HeaderByHash(unsafe)
+	if err != nil {
+		return fmt.Errorf("get unsafe header: %v", err)
 	}
-	targetHeight := block.Header.Height
+	targetHeight := unsafeHeader.Height
 
-	if err := b.blockStore.RollbackToHeight(targetHeight); err != nil {
+	if err := b.blockStore.Rollback(unsafe, safe, finalized); err != nil {
 		return fmt.Errorf("rollback block store: %v", err)
 	}
-	if err := b.blockStore.UpdateLabel(eth.Unsafe, head); err != nil {
-		return fmt.Errorf("update unsafe label: %v", err)
-	}
-	if err := b.blockStore.UpdateLabel(eth.Safe, safe); err != nil {
-		return fmt.Errorf("update safe label: %v", err)
-	}
-	if err := b.blockStore.UpdateLabel(eth.Finalized, finalized); err != nil {
-		return fmt.Errorf("update finalized label: %v", err)
-	}
 
-	if err := b.txStore.RollbackToHeight(targetHeight, currentHeight); err != nil {
+	if err := b.txStore.RollbackToHeight(targetHeight, int64(currentHeight)); err != nil {
 		return fmt.Errorf("rollback tx store: %v", err)
 	}
 
@@ -130,25 +126,24 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	}
 
 	// Build header.
-	info, err := b.app.Info(ctx, &abcitypes.RequestInfo{})
+	currentHeader, err := b.blockStore.HeadHeader()
 	if err != nil {
-		return nil, fmt.Errorf("info: %v", err)
-	}
-	currentHeight := info.GetLastBlockHeight()
-	currentHead := b.blockStore.BlockByNumber(currentHeight)
-	if currentHead == nil {
-		return nil, fmt.Errorf("block not found at height: %d", currentHeight)
+		return nil, fmt.Errorf("header by height: %v", err)
 	}
 	header := &monomer.Header{
 		ChainID:    b.chainID,
-		Height:     currentHeight + 1,
+		Height:     currentHeader.Height + 1,
 		Time:       payload.Timestamp,
-		ParentHash: currentHead.Header.Hash,
+		ParentHash: currentHeader.Hash,
 		GasLimit:   payload.GasLimit,
 	}
 
 	cometHeader := header.ToComet()
-	cometHeader.AppHash = info.GetLastBlockAppHash()
+	info, err := b.app.Info(ctx, &abcitypes.RequestInfo{})
+	if err != nil {
+		return nil, fmt.Errorf("info: %v", err)
+	}
+	cometHeader.AppHash = info.GetLastBlockAppHash() // TODO maybe best to get this from the ethstatedb?
 	resp, err := b.app.FinalizeBlock(ctx, &abcitypes.RequestFinalizeBlock{
 		Txs:                txs.ToSliceOfBytes(),
 		Hash:               cometHeader.Hash(),
@@ -165,7 +160,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		return nil, fmt.Errorf("commit: %v", err)
 	}
 
-	ethState, err := state.New(b.blockStore.HeadBlock().Header.StateRoot, b.ethstatedb, nil)
+	ethState, err := state.New(currentHeader.StateRoot, b.ethstatedb, nil)
 	if err != nil {
 		return nil, fmt.Errorf("create ethereum state: %v", err)
 	}
@@ -207,7 +202,9 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	}
 
 	// Append block.
-	b.blockStore.AddBlock(block)
+	if err := b.blockStore.AppendBlock(block); err != nil {
+		return nil, fmt.Errorf("append block: %v", err)
+	}
 
 	// Index txs.
 	if err := b.txStore.Add(txResults); err != nil {
