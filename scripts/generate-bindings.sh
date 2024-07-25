@@ -7,7 +7,7 @@ MONOMER_DIR=$(cd "$SCRIPTS_DIR/.." && pwd)
 CONTRACTS_DIR=$(cd "$MONOMER_DIR/contracts" && pwd)
 BINDINGS_DIR=$(cd "$MONOMER_DIR/bindings" && pwd)
 
-# Create temporary forge artifacts and cache directories
+# Create forge artifacts and cache directories if they don't exist
 mkdir -p "$BINDINGS_DIR/artifacts"
 mkdir -p "$BINDINGS_DIR/cache"
 FORGE_ARTIFACTS_DIR=$(cd "$BINDINGS_DIR/artifacts" && pwd)
@@ -53,7 +53,3 @@ find $FORGE_ARTIFACTS_DIR -name "*.json" | while read -r forge_artifact; do
 
     echo "Generated Go bindings for ${contract_name}.sol: ${go_binding_file}"
 done
-
-# Remove the temporary forge artifacts and cache directories
-rm -r $FORGE_ARTIFACTS_DIR
-rm -r $FORGE_CACHE_DIR
