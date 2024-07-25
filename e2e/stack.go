@@ -47,7 +47,6 @@ type Stack struct {
 	eventListener    EventListener
 	l1BlockTime      uint64
 	prometheusCfg    *config.InstrumentationConfig
-	L1Users          []L1User
 }
 
 type L1User struct {
@@ -117,7 +116,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 
 	// Fund test EOA accounts
 	l1users := make([]L1User, 0)
-	for range 1 {
+	for range 2 {
 		privateKey, err := crypto.GenerateKey()
 		if err != nil {
 			return nil, fmt.Errorf("generate key: %v", err)
@@ -201,7 +200,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	return &StackConfig{
 		L1URL:    l1url,
 		Config:   rollupConfig,
-		Operator: s.L1Users[0],
+		Operator: l1users[0],
 		Users:    l1users[1:],
 	}, nil
 }
