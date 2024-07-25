@@ -49,7 +49,7 @@ find $FORGE_ARTIFACTS_DIR -name "*.json" | while read -r forge_artifact; do
 
     # Generate Go bindings using abigen
     go_binding_file="${BINDINGS_DIR}/${contract_name}.go"
-    abigen --abi=$abi_file --bin $bin_file --pkg="bindings" --type $contract_name --out=$go_binding_file
+    abigen --abi=$abi_file --bin=$bin_file --pkg="bindings" --type=$contract_name --out=$go_binding_file
 
     echo "Generated Go bindings for ${contract_name}.sol: ${go_binding_file}"
 done
