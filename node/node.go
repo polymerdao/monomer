@@ -79,8 +79,8 @@ func New(
 }
 
 func (n *Node) Run(ctx context.Context, env *environment.Env) error {
-	ethStateTrieId := trie.StateTrieID(gethtypes.EmptyRootHash)
-	ethStateTrie, err := trie.NewStateTrie(ethStateTrieId, n.ethstatedb.Database().TrieDB())
+	ethStateTrieID := trie.StateTrieID(gethtypes.EmptyRootHash)
+	ethStateTrie, err := trie.NewStateTrie(ethStateTrieID, n.ethstatedb.Database().TrieDB())
 	if err != nil {
 		return fmt.Errorf("new eth state trie: %v", err)
 	}

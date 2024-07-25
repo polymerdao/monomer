@@ -3,7 +3,6 @@ package genesis_test
 import (
 	"context"
 	"encoding/json"
-	"github.com/polymerdao/monomer/testutils"
 	"testing"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -15,6 +14,7 @@ import (
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
+	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/require"
 )
 
