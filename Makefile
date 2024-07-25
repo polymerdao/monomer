@@ -7,6 +7,8 @@ SCRIPTS_PATH ?= scripts
 E2E_ARTIFACTS_PATH ?= e2e/artifacts
 E2E_STATE_SETUP_PATH ?= e2e/optimism/.devnet
 E2E_CONFIG_SETUP_PATH ?= e2e/optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
+FOUNDRY_ARTIFACTS_PATH ?= bindings/artifacts
+FOUNDRY_CACHE_PATH ?= bindings/cache
 
 .PHONY: test
 test:
@@ -75,6 +77,8 @@ clean:
 	if [ -d ${E2E_ARTIFACTS_PATH} ]; then rm -r ${E2E_ARTIFACTS_PATH}; fi
 	if [ -d ${E2E_STATE_SETUP_PATH} ]; then rm -r ${E2E_STATE_SETUP_PATH}; fi
 	if [ -f $(E2E_CONFIG_SETUP_PATH) ]; then rm $(E2E_CONFIG_SETUP_PATH); fi
+	if [ -d ${FOUNDRY_ARTIFACTS_PATH} ]; then rm -r ${FOUNDRY_ARTIFACTS_PATH}; fi
+	if [ -d ${FOUNDRY_CACHE_PATH} ]; then rm -r ${FOUNDRY_CACHE_PATH}; fi
 
 .PHONY: setup-e2e
 setup-e2e:
