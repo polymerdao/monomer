@@ -129,6 +129,9 @@ func TestE2E(t *testing.T) {
 	gasPrice, err := l1Client.Client.SuggestGasPrice(context.Background())
 	require.NoError(t, err)
 
+	l2GasLimit := stackConfig.Genesis.SystemConfig.GasLimit / 10 // 10% of block gas limit
+	l1GasLimit := l2GasLimit * 2                                 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+
 	depositTx, err := portal.DepositTransaction(
 		&bind.TransactOpts{
 			From: user.Address,
@@ -141,14 +144,14 @@ func TestE2E(t *testing.T) {
 			},
 			Nonce:    big.NewInt(int64(nonce)),
 			GasPrice: big.NewInt(gasPrice.Int64() * 2),
-			GasLimit: 1e7,
+			GasLimit: l1GasLimit,
 			Value:    big.NewInt(oneEth),
 			Context:  ctx,
 			NoSend:   false,
 		},
 		user.Address,
 		big.NewInt(oneEth/2), // the "minting order" for L2
-		stackConfig.Genesis.SystemConfig.GasLimit/10, // 10% of block gas limit
+		l2GasLimit,
 		false,    // _isCreation
 		[]byte{}, // no data
 	)
