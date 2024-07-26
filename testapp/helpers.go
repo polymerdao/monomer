@@ -3,7 +3,6 @@ package testapp
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path"
 	"sort"
