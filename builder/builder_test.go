@@ -2,6 +2,7 @@ package builder_test
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -30,6 +31,10 @@ func (*queryAll) Matches(_ map[string][]string) (bool, error) {
 func (*queryAll) String() string {
 	return "all"
 }
+
+const (
+	chainID = monomer.ChainID(0)
+)
 
 func TestBuild(t *testing.T) {
 	tests := map[string]struct {
@@ -75,22 +80,16 @@ func TestBuild(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			inclusionListTxs := testapp.ToTxs(t, test.inclusionList)
-			mempoolTxs := testapp.ToTxs(t, test.mempool)
+			app := testapp.NewTest(t, chainID.String())
 
-			pool := mempool.New(testutils.NewMemDB(t))
-			for _, tx := range mempoolTxs {
-				require.NoError(t, pool.Enqueue(tx))
-			}
 			blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 			txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
 
-			var chainID monomer.ChainID
-			app := testapp.NewTest(t, chainID.String())
 			g := &genesis.Genesis{
 				ChainID:  chainID,
 				AppState: testapp.MakeGenesisAppState(t, app),
 			}
+			require.NoError(t, g.Commit(context.Background(), app, blockStore))
 
 			eventBus := bfttypes.NewEventBus()
 			require.NoError(t, eventBus.Start())
@@ -102,7 +101,28 @@ func TestBuild(t *testing.T) {
 			subscription, err := eventBus.Subscribe(context.Background(), "test", &queryAll{}, subChannelLen)
 			require.NoError(t, err)
 
-			require.NoError(t, g.Commit(context.Background(), app, blockStore))
+			_, err = app.InitChain(context.Background(), &abcitypes.RequestInitChain{
+				ChainId: chainID.String(),
+				AppStateBytes: func() []byte {
+					appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
+					require.NoError(t, err)
+					return appStateBytes
+				}(),
+			})
+			require.NoError(t, err)
+
+			ctx := app.GetContext(false)
+			sk, _, acc := app.TestAccount(ctx)
+			// TODO: Test fails if account number is anything other than 4. Why?
+			require.NoError(t, acc.SetAccountNumber(4))
+
+			inclusionListTxs := testapp.ToTxs(t, test.inclusionList, chainID.String(), sk, acc, acc.GetSequence(), ctx)
+			mempoolTxs := testapp.ToTxs(t, test.mempool, chainID.String(), sk, acc, uint64(len(inclusionListTxs)), ctx)
+
+			pool := mempool.New(testutils.NewMemDB(t))
+			for _, tx := range mempoolTxs {
+				require.NoError(t, pool.Enqueue(tx))
+			}
 
 			b := builder.New(
 				pool,
@@ -115,15 +135,15 @@ func TestBuild(t *testing.T) {
 
 			payload := &builder.Payload{
 				InjectedTransactions: bfttypes.ToTxs(inclusionListTxs),
-				GasLimit:             0,
+				GasLimit:             100000,
 				Timestamp:            g.Time + 1,
 				NoTxPool:             test.noTxPool,
 			}
-			preBuildInfo, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
+			preBuildInfo, err := app.Info(ctx, &abcitypes.RequestInfo{})
 			require.NoError(t, err)
-			builtBlock, err := b.Build(context.Background(), payload)
+			builtBlock, err := b.Build(ctx, payload)
 			require.NoError(t, err)
-			postBuildInfo, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
+			postBuildInfo, err := app.Info(ctx, &abcitypes.RequestInfo{})
 			require.NoError(t, err)
 
 			// Application.
@@ -195,12 +215,24 @@ func TestRollback(t *testing.T) {
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
 
-	var chainID monomer.ChainID
 	app := testapp.NewTest(t, chainID.String())
+
+	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
+		ChainId: chainID.String(),
+		AppStateBytes: func() []byte {
+			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
+			require.NoError(t, err)
+			return appStateBytes
+		}(),
+	})
+	require.NoError(t, err)
+
+	ctx := app.GetContext(false)
 	g := &genesis.Genesis{
 		ChainID:  chainID,
 		AppState: testapp.MakeGenesisAppState(t, app),
 	}
+	sk, _, acc := app.TestAccount(ctx)
 
 	eventBus := bfttypes.NewEventBus()
 	require.NoError(t, eventBus.Start())
@@ -225,7 +257,7 @@ func TestRollback(t *testing.T) {
 	}
 	block, err := b.Build(context.Background(), &builder.Payload{
 		Timestamp:            g.Time + 1,
-		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs)),
+		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs, chainID.String(), sk, acc, acc.GetSequence(), ctx)),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, block)
@@ -251,7 +283,7 @@ func TestRollback(t *testing.T) {
 	// We trust that the other parts of a block store rollback were done as well.
 
 	// Tx store.
-	for _, tx := range bfttypes.ToTxs(testapp.ToTxs(t, kvs)) {
+	for _, tx := range bfttypes.ToTxs(testapp.ToTxs(t, kvs, chainID.String(), sk, acc, acc.GetSequence(), ctx)) {
 		result, err := txStore.Get(tx.Hash())
 		require.NoError(t, err)
 		require.Nil(t, result)

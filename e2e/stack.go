@@ -7,7 +7,10 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	"github.com/cometbft/cometbft/config"
@@ -225,11 +228,30 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	env.DeferErr("close tx db", txdb.Close)
 	mempooldb := dbm.NewMemDB()
 	env.DeferErr("close mempool db", mempooldb.Close)
+
+	genesisPath := path.Join("..", "integrations", "testdata", "genesis.json")
+	genesisBytes, err := os.ReadFile(genesisPath)
+	if err != nil {
+		return fmt.Errorf("read genesis file: %v", err)
+	}
+	var genesisData map[string]json.RawMessage
+	if err := json.Unmarshal(genesisBytes, &genesisData); err != nil {
+		return fmt.Errorf("unmarshal genesis file: %v", err)
+	}
+	genesisChainID, err := strconv.ParseUint(strings.Trim(string(genesisData["chain_id"]), "\""), 10, 64)
+	if err != nil {
+		return fmt.Errorf("parse chain id: %v", err)
+	}
+	var appState map[string]json.RawMessage
+	if err := json.Unmarshal(genesisData["app_state"], &appState); err != nil {
+		return fmt.Errorf("unmarshal app state: %v", err)
+	}
+
 	n := node.New(
 		app,
 		&genesis.Genesis{
-			AppState: app.DefaultGenesis(),
-			ChainID:  chainID,
+			AppState: appState,
+			ChainID:  monomer.ChainID(genesisChainID),
 			Time:     genesisTime,
 		},
 		engineWS,
