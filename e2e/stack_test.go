@@ -143,7 +143,7 @@ func TestE2E(t *testing.T) {
 			},
 			Nonce:    big.NewInt(int64(nonce)),
 			GasPrice: big.NewInt(price.Int64() * 2),
-			GasLimit: 1e6,
+			GasLimit: 1e7,
 			Value:    big.NewInt(1e18 / 10), // 0.1 eth
 			Context:  ctx,
 			NoSend:   false,
