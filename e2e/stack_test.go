@@ -35,7 +35,7 @@ import (
 const (
 	artifactsDirectoryName = "artifacts"
 	oneEth                 = 1e18
-	// See /e2e/optimism/packages/contracts-bedrock/deploy-config/mainnet.json
+	// See /e2e/optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
 	chainID = monomer.ChainID(901)
 )
 
@@ -173,7 +173,7 @@ func TestE2E(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	appCtx := app.GetContext(false)
+	appCtx := app.GetContext(true)
 	sk, _, acc := app.TestAccount(appCtx)
 
 	k, v := "userTxKey", "userTxValue"

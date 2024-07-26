@@ -35,7 +35,6 @@ type Application interface {
 	RollbackToHeight(context.Context, uint64) error
 }
 
-// Look into why this is a uint64
 type ChainID uint64
 
 func (id ChainID) String() string {

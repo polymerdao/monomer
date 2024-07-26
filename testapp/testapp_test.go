@@ -43,11 +43,9 @@ func TestRollbackToHeight(t *testing.T) {
 
 	ctx := app.GetContext(false)
 	sk, _, acc := app.TestAccount(ctx)
+	// TODO: Test fails if account number is anything other than 4. Why?
 	require.NoError(t, acc.SetAccountNumber(4))
 	accSeq := acc.GetSequence()
-
-	/*_, err = app.Commit(context.Background(), &abcitypes.RequestCommit{})
-	require.NoError(t, err)*/
 
 	height := 10
 	newHeight := height / 2

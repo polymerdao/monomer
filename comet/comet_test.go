@@ -26,14 +26,14 @@ import (
 )
 
 const (
-	chainID = "test"
+	chainID = monomer.ChainID(0)
 )
 
 func TestABCI(t *testing.T) {
-	app := testapp.NewTest(t, chainID)
+	app := testapp.NewTest(t, chainID.String())
 
 	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
-		ChainId: chainID,
+		ChainId: chainID.String(),
 		AppStateBytes: func() []byte {
 			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
 			require.NoError(t, err)
@@ -43,8 +43,8 @@ func TestABCI(t *testing.T) {
 	require.NoError(t, err)
 
 	ctx := app.GetContext(false)
-
 	sk, _, acc := app.TestAccount(ctx)
+	// TODO: Test fails if account number is anything other than 4. Why?
 	require.NoError(t, acc.SetAccountNumber(4))
 
 	// data to store and retrieve
@@ -54,7 +54,7 @@ func TestABCI(t *testing.T) {
 	// Build bock with tx.
 	height := int64(1)
 	_, err = app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
-		Txs:    [][]byte{testapp.ToTx(t, k, v, chainID, sk, acc, acc.GetSequence(), ctx)},
+		Txs:    [][]byte{testapp.ToTx(t, k, v, chainID.String(), sk, acc, acc.GetSequence(), ctx)},
 		Height: height,
 	})
 	require.NoError(t, err)
@@ -125,9 +125,9 @@ func TestStatus(t *testing.T) {
 }
 
 func TestBroadcastTx(t *testing.T) {
-	app := testapp.NewTest(t, chainID)
+	app := testapp.NewTest(t, chainID.String())
 	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
-		ChainId: chainID,
+		ChainId: chainID.String(),
 		AppStateBytes: func() []byte {
 			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
 			require.NoError(t, err)
@@ -142,7 +142,7 @@ func TestBroadcastTx(t *testing.T) {
 	broadcastTxAPI := comet.NewBroadcastTxAPI(app, mpool)
 
 	// Success case.
-	tx := testapp.ToTx(t, "k1", "v1", chainID, sk, acc, acc.GetSequence(), ctx)
+	tx := testapp.ToTx(t, "k1", "v1", chainID.String(), sk, acc, acc.GetSequence(), ctx)
 	result, err := broadcastTxAPI.BroadcastTx(&jsonrpctypes.Context{}, tx)
 	require.NoError(t, err)
 	// We trust that the other fields are set correctly.

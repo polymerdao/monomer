@@ -118,6 +118,7 @@ func TestBuild(t *testing.T) {
 
 			ctx := app.GetContext(false)
 			sk, _, acc := app.TestAccount(ctx)
+			// TODO: Test fails if account number is anything other than 4. Why?
 			require.NoError(t, acc.SetAccountNumber(4))
 
 			inclusionListTxs := testapp.ToTxs(t, test.inclusionList, chainID.String(), sk, acc, acc.GetSequence(), ctx)

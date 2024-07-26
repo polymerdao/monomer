@@ -3,8 +3,6 @@ package testapp
 import (
 	"context"
 	"encoding/json"
-	"os"
-	"path"
 	"sort"
 	"testing"
 
@@ -55,6 +53,9 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 	return defaultGenesis
 }
 
+// ToTx converts the key-value to a testappv1.SetRequest message and returns the encoded transaction bytes. It also handles
+// signing the transaction with the provided private key. The caller is responsible for ensuring the account sequence is
+// correct.
 func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, acc sdk.AccountI, seq uint64, ctx sdk.Context) []byte {
 	pk := sk.PubKey()
 	fromAddr := sdk.AccAddress(pk.Address())
@@ -173,13 +174,10 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 	}
 }
 
+// TestAccount loads a pre-funded test account with a private key from the testdata directory.
 func (a *App) TestAccount(ctx sdk.Context) (*secp256k1.PrivKey, *secp256k1.PubKey, sdk.AccountI) {
-	// set the path to be at the project root
-	skPath := path.Join("..", "integrations", "testdata", "testing.private.key")
-	skBytes, err := os.ReadFile(skPath)
-	if err != nil {
-		panic("Failed to read private key: " + err.Error())
-	}
+	// The private key corresponding to our pre-funded test account
+	skBytes := []byte{85, 55, 6, 26, 146, 55, 109, 224, 90, 200, 239, 207, 63, 193, 137, 45, 143, 86, 124, 111, 39, 66, 173, 26, 133, 208, 231, 109, 66, 224, 101, 79}
 	sk := secp256k1.PrivKey{
 		Key: skBytes,
 	}
@@ -187,20 +185,24 @@ func (a *App) TestAccount(ctx sdk.Context) (*secp256k1.PrivKey, *secp256k1.PubKe
 		Key: sk.PubKey().Bytes(),
 	}
 
+	// Set the account with the testapp's account keeper
 	accAddr := sdk.AccAddress(pk.Address())
-
+	// TODO: debug why this sometimes sets the account number to 4
 	account := a.accountKeeper.NewAccountWithAddress(ctx, accAddr)
 	a.accountKeeper.SetAccount(ctx, account)
 
-	err = account.SetPubKey(sk.PubKey())
+	err := account.SetPubKey(sk.PubKey())
 	if err != nil {
 		panic("Failed to set account public key: %v" + err.Error())
 	}
+
 	err = account.SetAccountNumber(0)
 	if err != nil {
 		panic("Failed to set account number: %v" + err.Error())
 	}
 
+	// This is required for signing transactions. If we do not set the params, the signature limit will be 0.
+	// Default params will set the signature limit to 7.
 	a.accountKeeper.Params.Set(ctx, authtypes.DefaultParams())
 
 	return &sk, &pk, account
