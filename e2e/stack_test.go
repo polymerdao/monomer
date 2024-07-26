@@ -123,13 +123,8 @@ func TestE2E(t *testing.T) {
 	nonce, err := l1Client.Client.NonceAt(ctx, user.Address, nil)
 	require.NoError(t, err)
 
-	price, err := l1Client.Client.SuggestGasPrice(context.Background())
+	gasPrice, err := l1Client.Client.SuggestGasPrice(context.Background())
 	require.NoError(t, err)
-
-	gasPrice := new(big.Int).Mul(price, big.NewInt(2))
-	if gasPrice.BitLen() > 256 {
-		gasPrice = price // fallback to original price if overflow
-	}
 
 	depositTx, err := portal.DepositTransaction(
 		&bind.TransactOpts{
@@ -142,7 +137,7 @@ func TestE2E(t *testing.T) {
 				return signed, nil
 			},
 			Nonce:    big.NewInt(int64(nonce)),
-			GasPrice: big.NewInt(price.Int64() * 2),
+			GasPrice: big.NewInt(gasPrice.Int64() * 2),
 			GasLimit: 1e7,
 			Value:    big.NewInt(1e18 / 10), // 0.1 eth
 			Context:  ctx,
