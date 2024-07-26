@@ -1,7 +1,6 @@
 package types_test
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 
@@ -13,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -24,6 +24,7 @@ import (
 // deposit transaction. The resulting deposit transaction is then compared to the
 // original one to ensure that the conversion process was successful.
 func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
+	// TODO: create an inner generator function to generate the test data
 	// Define the necessary transaction parameters.
 	sourceHashString := "0x1234567890abcdef1234567890abcdef12345678"
 	fromAddressString := "0x1111111111111111111111111111111111111111"
@@ -52,57 +53,53 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		IsSystemTransaction: isSystemTransaction,
 	}
 
-	// Convert the deposit transaction to a binary format.
-	depTx := types.NewTx(depInner)
-
-	depTxBinary, err := depTx.MarshalBinary()
-	require.NoError(t, err)
-
-	// Convert the binary format to a Cosmos transaction.
-	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depTxBinary})
-	require.NoError(t, err)
-
-	// Unmarshal the first Cosmos transaction back into a deposit transaction.
-	decodedTx, err := unmarshalTx(cosmosTxs[0])
-	if err != nil {
-		require.NoError(t, err)
+	testTable := []struct {
+		name   string
+		inners []types.TxData
+	}{
+		{
+			name:   "Deposit Transaction",
+			inners: []types.TxData{depInner},
+		},
 	}
-	// Print the decoded transaction for debugging purposes.
-	fmt.Printf("%+v\n", decodedTx)
 
-	// Print the value of the first message in the decoded transaction for debugging purposes.
-	// body:<messages:<type_url:"/rollup.v1.ApplyL1TxsRequest" value:"\no~\370l\240\000\000\000\000\000\000\000\000\000\000\000\000\0224Vx\220\253\315\357\0224Vx\220\253\315\357\0224Vx\224\021\021\021\021\021\021\021\021\021\021\021\021\021\021\021\021\021\021\021\021\224\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\014\210\r\340\266\263\247d\000\000\210\r\340\266\263\247d\000\000\203\017B@\200\211test data" > >
-	fmt.Println()
-	fmt.Printf("%x\n", decodedTx.Body.Messages[0].Value)
-	// 0a6f7ef86ca00000000000000000000000001234567890abcdef1234567890abcdef1234567894111111111111111111111111111111111111111194000000000000000000000000000000000000000c880de0b6b3a7640000880de0b6b3a7640000830f42408089746573742064617461
-	fmt.Println()
+	for _, tc := range testTable {
+		t.Run(tc.name, func(t *testing.T) {
+			ethTxs := make([]hexutil.Bytes, len(tc.inners))
+			transactions := make([]*types.Transaction, len(tc.inners))
 
-	// Unmarshal the first message in the decoded transaction back into a deposit transaction.
-	decodedTx, err = unmarshalTx(decodedTx.Body.Messages[0].Value)
-	require.NoError(t, err)
+			for i, inner := range tc.inners {
+				transactions[i] = types.NewTx(inner)
+				txBinary, err := transactions[i].MarshalBinary()
+				require.NoError(t, err)
+				ethTxs[i] = txBinary
+			}
 
-	//  Error Trace:    /Users/daniilankusin/monomer/x/rollup/types/adapters_test.go:64
-	//             Error:          Received unexpected error:
-	//                             proto: illegal wireType 6
+			// Convert the binary format to a Cosmos transaction.
+			cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxs)
+			require.NoError(t, err)
 
-	fmt.Printf("%+v\n", decodedTx)
-	fmt.Println()
+			// Unmarshal the first Cosmos transaction back into a deposit transaction.
+			for i, cosmosTx := range cosmosTxs {
+				decodedTx, err := unmarshalTx(cosmosTx)
+				require.NoError(t, err)
 
-	// Unmarshal the first message in the decoded transaction back into a deposit transaction.
-	err = depTx.UnmarshalBinary(decodedTx.Body.Messages[0].Value)
-	require.NoError(t, err)
+				protoCodec := makeProtoCodec()
+				var applyL1TxsRequest rollupv1.ApplyL1TxsRequest
+				err = protoCodec.Unmarshal(decodedTx.Body.Messages[0].Value, &applyL1TxsRequest)
+				require.NoError(t, err)
 
-	// Error Trace:    /Users/daniilankusin/monomer/x/rollup/types/adapters_test.go:75
-	//             Error:          Received unexpected error:
-	//                             transaction type not supported
-	//             Test:           TestAdaptPayloadTxsToCosmosTxs
+				newTransaction := transactions[i] // Copy the original transaction because time fields are different if not copied.
+				err = newTransaction.UnmarshalBinary(applyL1TxsRequest.TxBytes[0])
+				require.NoError(t, err)
 
-	fmt.Printf("%+v\n", depTx)
-	fmt.Println()
+				assert.Equal(t, transactions[i], newTransaction)
+			}
+		})
+	}
 }
 
 func registerInterfaces(interfaceRegistry codectypes.InterfaceRegistry) {
-	// Register SDK interfaces and concrete types
 	rollupv1.RegisterInterfaces(interfaceRegistry)
 }
 
