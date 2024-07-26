@@ -15,6 +15,10 @@ import (
 	"github.com/cometbft/cometbft/config"
 	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	bfttypes "github.com/cometbft/cometbft/types"
+	"github.com/ethereum-optimism/optimism/indexer/bindings"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer/e2e"
@@ -26,7 +30,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-const artifactsDirectoryName = "artifacts"
+const (
+	artifactsDirectoryName = "artifacts"
+	oneEth                 = 1e18
+)
 
 func openLogFile(t *testing.T, env *environment.Env, name string) *os.File {
 	filename := filepath.Join(artifactsDirectoryName, name+".log")
@@ -89,7 +96,8 @@ func TestE2E(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	require.NoError(t, stack.Run(ctx, env))
+	stackConfig, err := stack.Run(ctx, env)
+	require.NoError(t, err)
 	// To avoid flaky tests, hang until the Monomer server is ready.
 	// We rely on the `go test` timeout to ensure the tests don't hang forever (default is 10 minutes).
 	require.True(t, monomerEngineURL.IsReachable(ctx))
@@ -98,6 +106,56 @@ func TestE2E(t *testing.T) {
 	monomerClient := e2e.NewMonomerClient(monomerRPCClient)
 
 	const targetHeight = 5
+
+	// Hang until L1 responsive.
+	require.True(t, stackConfig.L1URL.IsReachable(ctx))
+
+	l1RPCClient, err := rpc.DialContext(ctx, stackConfig.L1URL.String())
+	require.NoError(t, err)
+	l1Client := e2e.NewL1Client(l1RPCClient)
+
+	// instantiate L1 user, tx signer.
+	user := stackConfig.Users[0]
+	signer := types.NewEIP155Signer(stackConfig.L1ChainID)
+
+	// op Portal
+	portal, err := bindings.NewOptimismPortal(stackConfig.DepositContractAddress, l1Client)
+	require.NoError(t, err)
+
+	// send user Deposit Tx
+	nonce, err := l1Client.Client.NonceAt(ctx, user.Address, nil)
+	require.NoError(t, err)
+
+	gasPrice, err := l1Client.Client.SuggestGasPrice(context.Background())
+	require.NoError(t, err)
+
+	l2GasLimit := stackConfig.Genesis.SystemConfig.GasLimit / 10 // 10% of block gas limit
+	l1GasLimit := l2GasLimit * 2                                 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+
+	depositTx, err := portal.DepositTransaction(
+		&bind.TransactOpts{
+			From: user.Address,
+			Signer: func(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
+				signed, err := types.SignTx(tx, signer, user.PrivateKey)
+				if err != nil {
+					return nil, err
+				}
+				return signed, nil
+			},
+			Nonce:    big.NewInt(int64(nonce)),
+			GasPrice: big.NewInt(gasPrice.Int64() * 2),
+			GasLimit: l1GasLimit,
+			Value:    big.NewInt(oneEth),
+			Context:  ctx,
+			NoSend:   false,
+		},
+		user.Address,
+		big.NewInt(oneEth/2), // the "minting order" for L2
+		l2GasLimit,
+		false,    // _isCreation
+		[]byte{}, // no data
+	)
+	require.NoError(t, err, "deposit tx")
 
 	client, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
 	require.NoError(t, err, "create Comet client")
@@ -138,6 +196,28 @@ func TestE2E(t *testing.T) {
 	txBlock, err := monomerClient.BlockByNumber(ctx, big.NewInt(getTx.Height))
 	require.NoError(t, err)
 	require.Len(t, txBlock.Transactions(), 2)
+
+	// inspect L1 for deposit tx receipt and emitted TransactionDeposited event
+	receipt, err := l1Client.Client.TransactionReceipt(ctx, depositTx.Hash())
+	require.NoError(t, err, "deposit tx receipt")
+	require.NotNil(t, receipt, "deposit tx receipt")
+	require.NotZero(t, receipt.Status, "deposit tx reverted") // receipt.Status == 0 -> reverted tx
+
+	depositLogs, err := portal.FilterTransactionDeposited(
+		&bind.FilterOpts{
+			Start:   0,
+			End:     nil,
+			Context: ctx,
+		},
+		nil, // from any address
+		nil, // to any address
+		nil, // any event version
+	)
+	require.NoError(t, err, "configuring 'TransactionDeposited' event listener")
+	if !depositLogs.Next() {
+		require.FailNowf(t, "finding deposit event", "err: %w", depositLogs.Error())
+	}
+	require.Equal(t, depositLogs.Event.From, user.Address) // user deposit has emitted L1 event1
 
 	for i := uint64(2); i < targetHeight; i++ {
 		block, err := monomerClient.BlockByNumber(ctx, new(big.Int).SetUint64(i))
