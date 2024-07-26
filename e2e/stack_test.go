@@ -140,12 +140,12 @@ func TestE2E(t *testing.T) {
 			Nonce:    big.NewInt(int64(nonce)),
 			GasPrice: big.NewInt(gasPrice.Int64() * 2),
 			GasLimit: 1e7,
-			Value:    big.NewInt(oneEth / 10),
+			Value:    big.NewInt(oneEth),
 			Context:  ctx,
 			NoSend:   false,
 		},
 		user.Address,
-		big.NewInt(oneEth/20),
+		big.NewInt(oneEth/2), // the "minting order" for L2
 		stackConfig.Genesis.SystemConfig.GasLimit/10, // 10% of block gas limit
 		false,    // _isCreation
 		[]byte{}, // no data
@@ -224,8 +224,12 @@ func TestE2E(t *testing.T) {
 			require.NoError(t, err)
 			require.Fail(t, fmt.Sprintf("expected tx to be deposit tx: %s", txBytes))
 		}
+		if len(txs) > 1 {
+			t.Logf("%d txs", len(txs))
+		}
 	}
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
+	// time.Sleep(15 * time.Second)
 }
 
 func newURL(t *testing.T, address string) *e2eurl.URL {
