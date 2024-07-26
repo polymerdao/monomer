@@ -30,8 +30,10 @@ import (
 	"golang.org/x/exp/slog"
 )
 
-const artifactsDirectoryName = "artifacts"
-const oneEth = 1e18
+const (
+	artifactsDirectoryName = "artifacts"
+	oneEth                 = 1e18
+)
 
 func openLogFile(t *testing.T, env *environment.Env, name string) *os.File {
 	filename := filepath.Join(artifactsDirectoryName, name+".log")
