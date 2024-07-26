@@ -200,6 +200,7 @@ func TestE2E(t *testing.T) {
 	receipt, err := l1Client.Client.TransactionReceipt(ctx, depositTx.Hash())
 	require.NoError(t, err, "deposit tx receipt")
 	require.NotNil(t, receipt, "deposit tx receipt")
+	require.NotZero(t, receipt.Status, "deposit tx reverted") // receipt.Status == 0 -> reverted tx
 
 	for i := uint64(2); i < targetHeight; i++ {
 		block, err := monomerClient.BlockByNumber(ctx, new(big.Int).SetUint64(i))
