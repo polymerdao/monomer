@@ -224,12 +224,8 @@ func TestE2E(t *testing.T) {
 			require.NoError(t, err)
 			require.Fail(t, fmt.Sprintf("expected tx to be deposit tx: %s", txBytes))
 		}
-		if len(txs) > 1 {
-			t.Logf("%d txs", len(txs))
-		}
 	}
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
-	// time.Sleep(15 * time.Second)
 }
 
 func newURL(t *testing.T, address string) *e2eurl.URL {
