@@ -31,6 +31,7 @@ import (
 )
 
 const artifactsDirectoryName = "artifacts"
+const oneEth = 1e18
 
 func openLogFile(t *testing.T, env *environment.Env, name string) *os.File {
 	filename := filepath.Join(artifactsDirectoryName, name+".log")
@@ -139,12 +140,12 @@ func TestE2E(t *testing.T) {
 			Nonce:    big.NewInt(int64(nonce)),
 			GasPrice: big.NewInt(gasPrice.Int64() * 2),
 			GasLimit: 1e7,
-			Value:    big.NewInt(1e18 / 10), // 0.1 eth
+			Value:    big.NewInt(oneEth / 10),
 			Context:  ctx,
 			NoSend:   false,
 		},
 		user.Address,
-		big.NewInt(1e18/20), // 0.5 eth deposit to L2
+		big.NewInt(oneEth/20),
 		stackConfig.Genesis.SystemConfig.GasLimit/10, // 10% of block gas limit
 		false,    // _isCreation
 		[]byte{}, // no data
