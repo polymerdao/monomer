@@ -196,11 +196,27 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, txBlock.Transactions(), 2)
 
-	// inspect L1 for deposit tx receipt
+	// inspect L1 for deposit tx receipt and emitted TransactionDeposited event
 	receipt, err := l1Client.Client.TransactionReceipt(ctx, depositTx.Hash())
 	require.NoError(t, err, "deposit tx receipt")
 	require.NotNil(t, receipt, "deposit tx receipt")
 	require.NotZero(t, receipt.Status, "deposit tx reverted") // receipt.Status == 0 -> reverted tx
+
+	depositLogs, err := portal.FilterTransactionDeposited(
+		&bind.FilterOpts{
+			Start:   0,
+			End:     nil,
+			Context: ctx,
+		},
+		nil, // from any address
+		nil, // to any address
+		nil, // any event version
+	)
+	require.NoError(t, err, "configuring 'TransactionDeposited' event listener")
+	if !depositLogs.Next() {
+		require.FailNowf(t, "finding deposit event", "err: %w", depositLogs.Error())
+	}
+	require.Equal(t, depositLogs.Event.From, user.Address) // user deposit has emitted L1 event1
 
 	for i := uint64(2); i < targetHeight; i++ {
 		block, err := monomerClient.BlockByNumber(ctx, new(big.Int).SetUint64(i))
