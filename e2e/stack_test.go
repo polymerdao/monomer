@@ -213,8 +213,6 @@ func TestE2E(t *testing.T) {
 		}
 	}
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
-
-	time.Sleep(15 * time.Second)
 }
 
 func newURL(t *testing.T, address string) *e2eurl.URL {
