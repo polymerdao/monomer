@@ -70,17 +70,31 @@ type Block struct {
 	Txs    bfttypes.Txs `json:"txs"`
 }
 
-// Hash returns a unique hash of the block, used as the block identifier
-func (b *Block) Hash() common.Hash {
-	if b.Header.Hash == (common.Hash{}) {
-		ethBlock, err := b.ToEth()
-		if err != nil {
-			// TODO: this panic is quite ugly. Perhaps we should just use Ethereum types everywhere?
-			panic(fmt.Errorf("could not convert to eth block: %v", err))
-		}
-		b.Header.Hash = ethBlock.Hash()
+// NewBlock creates a new block. The header and txs must be non-nil. It performs no other validation.
+func NewBlock(h *Header, txs bfttypes.Txs) *Block {
+	if h == nil || txs == nil {
+		panic("header or txs is nil")
 	}
-	return b.Header.Hash
+	return &Block{
+		Header: h,
+		Txs:    txs,
+	}
+}
+
+// SetHeader calculates the extrinsic properties on the header (like the block hash) and resets them.
+// It assumes the block has been created with NewBlock.
+func SetHeader(block *Block) (*Block, error) {
+	ethBlock, err := block.ToEth()
+	if err != nil {
+		return nil, fmt.Errorf("convert block to Ethereum representation: %v", err)
+	}
+	block.Header.Hash = ethBlock.Hash()
+	return block, nil
+}
+
+// MakeBlock creates a block and calculates the extrinsic properties on the header (like the block hash).
+func MakeBlock(h *Header, txs bfttypes.Txs) (*Block, error) {
+	return SetHeader(NewBlock(h, txs))
 }
 
 func (b *Block) ToEth() (*ethtypes.Block, error) {

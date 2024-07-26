@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/polymerdao/monomer"
@@ -64,16 +65,13 @@ func TestCommit(t *testing.T) {
 			// Even though RequestInitChain contains the chain ID, we can't test that it was set properly since the ABCI doesn't expose it.
 
 			// Block store.
-			block := &monomer.Block{
-				Header: &monomer.Header{
-					ChainID:  test.genesis.ChainID,
-					Height:   info.GetLastBlockHeight(),
-					Time:     test.genesis.Time,
-					AppHash:  info.GetLastBlockAppHash(),
-					GasLimit: 30_000_000, // We cheat a little and copy the default gas limit here.
-				},
-			}
-			block.Hash()
+			block, err := monomer.MakeBlock(&monomer.Header{
+				ChainID:  test.genesis.ChainID,
+				Height:   info.GetLastBlockHeight(),
+				Time:     test.genesis.Time,
+				GasLimit: 30_000_000, // We cheat a little and copy the default gas limit here.
+			}, bfttypes.Txs{})
+			require.NoError(t, err)
 			require.Equal(t, block, blockStore.BlockByNumber(info.GetLastBlockHeight()))
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Unsafe))
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Safe))

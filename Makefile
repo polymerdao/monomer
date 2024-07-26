@@ -2,10 +2,13 @@ GOBIN ?= $$(go env GOPATH)/bin
 COVER_OUT ?= cover.out
 COVER_HTML ?= cover.html
 PULSAR_PATHS ?= proto/rollup/module,testapp/proto/testapp/module
+SCRIPTS_PATH ?= scripts
 
 E2E_ARTIFACTS_PATH ?= e2e/artifacts
 E2E_STATE_SETUP_PATH ?= e2e/optimism/.devnet
 E2E_CONFIG_SETUP_PATH ?= e2e/optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
+FOUNDRY_ARTIFACTS_PATH ?= bindings/artifacts
+FOUNDRY_CACHE_PATH ?= bindings/cache
 
 .PHONY: test
 test:
@@ -45,6 +48,18 @@ install-buf:
 install-go-test-coverage:
 	go install github.com/vladopajic/go-test-coverage/v2@v2.9.0
 
+.PHONY: install-abi-gen
+install-abi-gen:
+	go install github.com/ethereum/go-ethereum/cmd/abigen@v1.10.25
+
+.PHONY: install-foundry
+install-foundry:
+	${SCRIPTS_PATH}/install-foundry.sh
+
+.PHONY: gen-bindings
+gen-bindings:
+	${SCRIPTS_PATH}/generate-bindings.sh
+
 $(COVER_OUT):
 	go test -short ./... -coverprofile=$@ -covermode=atomic -coverpkg=./...
 
@@ -62,6 +77,8 @@ clean:
 	if [ -d ${E2E_ARTIFACTS_PATH} ]; then rm -r ${E2E_ARTIFACTS_PATH}; fi
 	if [ -d ${E2E_STATE_SETUP_PATH} ]; then rm -r ${E2E_STATE_SETUP_PATH}; fi
 	if [ -f $(E2E_CONFIG_SETUP_PATH) ]; then rm $(E2E_CONFIG_SETUP_PATH); fi
+	if [ -d ${FOUNDRY_ARTIFACTS_PATH} ]; then rm -r ${FOUNDRY_ARTIFACTS_PATH}; fi
+	if [ -d ${FOUNDRY_CACHE_PATH} ]; then rm -r ${FOUNDRY_CACHE_PATH}; fi
 
 .PHONY: setup-e2e
 setup-e2e:

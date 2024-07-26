@@ -276,7 +276,7 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 		ExecutionPayload: &eth.ExecutionPayload{
 			ParentHash:   e.currentPayloadAttributes.ParentHash,
 			BlockNumber:  hexutil.Uint64(e.currentPayloadAttributes.Height),
-			BlockHash:    block.Hash(),
+			BlockHash:    block.Header.Hash,
 			FeeRecipient: e.currentPayloadAttributes.SuggestedFeeRecipient,
 			Timestamp:    hexutil.Uint64(e.currentPayloadAttributes.Timestamp),
 			PrevRandao:   e.currentPayloadAttributes.PrevRandao,
@@ -313,7 +313,7 @@ func (e *EngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStat
 			Status: eth.ExecutionInvalidBlockHash,
 		}, engine.InvalidParams.With(errors.New("block not found"))
 	}
-	headBlockHash := e.blockStore.HeadBlock().Hash()
+	headBlockHash := e.blockStore.HeadBlock().Header.Hash
 	return &eth.PayloadStatusV1{
 		Status:          eth.ExecutionValid,
 		LatestValidHash: &headBlockHash,

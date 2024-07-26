@@ -3,8 +3,10 @@ package e2e
 import (
 	"context"
 	"crypto/ecdsa"
+	"errors"
 	"fmt"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
@@ -23,6 +25,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer/e2e/url"
@@ -79,6 +82,14 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 		return err
 	}
 
+	// check balance of privKey - operator must hold an L1 balance to post state roots & batches
+	balance, err := l1.BalanceAt(ctx, crypto.PubkeyToAddress(op.privKey.PublicKey), nil)
+	if err != nil {
+		return fmt.Errorf("get balance: %v", err)
+	} else if balance.Cmp(big.NewInt(0)) == 0 {
+		return errors.New("stack operator balance is 0")
+	}
+
 	// Use the same tx manager config for the op-proposer and op-batcher.
 	defaults := txmgr.DefaultBatcherFlagValues
 	l1ChainID, err := l1.ChainID(ctx)
@@ -98,6 +109,7 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 		Signer: func(ctx context.Context, address common.Address, tx *ethtypes.Transaction) (*ethtypes.Transaction, error) {
 			return opcrypto.PrivateKeySignerFn(op.privKey, l1ChainID)(address, tx)
 		},
+		From: crypto.PubkeyToAddress(op.privKey.PublicKey),
 	}
 
 	if err := op.runProposer(ctx, env, l1, txManagerConfig); err != nil {
@@ -231,6 +243,7 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 	if err := batchSubmitter.StartBatchSubmitting(); err != nil {
 		return fmt.Errorf("start batch submitting: %v", err)
 	}
+
 	/*
 		There appears to be a deadlock in StopBatchSubmitting.
 		This was most likely fixed in a more recent OP-stack version, based on the significant diff.
