@@ -14,6 +14,8 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 )
 
+var ErrNotImplemented = errors.New("not implemented")
+
 type ProofProvider struct {
 }
 
@@ -40,9 +42,7 @@ func NewProofProvider() *ProofProvider {
 // TODO: replace this with a real implementation based on `ProofProvider` being supplied
 // with required data sources
 func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.Header, error) {
-	state, _ := state.New(common.Hash{}, nil, nil)
-
-	return state, types.Header{}, nil
+	return nil, types.Header{}, ErrNotImplemented
 }
 
 // decodeHash parses a hex-encoded 32-byte hash. The input may optionally
@@ -117,6 +117,9 @@ func (p *ProofProvider) GetProof(account common.Address, keys []string, blockNum
 	// a call against an internally exposed API - ec.c.CallContext(ctx, &res, "eth_getProof", account, keys, toBlockNumArg(blockNumber))
 	// is replaced with a call to an adjacent function implementation
 	res, err := p.getProof(account, keys, blockNumber)
+	if err != nil {
+		return nil, err
+	}
 
 	//////////
 	// End: Monomer-specific modifications
