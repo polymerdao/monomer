@@ -10,8 +10,7 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/trie"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
@@ -19,13 +18,13 @@ import (
 )
 
 type Builder struct {
-	mempool      *mempool.Pool
-	app          monomer.Application
-	blockStore   store.BlockStore
-	txStore      txstore.TxStore
-	eventBus     *bfttypes.EventBus
-	chainID      monomer.ChainID
-	ethStateTrie *trie.StateTrie
+	mempool    *mempool.Pool
+	app        monomer.Application
+	blockStore store.BlockStore
+	txStore    txstore.TxStore
+	eventBus   *bfttypes.EventBus
+	chainID    monomer.ChainID
+	ethstatedb state.Database
 }
 
 func New(
@@ -35,16 +34,16 @@ func New(
 	txStore txstore.TxStore,
 	eventBus *bfttypes.EventBus,
 	chainID monomer.ChainID,
-	ethStateTrie *trie.StateTrie,
+	ethstatedb state.Database,
 ) *Builder {
 	return &Builder{
-		mempool:      mpool,
-		app:          app,
-		blockStore:   blockStore,
-		txStore:      txStore,
-		eventBus:     eventBus,
-		chainID:      chainID,
-		ethStateTrie: ethStateTrie,
+		mempool:    mpool,
+		app:        app,
+		blockStore: blockStore,
+		txStore:    txStore,
+		eventBus:   eventBus,
+		chainID:    chainID,
+		ethstatedb: ethstatedb,
 	}
 }
 
@@ -137,11 +136,11 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		Height:     currentHeight + 1,
 		Time:       payload.Timestamp,
 		ParentHash: currentHead.Header.Hash,
-		AppHash:    crypto.Keccak256(info.GetLastBlockAppHash(), b.ethStateTrie.Hash().Bytes()),
 		GasLimit:   payload.GasLimit,
 	}
 
 	cometHeader := header.ToComet()
+	cometHeader.AppHash = info.GetLastBlockAppHash()
 	resp, err := b.app.FinalizeBlock(ctx, &abcitypes.RequestFinalizeBlock{
 		Txs:                txs.ToSliceOfBytes(),
 		Hash:               cometHeader.Hash(),
@@ -157,6 +156,17 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	if err != nil {
 		return nil, fmt.Errorf("commit: %v", err)
 	}
+
+	ethState, err := state.New(b.blockStore.HeadBlock().Header.StateRoot, b.ethstatedb, nil)
+	if err != nil {
+		return nil, fmt.Errorf("create ethereum state: %v", err)
+	}
+	// TODO: execute withdrawals
+	ethStateRoot, err := ethState.Commit(uint64(currentHeight+1), true)
+	if err != nil {
+		return nil, fmt.Errorf("commit ethereum state: %v", err)
+	}
+	header.StateRoot = ethStateRoot
 
 	block, err := monomer.MakeBlock(header, txs)
 	if err != nil {

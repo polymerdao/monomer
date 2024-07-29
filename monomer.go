@@ -11,7 +11,6 @@ import (
 	"time"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	bftbytes "github.com/cometbft/cometbft/libs/bytes"
 	bfttypes "github.com/cometbft/cometbft/types"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -50,10 +49,9 @@ type Header struct {
 	Height     int64       `json:"height"`
 	Time       uint64      `json:"time"`
 	ParentHash common.Hash `json:"parentHash"`
-	// state after txs from the *previous* block
-	AppHash  []byte      `json:"app_hash"`
-	GasLimit uint64      `json:"gasLimit"`
-	Hash     common.Hash `json:"hash"`
+	StateRoot  common.Hash `json:"stateRoot"`
+	GasLimit   uint64      `json:"gasLimit"`
+	Hash       common.Hash `json:"hash"`
 }
 
 func (h *Header) ToComet() *bfttypes.Header {
@@ -61,7 +59,7 @@ func (h *Header) ToComet() *bfttypes.Header {
 		ChainID: h.ChainID.String(),
 		Height:  h.Height,
 		Time:    time.Unix(int64(h.Time), 0),
-		AppHash: h.AppHash,
+		AppHash: h.StateRoot.Bytes(),
 	}
 }
 
@@ -105,7 +103,7 @@ func (b *Block) ToEth() (*ethtypes.Block, error) {
 	return ethtypes.NewBlock(
 		&ethtypes.Header{
 			ParentHash:      b.Header.ParentHash,
-			Root:            common.BytesToHash(b.Header.AppHash), // TODO actually take the keccak
+			Root:            b.Header.StateRoot,
 			Number:          big.NewInt(b.Header.Height),
 			GasLimit:        b.Header.GasLimit,
 			MixDigest:       common.Hash{},
@@ -128,7 +126,7 @@ func (b *Block) ToCometLikeBlock() *bfttypes.Block {
 			ChainID: b.Header.ChainID.String(),
 			Time:    time.Unix(int64(b.Header.Time), 0),
 			Height:  b.Header.Height,
-			AppHash: bftbytes.HexBytes(b.Header.AppHash),
+			AppHash: b.Header.StateRoot.Bytes(),
 		},
 	}
 }

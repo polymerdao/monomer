@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
@@ -227,12 +226,8 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	env.DeferErr("close tx db", txdb.Close)
 	mempooldb := dbm.NewMemDB()
 	env.DeferErr("close mempool db", mempooldb.Close)
-	rawstatedb := rawdb.NewMemoryDatabase()
-	env.DeferErr("close eth state db", rawstatedb.Close)
-	ethstatedb, err := state.New(types.EmptyRootHash, state.NewDatabase(rawstatedb), nil)
-	if err != nil {
-		return fmt.Errorf("create eth state db: %v", err)
-	}
+	ethstatedb := rawdb.NewMemoryDatabase()
+	env.DeferErr("close eth state db", ethstatedb.Close)
 	n := node.New(
 		app,
 		&genesis.Genesis{

@@ -38,23 +38,12 @@ func NewMemDB(t *testing.T) dbm.DB {
 	return db
 }
 
-func NewEthStateDB(t *testing.T) *state.StateDB {
+func NewEthStateDB(t *testing.T) state.Database {
 	rawstatedb := rawdb.NewMemoryDatabase()
 	t.Cleanup(func() {
 		require.NoError(t, rawstatedb.Close())
 	})
-	ethstatedb, err := state.New(gethtypes.EmptyRootHash, state.NewDatabase(rawstatedb), nil)
-	require.NoError(t, err)
-	return ethstatedb
-}
-
-func NewEthStateTrie(t *testing.T) *trie.StateTrie {
-	ethStateTrie, err := trie.NewStateTrie(
-		trie.StateTrieID(gethtypes.EmptyRootHash),
-		NewEthStateDB(t).Database().TrieDB(),
-	)
-	require.NoError(t, err)
-	return ethStateTrie
+	return state.NewDatabase(rawstatedb)
 }
 
 // GenerateEthTxs generates an L1 attributes tx, deposit tx, and cosmos tx packed in an Ethereum transaction.

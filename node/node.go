@@ -16,9 +16,8 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum/go-ethereum/core/state"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/ethereum/go-ethereum/trie"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
@@ -47,7 +46,7 @@ type Node struct {
 	blockdb        dbm.DB
 	txdb           cometdb.DB
 	mempooldb      dbm.DB
-	ethstatedb     *state.StateDB
+	ethstatedb     state.Database
 	prometheusCfg  *config.InstrumentationConfig
 	eventListener  EventListener
 }
@@ -60,7 +59,7 @@ func New(
 	blockdb,
 	mempooldb dbm.DB,
 	txdb cometdb.DB,
-	ethstatedb *state.StateDB,
+	ethstatedb ethdb.Database,
 	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
 ) *Node {
@@ -71,7 +70,7 @@ func New(
 		cometHTTPAndWS: cometHTTPAndWS,
 		blockdb:        blockdb,
 		txdb:           txdb,
-		ethstatedb:     ethstatedb,
+		ethstatedb:     state.NewDatabase(ethstatedb),
 		mempooldb:      mempooldb,
 		prometheusCfg:  prometheusCfg,
 		eventListener:  eventListener,
@@ -79,14 +78,8 @@ func New(
 }
 
 func (n *Node) Run(ctx context.Context, env *environment.Env) error {
-	ethStateTrieID := trie.StateTrieID(gethtypes.EmptyRootHash)
-	ethStateTrie, err := trie.NewStateTrie(ethStateTrieID, n.ethstatedb.Database().TrieDB())
-	if err != nil {
-		return fmt.Errorf("new eth state trie: %v", err)
-	}
-
 	blockStore := store.NewBlockStore(n.blockdb)
-	if err := prepareBlockStoreAndApp(ctx, n.genesis, blockStore, ethStateTrie, n.app); err != nil {
+	if err := prepareBlockStoreAndApp(ctx, n.genesis, blockStore, n.ethstatedb, n.app); err != nil {
 		return err
 	}
 	txStore := txstore.NewTxStore(n.txdb)
@@ -109,7 +102,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		{
 			Namespace: "engine",
 			Service: engine.NewEngineAPI(
-				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID, ethStateTrie),
+				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID, n.ethstatedb),
 				n.app,
 				blockStore,
 				engineMetrics,
@@ -192,7 +185,7 @@ func prepareBlockStoreAndApp(
 	ctx context.Context,
 	g *genesis.Genesis,
 	blockStore store.BlockStore,
-	ethStateTrie *trie.StateTrie,
+	ethstatedb state.Database,
 	app monomer.Application,
 ) error {
 	// Get blockStoreHeight and appHeight.
@@ -217,9 +210,10 @@ func prepareBlockStoreAndApp(
 	} else if appHeight < blockStoreHeight {
 		return fmt.Errorf("app height %d is behind block store height %d", appHeight, blockStoreHeight)
 	}
+
 	// Commit genesis.
 	if blockStoreHeight == 0 { // We know appHeight == blockStoreHeight at this point.
-		if err := g.Commit(ctx, app, blockStore, ethStateTrie.Hash()); err != nil {
+		if err := g.Commit(ctx, app, blockStore, ethstatedb); err != nil {
 			return fmt.Errorf("commit genesis: %v", err)
 		}
 	}

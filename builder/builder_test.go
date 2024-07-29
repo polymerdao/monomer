@@ -8,7 +8,6 @@ import (
 	cmtpubsub "github.com/cometbft/cometbft/libs/pubsub"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
@@ -85,8 +84,7 @@ func TestBuild(t *testing.T) {
 			}
 			blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 			txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
-			ethStateTrie := testutils.NewEthStateTrie(t)
-			ethStateRoot := ethStateTrie.Hash().Bytes()
+			ethstatedb := testutils.NewEthStateDB(t)
 
 			var chainID monomer.ChainID
 			app := testapp.NewTest(t, chainID.String())
@@ -105,7 +103,7 @@ func TestBuild(t *testing.T) {
 			subscription, err := eventBus.Subscribe(context.Background(), "test", &queryAll{}, subChannelLen)
 			require.NoError(t, err)
 
-			require.NoError(t, g.Commit(context.Background(), app, blockStore, ethStateRoot))
+			require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
 
 			b := builder.New(
 				pool,
@@ -114,7 +112,7 @@ func TestBuild(t *testing.T) {
 				txStore,
 				eventBus,
 				g.ChainID,
-				ethStateTrie,
+				ethstatedb,
 			)
 
 			payload := &builder.Payload{
@@ -141,7 +139,7 @@ func TestBuild(t *testing.T) {
 				}
 			}
 
-			// Block store.
+			// Block store and eth state db.
 			genesisBlock := blockStore.BlockByNumber(preBuildInfo.GetLastBlockHeight())
 			require.NotNil(t, genesisBlock)
 			gotBlock := blockStore.HeadBlock()
@@ -149,13 +147,12 @@ func TestBuild(t *testing.T) {
 			if !test.noTxPool {
 				allTxs = append(allTxs, mempoolTxs...)
 			}
-			wantAppHash := crypto.Keccak256(preBuildInfo.GetLastBlockAppHash(), ethStateRoot)
 			wantBlock, err := monomer.MakeBlock(&monomer.Header{
 				ChainID:    g.ChainID,
 				Height:     postBuildInfo.GetLastBlockHeight(),
 				Time:       payload.Timestamp,
 				ParentHash: genesisBlock.Header.Hash,
-				AppHash:    wantAppHash,
+				StateRoot:  genesisBlock.Header.StateRoot,
 				GasLimit:   payload.GasLimit,
 			}, bfttypes.ToTxs(allTxs))
 			require.NoError(t, err)
@@ -199,8 +196,7 @@ func TestRollback(t *testing.T) {
 	pool := mempool.New(testutils.NewMemDB(t))
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
-	ethStateTrie := testutils.NewEthStateTrie(t)
-	ethStateRoot := ethStateTrie.Hash().Bytes()
+	ethstatedb := testutils.NewEthStateDB(t)
 
 	var chainID monomer.ChainID
 	app := testapp.NewTest(t, chainID.String())
@@ -215,7 +211,7 @@ func TestRollback(t *testing.T) {
 		require.NoError(t, eventBus.Stop())
 	})
 
-	require.NoError(t, g.Commit(context.Background(), app, blockStore, ethStateRoot))
+	require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
 	genesisBlock := blockStore.HeadBlock()
 
 	b := builder.New(
@@ -225,7 +221,7 @@ func TestRollback(t *testing.T) {
 		txStore,
 		eventBus,
 		g.ChainID,
-		ethStateTrie,
+		ethstatedb,
 	)
 
 	kvs := map[string]string{

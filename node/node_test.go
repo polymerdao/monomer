@@ -11,8 +11,6 @@ import (
 	"github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
@@ -49,9 +47,10 @@ func TestRun(t *testing.T) {
 	defer func() {
 		require.NoError(t, mempooldb.Close())
 	}()
-	rawstatedb := rawdb.NewMemoryDatabase()
-	statedb, err := state.New(types.EmptyRootHash, state.NewDatabase(rawstatedb), nil)
-	require.NoError(t, err)
+	ethstatedb := rawdb.NewMemoryDatabase()
+	defer func() {
+		require.NoError(t, ethstatedb.Close())
+	}()
 	n := node.New(
 		app,
 		&genesis.Genesis{
@@ -63,7 +62,7 @@ func TestRun(t *testing.T) {
 		blockdb,
 		mempooldb,
 		txdb,
-		statedb,
+		ethstatedb,
 		&config.InstrumentationConfig{
 			Prometheus:           true,
 			PrometheusListenAddr: prometheusHTTPAddress,
