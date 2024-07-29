@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	"github.com/cometbft/cometbft/config"
@@ -15,6 +16,7 @@ import (
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -46,7 +48,6 @@ type Stack struct {
 	deployConfigDir  string
 	l1stateDumpDir   string
 	eventListener    EventListener
-	l1BlockTime      uint64
 	prometheusCfg    *config.InstrumentationConfig
 }
 
@@ -63,7 +64,6 @@ func New(
 	opNodeURL *url.URL,
 	deployConfigDir string,
 	l1stateDumpDir string,
-	l1BlockTime uint64,
 	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
 ) *Stack {
@@ -74,7 +74,6 @@ func New(
 		deployConfigDir:  deployConfigDir,
 		l1stateDumpDir:   l1stateDumpDir,
 		eventListener:    eventListener,
-		l1BlockTime:      l1BlockTime,
 		prometheusCfg:    prometheusCfg,
 	}
 }
@@ -92,7 +91,17 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("new deploy config: %v", err)
 	}
 	deployConfig.SetDeployments(l1Deployments)
+	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	deployConfig.L1UseClique = false // Allows node to produce blocks without addition config. Clique is a PoA config.
+	// SequencerWindowSize is usually set to something in the hundreds or thousands.
+	// That means we don't ever perform unsafe block consolidation (i.e., the safe head never advances) before the test is complete.
+	// To force this edge case to occur in the test, we decrease the SWS.
+	deployConfig.SequencerWindowSize = 4
+	// Set low ChannelTimeout to ensure the batcher opens and closes a channel in the same block to avoid reorgs in
+	// unsafe block consolidation. Note that at the time of this writing, we're still seeing reorgs, so this likely isn't the silver bullet.
+	deployConfig.ChannelTimeout = 1
+	deployConfig.L1BlockTime = 2
+	deployConfig.L2BlockTime = 1
 
 	var auxState auxDump
 
@@ -141,7 +150,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client, l1HTTPendpoint, err := gethdevnet(s.l1BlockTime, l1genesis)
+	l1client, l1HTTPendpoint, err := gethdevnet(deployConfig.L1BlockTime, l1genesis)
 	if err != nil {
 		return nil, fmt.Errorf("ethdevnet: %v", err)
 	}

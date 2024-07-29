@@ -48,8 +48,6 @@ func TestE2E(t *testing.T) {
 		t.Skip("skipping e2e tests in short mode")
 	}
 
-	const l1BlockTime = uint64(1) // We would want 250ms instead, but blocktimes are uints in seconds.
-
 	deployConfigDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/deploy-config")
 	require.NoError(t, err)
 	l1StateDumpDir, err := filepath.Abs("./optimism/.devnet")
@@ -74,7 +72,7 @@ func TestE2E(t *testing.T) {
 		Prometheus: false,
 	}
 
-	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, l1BlockTime, prometheusCfg, &e2e.SelectiveListener{
+	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, prometheusCfg, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {
 			require.NoError(t, opLogger.Handle(context.Background(), r))
 		},
@@ -175,12 +173,12 @@ func TestE2E(t *testing.T) {
 	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
 	t.Log("Monomer can reject malformed cometbft txs")
 
-	checkTicker := time.NewTicker(time.Duration(l1BlockTime) * time.Second)
+	checkTicker := time.NewTicker(250 * time.Millisecond)
 	defer checkTicker.Stop()
 	for range checkTicker.C {
-		latestBlock, err := monomerClient.BlockByNumber(context.Background(), nil)
+		block, err := monomerClient.BlockByNumber(ctx, nil)
 		require.NoError(t, err)
-		if latestBlock.NumberU64() >= targetHeight {
+		if block.NumberU64() >= targetHeight {
 			break
 		}
 	}
