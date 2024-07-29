@@ -161,26 +161,6 @@ func (p *ProofProvider) GetProof(account common.Address, keys []string, blockNum
 // https://github.com/ethereum-optimism/op-geth/blob/f2e69450c6eec9c35d56af91389a1c47737206ca/internal/ethapi/api.go#L708
 // (HEAD @ 2024-07-29)
 func (p *ProofProvider) getProof(address common.Address, storageKeys []string, blockNumber *big.Int) (*accountResult, error) {
-	// header, err := headerByNumberOrHash(ctx, s.b, blockNrOrHash)
-	// if err != nil {
-	// 	return nil, err
-	// }
-
-	//  bedrock checks not relevant
-	//
-	// if s.b.ChainConfig().IsOptimismPreBedrock(header.Number) {
-	// 	if s.b.HistoricalRPCService() != nil {
-	// 		var res accountResult
-	// 		err := s.b.HistoricalRPCService().CallContext(ctx, &res, "eth_getProof", address, storageKeys, blockNrOrHash)
-	// 		if err != nil {
-	// 			return nil, fmt.Errorf("historical backend error: %w", err)
-	// 		}
-	// 		return &res, nil
-	// 	} else {
-	// 		return nil, rpc.ErrNoHistoricalFallback
-	// 	}
-	// }
-
 	var (
 		keys         = make([]common.Hash, len(storageKeys))
 		keyLengths   = make([]int, len(storageKeys))
