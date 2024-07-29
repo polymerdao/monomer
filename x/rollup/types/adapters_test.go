@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"testing"
 
+	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
@@ -29,24 +30,26 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 
 	t.Run("non-zero txs without error", func(t *testing.T) {
 		testTable := []struct {
-			name   string
-			inners []ethtypes.TxData
+			name              string
+			depNum, nonDepNum int
 		}{
 			{
 				name:   "DepositTx",
-				inners: generateMultipleDepositTx(r, 1),
+				depNum: 1,
 			},
 			{
 				name:   "Multiple DepositTxs",
-				inners: generateMultipleDepositTx(r, 3),
+				depNum: 3,
 			},
 			{
-				name:   "DepositTx + AccessListTx",
-				inners: []ethtypes.TxData{generateDepositTx(r), generateDynamicFeeTx(r)},
+				name:      "DepositTx + AccessListTx",
+				depNum:    1,
+				nonDepNum: 1,
 			},
 			{
-				name:   "Multiple DepositTxs + DynamicFeeTxs",
-				inners: append(generateMultipleDepositTx(r, 3), generateMultipleDynamicFeeTx(r, 3)...),
+				name:      "Multiple DepositTxs + DynamicFeeTxs",
+				depNum:    3,
+				nonDepNum: 3,
 			},
 		}
 
@@ -56,12 +59,11 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 
 		for _, tc := range testTable {
 			t.Run(tc.name, func(t *testing.T) {
-				ethTxs := make([]hexutil.Bytes, len(tc.inners))
-				transactions := make([]*ethtypes.Transaction, len(tc.inners))
+				ethTxs := make([]hexutil.Bytes, tc.depNum+tc.nonDepNum)
+				transactions := generateEthTransactions(tc.depNum, tc.nonDepNum, r)
 
 				depositTxsNum := 0
-				for i, inner := range tc.inners {
-					transactions[i] = ethtypes.NewTx(inner)
+				for i := range transactions {
 					txBinary, err := transactions[i].MarshalBinary()
 					require.NoError(t, err)
 					ethTxs[i] = txBinary
@@ -110,7 +112,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			assert.ErrorContains(t, err, "unmarshal binary")
 		})
 		t.Run("zero deposit txs", func(t *testing.T) {
-			inner := generateDynamicFeeTx(r)
+			inner := generateDynamicFeeInner(r)
 			transaction := ethtypes.NewTx(inner)
 			txBytes, err := transaction.MarshalBinary()
 			require.NoError(t, err)
@@ -127,12 +129,12 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			// TODO: Implement this test case
 		})
 		t.Run("Unpack Cosmos txs error", func(t *testing.T) {
-			depInner := generateDepositTx(r)
+			depInner := generateDepositInner(r)
 			depTx := ethtypes.NewTx(depInner)
 			depTxBytes, err := depTx.MarshalBinary()
 			require.NoError(t, err)
 
-			nonDepInner := generateDynamicFeeTx(r)
+			nonDepInner := generateDynamicFeeInner(r)
 			nonDepTx := ethtypes.NewTx(nonDepInner)
 			nonDepTxBytes, err := nonDepTx.MarshalBinary()
 			require.NoError(t, err)
@@ -144,15 +146,35 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	})
 }
 
-func generateMultipleDepositTx(r *rand.Rand, n int) []ethtypes.TxData {
+func generateEthTransactions(depNum, nonDepNum int, r *rand.Rand) []*ethtypes.Transaction {
+	depInns := generateMultipleDepositInners(r, depNum)
+	nonDepInns := generateMultipleDynamicFeeInners(r, nonDepNum)
+
+	txs := make([]*ethtypes.Transaction, 0, depNum+nonDepNum)
+	for _, depInn := range depInns {
+		tx := ethtypes.NewTx(depInn)
+		tx.RollupCostData()
+		txs = append(txs, tx)
+	}
+
+	for _, nonDepInn := range nonDepInns {
+		tx := ethtypes.NewTx(nonDepInn)
+		tx.RollupCostData()
+		txs = append(txs, tx)
+	}
+
+	return txs
+}
+
+func generateMultipleDepositInners(r *rand.Rand, n int) []ethtypes.TxData {
 	transactions := make([]ethtypes.TxData, n)
 	for i := 0; i < n; i++ {
-		transactions[i] = generateDepositTx(r)
+		transactions[i] = generateDepositInner(r)
 	}
 	return transactions
 }
 
-func generateDepositTx(r *rand.Rand) ethtypes.TxData {
+func generateDepositInner(r *rand.Rand) ethtypes.TxData {
 	toAddress := generateAddress(r)
 	return &ethtypes.DepositTx{
 		SourceHash:          generateHash(r),
@@ -166,15 +188,15 @@ func generateDepositTx(r *rand.Rand) ethtypes.TxData {
 	}
 }
 
-func generateMultipleDynamicFeeTx(r *rand.Rand, n int) []ethtypes.TxData {
+func generateMultipleDynamicFeeInners(r *rand.Rand, n int) []ethtypes.TxData {
 	transactions := make([]ethtypes.TxData, n)
 	for i := 0; i < n; i++ {
-		transactions[i] = generateDynamicFeeTx(r)
+		transactions[i] = generateDynamicFeeInner(r)
 	}
 	return transactions
 }
 
-func generateDynamicFeeTx(r *rand.Rand) ethtypes.TxData {
+func generateDynamicFeeInner(r *rand.Rand) ethtypes.TxData {
 	toAddress := generateAddress(r)
 	return &ethtypes.DynamicFeeTx{
 		ChainID:    generateBigInt(r),
@@ -210,4 +232,93 @@ func generateData(r *rand.Rand) []byte {
 		data[i] = byte(r.Intn(256))
 	}
 	return data
+}
+
+func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
+	src := rand.NewSource(0)
+	r := rand.New(src)
+
+	t.Run("Zero txs", func(t *testing.T) {
+		txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(bfttypes.Txs{})
+		require.NoError(t, err)
+		assert.Equal(t, 0, len(txs))
+	})
+
+	t.Run("non-zero txs without error", func(t *testing.T) {
+		testTable := []struct {
+			name              string
+			depNum, nonDepNum int
+		}{
+			{
+				name:   "DepositTx",
+				depNum: 1,
+			},
+			{
+				name:   "Multiple DepositTxs",
+				depNum: 3,
+			},
+			{
+				name:      "DepositTx + AccessListTx",
+				depNum:    1,
+				nonDepNum: 1,
+			},
+			{
+				name:      "Multiple DepositTxs + DynamicFeeTxs",
+				depNum:    3,
+				nonDepNum: 3,
+			},
+		}
+
+		for _, tc := range testTable {
+			t.Run(tc.name, func(t *testing.T) {
+				ethTxs := generateEthTransactions(tc.depNum, tc.nonDepNum, r)
+				cosmosSDKTxs := generateCosmosSDKTx(t, tc.depNum, tc.nonDepNum, ethTxs)
+				adoptedTxs, err := rolluptypes.AdaptCosmosTxsToEthTxs(cosmosSDKTxs)
+				require.NoError(t, err)
+				assert.Equal(t, len(ethTxs), len(adoptedTxs))
+				for i := range adoptedTxs {
+					ethTxs[0].SetTime(adoptedTxs[0].Time())
+					assert.Equal(t, ethTxs[i].Data(), adoptedTxs[i].Data())
+					// TODO: Incorrect adaptation of other fields
+				}
+			})
+		}
+	})
+}
+
+func generateCosmosSDKTx(t *testing.T, depTxsNum, nonDepTxsNum int, ethTxs []*ethtypes.Transaction) bfttypes.Txs {
+	t.Helper()
+	ethTxsBytes := make([][]byte, len(ethTxs))
+	for i, tx := range ethTxs {
+		tx.RollupCostData()
+		txBytes, err := tx.MarshalBinary()
+		require.NoError(t, err)
+		ethTxsBytes[i] = txBytes
+	}
+
+	depositTxsBytes := ethTxsBytes[:depTxsNum]
+
+	msgAny, err := codectypes.NewAnyWithValue(&rollupv1.ApplyL1TxsRequest{
+		TxBytes: depositTxsBytes,
+	})
+	require.NoError(t, err)
+
+	depositSDKMsgBytes, err := (&sdktx.Tx{
+		Body: &sdktx.TxBody{
+			Messages: []*codectypes.Any{msgAny},
+		},
+	}).Marshal()
+	require.NoError(t, err)
+
+	cosmosTxs := make(bfttypes.Txs, 0, 1+nonDepTxsNum)
+	cosmosTxs = append(cosmosTxs, depositSDKMsgBytes)
+
+	for _, cosmosTx := range ethTxsBytes[depTxsNum:] {
+		var tx ethtypes.Transaction
+		err := tx.UnmarshalBinary(cosmosTx)
+		require.NoError(t, err)
+		cosmosTxs = append(cosmosTxs, tx.Data())
+	}
+
+	return cosmosTxs
 }
