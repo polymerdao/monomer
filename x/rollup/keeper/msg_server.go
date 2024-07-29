@@ -151,23 +151,6 @@ func (k *Keeper) SetL1BlockInfo(ctx *sdk.Context, info derive.L1BlockInfo) error
 	return nil
 }
 
-// GetL1BlockInfo gets the L1 block info from the app state
-func (k *Keeper) GetL1BlockInfo(ctx context.Context) (*derive.L1BlockInfo, error) {
-	// TODO get/set as protobuf
-	infoBytes, err := k.storeService.OpenKVStore(ctx).Get([]byte(types.KeyL1BlockInfo))
-	if err != nil {
-		return nil, types.WrapError(err, "get")
-	}
-	if infoBytes == nil {
-		return nil, types.WrapError(types.ErrL1BlockInfo, "not found")
-	}
-	info := new(derive.L1BlockInfo)
-	if err := json.Unmarshal(infoBytes, &info); err != nil {
-		return nil, types.WrapError(err, "unmarshal L1 block info")
-	}
-	return info, nil
-}
-
 // SetL1BlockHistory sets the L1 block info to the app state, with the key being the blockhash, so we can look it up easily later.
 func (k *Keeper) SetL1BlockHistory(ctx context.Context, info *derive.L1BlockInfo) error {
 	infoBytes, err := json.Marshal(info)
