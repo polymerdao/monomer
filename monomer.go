@@ -41,7 +41,11 @@ func (id ChainID) String() string {
 }
 
 func (id ChainID) HexBig() *hexutil.Big {
-	return (*hexutil.Big)(new(big.Int).SetUint64(uint64(id)))
+	return (*hexutil.Big)(id.Big())
+}
+
+func (id ChainID) Big() *big.Int {
+	return new(big.Int).SetUint64(uint64(id))
 }
 
 type Header struct {
@@ -100,7 +104,7 @@ func (b *Block) ToEth() (*ethtypes.Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("adapt txs: %v", err)
 	}
-	return ethtypes.NewBlock(
+	return ethtypes.NewBlockWithWithdrawals(
 		&ethtypes.Header{
 			ParentHash:      b.Header.ParentHash,
 			Root:            b.Header.StateRoot,
@@ -116,6 +120,9 @@ func (b *Block) ToEth() (*ethtypes.Block, error) {
 		txs,
 		nil,
 		[]*ethtypes.Receipt{},
+		// op-node version requires non-nil withdrawals when it derives attributes from L1,
+		// so unsafe block consolidation will fail if we have nil withdrawals here.
+		[]*ethtypes.Withdrawal{},
 		trie.NewStackTrie(nil),
 	), nil
 }

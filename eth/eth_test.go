@@ -1,6 +1,7 @@
 package eth_test
 
 import (
+	"math/big"
 	"testing"
 
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
@@ -72,7 +73,8 @@ func TestGetBlockByNumber(t *testing.T) {
 				"exclude txs": false,
 			} {
 				t.Run(description, func(t *testing.T) {
-					s := eth.NewBlock(blockStore, eth.NewNoopMetrics())
+					chainID := new(big.Int)
+					s := eth.NewBlock(blockStore, chainID, eth.NewNoopMetrics())
 					got, err := s.GetBlockByNumber(test.id, fullTxs)
 					if test.want == nil {
 						require.ErrorIs(t, err, ethereum.NotFound)
@@ -80,7 +82,7 @@ func TestGetBlockByNumber(t *testing.T) {
 						return
 					}
 					require.NoError(t, err)
-					want, err := ethapi.SimpleRPCMarshalBlock(test.want, fullTxs)
+					want, err := ethapi.SimpleRPCMarshalBlock(test.want, fullTxs, chainID)
 					require.NoError(t, err)
 					require.Equal(t, want, got)
 				})
@@ -100,12 +102,13 @@ func TestGetBlockByHash(t *testing.T) {
 	} {
 		t.Run(description, func(t *testing.T) {
 			t.Run("block hash 1 exists", func(t *testing.T) {
-				e := eth.NewBlock(blockStore, eth.NewNoopMetrics())
+				chainID := new(big.Int)
+				e := eth.NewBlock(blockStore, chainID, eth.NewNoopMetrics())
 				got, err := e.GetBlockByHash(block.Header.Hash, fullTx)
 				require.NoError(t, err)
 				ethBlock, err := block.ToEth()
 				require.NoError(t, err)
-				want, err := ethapi.SimpleRPCMarshalBlock(ethBlock, fullTx)
+				want, err := ethapi.SimpleRPCMarshalBlock(ethBlock, fullTx, chainID)
 				require.NoError(t, err)
 				require.Equal(t, want, got)
 			})
@@ -116,7 +119,8 @@ func TestGetBlockByHash(t *testing.T) {
 				"exclude txs": false,
 			} {
 				t.Run(description, func(t *testing.T) {
-					e := eth.NewBlock(blockStore, eth.NewNoopMetrics())
+					chainID := new(big.Int)
+					e := eth.NewBlock(blockStore, chainID, eth.NewNoopMetrics())
 					got, err := e.GetBlockByHash(common.Hash{}, inclTx)
 					require.Nil(t, got)
 					require.ErrorIs(t, err, ethereum.NotFound)

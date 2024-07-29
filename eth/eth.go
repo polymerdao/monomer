@@ -2,6 +2,7 @@ package eth
 
 import (
 	"fmt"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum"
@@ -32,12 +33,14 @@ func (e *ChainID) ChainId() *hexutil.Big { //nolint:stylecheck
 
 type Block struct {
 	blockStore store.BlockStoreReader
+	chainID    *big.Int
 	metrics    Metrics
 }
 
-func NewBlock(blockStore store.BlockStoreReader, metrics Metrics) *Block {
+func NewBlock(blockStore store.BlockStoreReader, chainID *big.Int, metrics Metrics) *Block {
 	return &Block{
 		blockStore: blockStore,
+		chainID:    chainID,
 		metrics:    metrics,
 	}
 }
@@ -49,7 +52,7 @@ func (e *Block) GetBlockByNumber(id BlockID, fullTx bool) (map[string]any, error
 	if block == nil {
 		return nil, ethereum.NotFound
 	}
-	return toRPCBlock(block, fullTx)
+	return e.toRPCBlock(block, fullTx)
 }
 
 func (e *Block) GetBlockByHash(hash common.Hash, fullTx bool) (map[string]any, error) {
@@ -59,15 +62,15 @@ func (e *Block) GetBlockByHash(hash common.Hash, fullTx bool) (map[string]any, e
 	if block == nil {
 		return nil, ethereum.NotFound
 	}
-	return toRPCBlock(block, fullTx)
+	return e.toRPCBlock(block, fullTx)
 }
 
-func toRPCBlock(block *monomer.Block, fullTx bool) (map[string]any, error) {
+func (e *Block) toRPCBlock(block *monomer.Block, fullTx bool) (map[string]any, error) {
 	ethBlock, err := block.ToEth()
 	if err != nil {
 		return nil, fmt.Errorf("convert to eth block: %v", err)
 	}
-	rpcBlock, err := ethapi.SimpleRPCMarshalBlock(ethBlock, fullTx)
+	rpcBlock, err := ethapi.SimpleRPCMarshalBlock(ethBlock, fullTx, e.chainID)
 	if err != nil {
 		return nil, fmt.Errorf("rpc marshal block: %v", err)
 	}
