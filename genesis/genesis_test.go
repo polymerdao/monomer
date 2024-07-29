@@ -80,6 +80,8 @@ func TestCommit(t *testing.T) {
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Unsafe))
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Safe))
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Finalized))
+
+			// TODO: add test assertions to verify the withdrawals trie is properly updated
 		})
 	}
 }

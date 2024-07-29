@@ -159,6 +159,8 @@ func TestBuild(t *testing.T) {
 			require.Equal(t, wantBlock, builtBlock)
 			require.Equal(t, wantBlock, gotBlock)
 
+			// TODO: add test assertions to verify the withdrawals trie is properly updated
+
 			// Tx store and event bus.
 			for i, tx := range wantBlock.Txs {
 				checkTxResult := func(got abcitypes.TxResult) {

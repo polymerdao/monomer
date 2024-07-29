@@ -162,7 +162,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		return nil, fmt.Errorf("create ethereum state: %v", err)
 	}
 	// TODO: execute withdrawals
-	ethStateRoot, err := ethState.Commit(uint64(currentHeight+1), true)
+	ethStateRoot, err := ethState.Commit(uint64(header.Height), true)
 	if err != nil {
 		return nil, fmt.Errorf("commit ethereum state: %v", err)
 	}
