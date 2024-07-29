@@ -195,7 +195,16 @@ func (p *ProofProvider) getProof(address common.Address, storageKeys []string, b
 		}
 	}
 
+	//////////
+	// Start: Monomer-specific modifications
+	//////////
+
+	// the internal geth mechanism contained different hooks into block state data
 	statedb, header, err := p.getState(blockNumber)
+
+	//////////
+	// End: Monomer-specific modifications
+	//////////
 
 	if statedb == nil || err != nil {
 		return nil, err
