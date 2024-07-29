@@ -327,8 +327,6 @@ require (
 
 replace github.com/ethereum/go-ethereum => github.com/joshklop/op-geth v0.0.0-20240515205036-e3b990384a74
 
-replace github.com/ethereum-optimism/optimism => ./e2e/optimism
-
 go 1.22.0
 
 toolchain go1.22.2
