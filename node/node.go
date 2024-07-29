@@ -108,9 +108,11 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 			Service: struct {
 				*eth.ChainID
 				*eth.Block
+				*eth.ProofProvider
 			}{
-				ChainID: eth.NewChainID(n.genesis.ChainID.HexBig(), ethMetrics),
-				Block:   eth.NewBlock(blockStore, ethMetrics),
+				ChainID:       eth.NewChainID(n.genesis.ChainID.HexBig(), ethMetrics),
+				Block:         eth.NewBlock(blockStore, ethMetrics),
+				ProofProvider: eth.NewProofProvider(),
 			},
 		},
 	} {
