@@ -9,7 +9,7 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/polymerdao/monomer/gen/rollup/v1"
+	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 )
 
 var errL1AttributesNotFound = errors.New("L1 attributes tx not found")
@@ -43,7 +43,8 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 		depositTxsBytes = append(depositTxsBytes, depositTx)
 	}
 	msgAny, err := codectypes.NewAnyWithValue(&rollupv1.ApplyL1TxsRequest{
-		TxBytes: depositTxsBytes,
+		TxBytes:     depositTxsBytes,
+		FromAddress: "0x" + hexutil.Encode(ethTxs[0][0:20]), // todo
 	})
 	if err != nil {
 		return nil, fmt.Errorf("new any with value: %v", err)
