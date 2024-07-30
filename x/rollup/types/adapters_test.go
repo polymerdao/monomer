@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
+	"github.com/polymerdao/monomer/testutils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -60,7 +61,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		for _, tc := range testTable {
 			t.Run(tc.name, func(t *testing.T) {
 				ethTxs := make([]hexutil.Bytes, tc.depNum+tc.nonDepNum)
-				transactions := generateEthTransactions(tc.depNum, tc.nonDepNum, r)
+				transactions := generateEthTransactions(t, tc.depNum, tc.nonDepNum)
 
 				depositTxsNum := 0
 				for i := range transactions {
@@ -146,32 +147,19 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	})
 }
 
-func generateEthTransactions(depNum, nonDepNum int, r *rand.Rand) []*ethtypes.Transaction {
-	depInns := generateMultipleDepositInners(r, depNum)
-	nonDepInns := generateMultipleDynamicFeeInners(r, nonDepNum)
-
-	txs := make([]*ethtypes.Transaction, 0, depNum+nonDepNum)
-	for _, depInn := range depInns {
-		tx := ethtypes.NewTx(depInn)
-		tx.RollupCostData()
-		txs = append(txs, tx)
-	}
-
-	for _, nonDepInn := range nonDepInns {
-		tx := ethtypes.NewTx(nonDepInn)
-		tx.RollupCostData()
-		txs = append(txs, tx)
+func generateEthTransactions(t *testing.T, depNum, nonDepNum int) []*ethtypes.Transaction {
+	txs := make([]*ethtypes.Transaction, depNum+nonDepNum)
+	for i := range max(depNum, nonDepNum) {
+		_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
+		if i < depNum {
+			txs[i] = depositTx
+		}
+		if i < nonDepNum {
+			txs[depNum+i] = cosmosEthTx
+		}
 	}
 
 	return txs
-}
-
-func generateMultipleDepositInners(r *rand.Rand, n int) []ethtypes.TxData {
-	transactions := make([]ethtypes.TxData, n)
-	for i := 0; i < n; i++ {
-		transactions[i] = generateDepositInner(r)
-	}
-	return transactions
 }
 
 func generateDepositInner(r *rand.Rand) ethtypes.TxData {
@@ -186,14 +174,6 @@ func generateDepositInner(r *rand.Rand) ethtypes.TxData {
 		Mint:                generateBigInt(r),
 		IsSystemTransaction: false,
 	}
-}
-
-func generateMultipleDynamicFeeInners(r *rand.Rand, n int) []ethtypes.TxData {
-	transactions := make([]ethtypes.TxData, n)
-	for i := 0; i < n; i++ {
-		transactions[i] = generateDynamicFeeInner(r)
-	}
-	return transactions
 }
 
 func generateDynamicFeeInner(r *rand.Rand) ethtypes.TxData {
@@ -235,9 +215,6 @@ func generateData(r *rand.Rand) []byte {
 }
 
 func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
-	src := rand.NewSource(0)
-	r := rand.New(src)
-
 	t.Run("Zero txs", func(t *testing.T) {
 		txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(bfttypes.Txs{})
 		require.NoError(t, err)
@@ -271,7 +248,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 
 		for _, tc := range testTable {
 			t.Run(tc.name, func(t *testing.T) {
-				ethTxs := generateEthTransactions(tc.depNum, tc.nonDepNum, r)
+				ethTxs := generateEthTransactions(t, tc.depNum, tc.nonDepNum)
 				cosmosSDKTxs := generateCosmosSDKTx(tc.depNum, tc.nonDepNum, ethTxs)
 				adoptedTxs, err := rolluptypes.AdaptCosmosTxsToEthTxs(cosmosSDKTxs)
 				require.NoError(t, err)
@@ -328,38 +305,4 @@ func generateCosmosSDKTx(depTxsNum, nonDepTxsNum int, ethTxs []*ethtypes.Transac
 	}
 
 	return cosmosTxs
-}
-
-func BenchmarkAdaptPayloadTxsToCosmosTxs(b *testing.B) {
-	src := rand.NewSource(0)
-	r := rand.New(src)
-
-	transactions := generateEthTransactions(100, 1000, r)
-	ethTxs := make([]hexutil.Bytes, 1100)
-
-	for i := range transactions {
-		txBinary, _ := transactions[i].MarshalBinary()
-		ethTxs[i] = txBinary
-	}
-	for i := 0; i < b.N; i++ {
-		_, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxs)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
-}
-
-func BenchmarkAdaptCosmosTxsToEthTxs(b *testing.B) {
-	src := rand.NewSource(0)
-	r := rand.New(src)
-
-	ethTxs := generateEthTransactions(100, 1000, r)
-	cosmosTxs := generateCosmosSDKTx(100, 1000, ethTxs)
-
-	for i := 0; i < b.N; i++ {
-		_, err := rolluptypes.AdaptCosmosTxsToEthTxs(cosmosTxs)
-		if err != nil {
-			b.Fatal(err)
-		}
-	}
 }
