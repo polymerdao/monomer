@@ -16,9 +16,7 @@ import (
 	"github.com/polymerdao/monomer/app/peptide/store"
 )
 
-var ErrNotImplemented = errors.New("not implemented")
-
-const commonHashLenth = 32
+const commonHashLength = 32
 
 type ProofProvider struct {
 	database   state.Database
@@ -90,7 +88,7 @@ func decodeHash(s string) (h common.Hash, inputLength int, err error) {
 	if err != nil {
 		return common.Hash{}, 0, errors.New("hex string invalid")
 	}
-	if len(b) > commonHashLenth {
+	if len(b) > commonHashLength {
 		return common.Hash{}, len(b), errors.New("hex string too long, want at most 32 bytes")
 	}
 	return common.BytesToHash(b), len(b), nil
@@ -212,7 +210,7 @@ func (p *ProofProvider) getProof(address common.Address, storageKeys []string, b
 		var storageTrie state.Trie
 		if storageRoot != types.EmptyRootHash && storageRoot != (common.Hash{}) {
 			id := trie.StorageTrieID(header.Root, crypto.Keccak256Hash(address.Bytes()), storageRoot)
-			st, err := trie.NewStateTrie(id, statedb.Database().TrieDB())
+			st, err := trie.NewStateTrie(id, statedb.Database().TrieDB()) // todo
 			if err != nil {
 				return nil, err
 			}
@@ -225,7 +223,7 @@ func (p *ProofProvider) getProof(address common.Address, storageKeys []string, b
 			// JSON-RPC spec for getProof. This behavior exists to preserve backwards
 			// compatibility with older client versions.
 			var outputKey string
-			if keyLengths[i] != commonHashLenth {
+			if keyLengths[i] != commonHashLength {
 				outputKey = hexutil.EncodeBig(key.Big())
 			} else {
 				outputKey = hexutil.Encode(key[:])
