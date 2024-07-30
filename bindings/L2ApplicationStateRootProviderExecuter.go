@@ -1,9 +1,11 @@
 package bindings
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
 
+	"github.com/ethereum-optimism/optimism/op-service/solabi"
 	gethabi "github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -47,9 +49,10 @@ func (e *L2ApplicationStateRootProviderExecuter) GetL2ApplicationStateRoot() ([3
 		return [32]byte{}, fmt.Errorf("call getL2ApplicationStateRoot: %v", err)
 	}
 
-	// TODO: are there existing ABI funcs that can do this conversion from the call result for us?
-	var stateRoot [32]byte
-	copy(stateRoot[:], res[:32])
+	stateRoot, err := solabi.ReadEthBytes32(bytes.NewReader(res))
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("read state root: %v", err)
+	}
 
 	return stateRoot, err
 }

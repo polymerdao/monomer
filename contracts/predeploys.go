@@ -14,7 +14,6 @@ var L2ApplicationStateRootProviderAddr = common.HexToAddress("0x4e7a96d48e79e61c
 
 var Predeploys = []*Predeploy{
 	{
-		// TODO: is there a specific address we want L2ApplicationStateRootProviderAddr to be?
 		Address:          L2ApplicationStateRootProviderAddr,
 		DeployedBytecode: common.FromHex(bindings.L2ApplicationStateRootProviderMetaData.Bin),
 	},

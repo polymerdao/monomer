@@ -97,6 +97,8 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 }
 
 func (g *Genesis) predeployContracts(ethState *state.StateDB) *state.StateDB {
+	// TODO: investigate using the foundry deploy system for setting up the eth genesis state
+	// see https://github.com/polymerdao/monomer/pull/84#discussion_r1697579464
 	for _, predeploy := range contracts.Predeploys {
 		ethState.SetCode(predeploy.Address, predeploy.DeployedBytecode)
 	}

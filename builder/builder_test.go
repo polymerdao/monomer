@@ -3,6 +3,7 @@ package builder_test
 import (
 	"context"
 	"fmt"
+	"math/big"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -155,14 +156,15 @@ func TestBuild(t *testing.T) {
 			}
 
 			ethStateRoot := gotBlock.Header.StateRoot
-			wantBlock, err := monomer.MakeBlock(&monomer.Header{
+			header := &monomer.Header{
 				ChainID:    g.ChainID,
 				Height:     postBuildInfo.GetLastBlockHeight(),
 				Time:       payload.Timestamp,
 				ParentHash: genesisBlock.Header.Hash,
 				StateRoot:  ethStateRoot,
 				GasLimit:   payload.GasLimit,
-			}, bfttypes.ToTxs(allTxs))
+			}
+			wantBlock, err := monomer.MakeBlock(header, bfttypes.ToTxs(allTxs))
 			require.NoError(t, err)
 			require.Equal(t, wantBlock, builtBlock)
 			require.Equal(t, wantBlock, gotBlock)
@@ -170,7 +172,7 @@ func TestBuild(t *testing.T) {
 			// Eth state db.
 			ethState, err := state.New(ethStateRoot, ethstatedb, nil)
 			require.NoError(t, err)
-			appHash, err := getAppHashFromEVM(ethState)
+			appHash, err := getAppHashFromEVM(ethState, header, chainID.Big())
 			require.NoError(t, err)
 			require.Equal(t, appHash, postBuildInfo.GetLastBlockAppHash())
 
@@ -291,8 +293,8 @@ func TestRollback(t *testing.T) {
 
 // TODO: should this be in a helper file?
 // getAppHashFromEVM retrieves the updated cosmos app hash from the monomer EVM state db.
-func getAppHashFromEVM(ethState *state.StateDB) ([]byte, error) {
-	monomerEVM, err := evm.NewEVM(ethState)
+func getAppHashFromEVM(ethState *state.StateDB, header *monomer.Header, chainID *big.Int) ([]byte, error) {
+	monomerEVM, err := evm.NewEVM(ethState, header, chainID)
 	if err != nil {
 		return nil, fmt.Errorf("new EVM: %v", err)
 	}

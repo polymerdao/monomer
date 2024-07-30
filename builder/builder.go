@@ -164,7 +164,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		return nil, fmt.Errorf("create ethereum state: %v", err)
 	}
 	// Store the updated cosmos app hash in the monomer EVM state db.
-	if err := b.storeAppHashInEVM(resp.AppHash, ethState); err != nil {
+	if err := b.storeAppHashInEVM(resp.AppHash, ethState, header); err != nil {
 		return nil, fmt.Errorf("store app hash in EVM: %v", err)
 	}
 	// TODO: execute withdrawal transactions
@@ -212,8 +212,8 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 }
 
 // storeAppHashInEVM stores the updated cosmos app hash in the monomer EVM state db. This is used for proving withdrawals.
-func (b *Builder) storeAppHashInEVM(appHash []byte, ethState *state.StateDB) error {
-	monomerEVM, err := evm.NewEVM(ethState)
+func (b *Builder) storeAppHashInEVM(appHash []byte, ethState *state.StateDB, header *monomer.Header) error {
+	monomerEVM, err := evm.NewEVM(ethState, header, b.chainID.Big())
 	if err != nil {
 		return fmt.Errorf("new EVM: %v", err)
 	}
