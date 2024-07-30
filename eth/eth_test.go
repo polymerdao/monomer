@@ -125,3 +125,13 @@ func TestGetBlockByHash(t *testing.T) {
 		})
 	}
 }
+
+func TestGetProof(t *testing.T) {
+	someAddress := common.HexToAddress("0xabc")
+
+	proofProvider := eth.NewProofProvider()
+
+	pf, err := proofProvider.GetProof(someAddress, []string{}, nil)
+	require.ErrorIs(t, err, eth.ErrNotImplemented, "getProof didn't fail")
+	require.Nil(t, pf, "received proof")
+}
