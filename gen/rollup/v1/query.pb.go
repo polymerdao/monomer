@@ -29,7 +29,7 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// QueryL1BlockInfoRequest is the request type for the Query/L1BlockInfo RPC
+// L1BlockInfoRequest is the request type for the Query/L1BlockInfo RPC
 type L1BlockInfoRequest struct {
 	// L2 block height; use 0 for latest block height
 	Height uint64 `protobuf:"varint,1,opt,name=height,proto3" json:"height,omitempty"`
