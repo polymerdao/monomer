@@ -4,7 +4,7 @@ import type * as Preset from '@docusaurus/preset-classic';
 
 const config: Config = {
   title: 'Monomer',
-  tagline: 'Leveraging Optimism to deploy Cosmos SDK applications as rollups on Ethereum',
+  tagline: 'Deploy Cosmos SDK applications as rollups on Ethereum',
   favicon: 'img/favicon.ico',
 
   // Set the production url of your site here

@@ -14,7 +14,7 @@ const FeatureList: FeatureItem[] = [
     Svg: require('@site/static/img/undraw_docusaurus_mountain.svg').default,
     description: (
       <>
-        Monomer was designed from the ground up to be easily leveraged, allowing Cosmos SDK developers to deploy their applications as L2s with ease; finally breaking tech silos and enabling cross-chain composability. Use our custom Cosmos SDK hook to get up and running quick. 
+        Monomer was designed from the ground up to be easily leveraged, allowing Cosmos SDK developers to deploy their applications rollups on Ethereum with ease. Use our custom Cosmos SDK hook to get up and running quick. 
       </>
     ),
   },
