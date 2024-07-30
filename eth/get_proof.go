@@ -3,6 +3,7 @@ package eth
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -12,13 +13,17 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/polymerdao/monomer/app/peptide/store"
 )
 
 var ErrNotImplemented = errors.New("not implemented")
 
 const commonHashLenth = 32
 
-type ProofProvider struct{}
+type ProofProvider struct {
+	database   state.Database
+	blockStore store.BlockStoreReader
+}
 
 // proofList implements ethdb.KeyValueWriter and collects the proofs as
 // hex-strings for delivery to rpc-caller.
@@ -33,8 +38,11 @@ func (n *proofList) Delete(key []byte) error {
 	panic("not supported")
 }
 
-func NewProofProvider() *ProofProvider {
-	return &ProofProvider{}
+func NewProofProvider(db state.Database, blockStore store.BlockStoreReader) *ProofProvider {
+	return &ProofProvider{
+		database:   db,
+		blockStore: blockStore,
+	}
 }
 
 // getState returns the state.StateBD and Header of block at the given number.
