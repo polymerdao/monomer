@@ -96,9 +96,9 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 	return nil
 }
 
-func (g *Genesis) predeployContracts(state *state.StateDB) *state.StateDB {
+func (g *Genesis) predeployContracts(ethState *state.StateDB) *state.StateDB {
 	for _, predeploy := range contracts.Predeploys {
-		state.SetCode(predeploy.Address, predeploy.DeployedBytecode)
+		ethState.SetCode(predeploy.Address, predeploy.DeployedBytecode)
 	}
-	return state
+	return ethState
 }

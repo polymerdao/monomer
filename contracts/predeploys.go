@@ -10,11 +10,11 @@ type Predeploy struct {
 	DeployedBytecode []byte
 }
 
-// TODO: is there a specific address we want L2ApplicationStateRootProviderAddr to be?
 var L2ApplicationStateRootProviderAddr = common.HexToAddress("0x4e7a96d48e79e61c7aee5ef9e59d7cfc6f0bdc8d")
 
 var Predeploys = []*Predeploy{
 	{
+		// TODO: is there a specific address we want L2ApplicationStateRootProviderAddr to be?
 		Address:          L2ApplicationStateRootProviderAddr,
 		DeployedBytecode: common.FromHex(bindings.L2ApplicationStateRootProviderMetaData.Bin),
 	},
