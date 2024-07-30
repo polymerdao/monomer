@@ -52,13 +52,29 @@ func NewProofProvider(db state.Database, blockStore store.BlockStoreReader) *Pro
 // with required data sources
 func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.Header, error) {
 
-	ethBlock, err := p.blockStore.BlockByNumber(blockNumber.Int64()).ToEth()
+	var ethBlock *types.Block
+	var err error
+
+	if blockNumber == nil {
+		ethBlock, err = p.blockStore.HeadBlock().ToEth()
+	} else {
+		ethBlock, err = p.blockStore.BlockByNumber(blockNumber.Int64()).ToEth()
+	}
 
 	if err != nil {
 		return nil, types.Header{}, fmt.Errorf("getting eth block %d: %w", blockNumber, err)
 	}
 
-	return nil, *ethBlock.Header(), ErrNotImplemented
+	header := ethBlock.Header()
+	hash := ethBlock.Hash()
+
+	sdb, err := state.New(hash, p.database, nil)
+
+	if err != nil {
+		return nil, *header, fmt.Errorf("opening state.StateDB: %w", err)
+	}
+
+	return sdb, *header, nil
 }
 
 // decodeHash parses a hex-encoded 32-byte hash. The input may optionally
