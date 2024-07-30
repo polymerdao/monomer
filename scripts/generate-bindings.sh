@@ -45,7 +45,7 @@ find $FORGE_ARTIFACTS_DIR -name "*.json" | while read -r forge_artifact; do
 
     # Extract the abi and bin from the forge artifact
     jq -r ".abi" $forge_artifact > $abi_file
-    jq -r ".bytecode.object" $forge_artifact > $bin_file
+    jq -r ".deployedBytecode.object" $forge_artifact > $bin_file
 
     # Generate Go bindings using abigen
     go_binding_file="${BINDINGS_DIR}/${contract_name}.go"

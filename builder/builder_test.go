@@ -2,16 +2,23 @@ package builder_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cmtpubsub "github.com/cometbft/cometbft/libs/pubsub"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/core/state"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
+	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/builder"
+	"github.com/polymerdao/monomer/contracts"
+	"github.com/polymerdao/monomer/evm"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/mempool"
 	"github.com/polymerdao/monomer/testapp"
@@ -139,7 +146,7 @@ func TestBuild(t *testing.T) {
 				}
 			}
 
-			// Block store and eth state db.
+			// Block store.
 			genesisBlock := blockStore.BlockByNumber(preBuildInfo.GetLastBlockHeight())
 			require.NotNil(t, genesisBlock)
 			gotBlock := blockStore.HeadBlock()
@@ -147,19 +154,26 @@ func TestBuild(t *testing.T) {
 			if !test.noTxPool {
 				allTxs = append(allTxs, mempoolTxs...)
 			}
+
+			ethStateRoot := gotBlock.Header.StateRoot
 			wantBlock, err := monomer.MakeBlock(&monomer.Header{
 				ChainID:    g.ChainID,
 				Height:     postBuildInfo.GetLastBlockHeight(),
 				Time:       payload.Timestamp,
 				ParentHash: genesisBlock.Header.Hash,
-				StateRoot:  genesisBlock.Header.StateRoot,
+				StateRoot:  ethStateRoot,
 				GasLimit:   payload.GasLimit,
 			}, bfttypes.ToTxs(allTxs))
 			require.NoError(t, err)
 			require.Equal(t, wantBlock, builtBlock)
 			require.Equal(t, wantBlock, gotBlock)
 
-			// TODO: add test assertions to verify the withdrawals trie is properly updated
+			// Eth state db.
+			ethState, err := state.New(ethStateRoot, ethstatedb, nil)
+			require.NoError(t, err)
+			appHash, err := getAppHashFromEVM(ethState)
+			require.NoError(t, err)
+			require.Equal(t, appHash, postBuildInfo.GetLastBlockAppHash())
 
 			// Tx store and event bus.
 			for i, tx := range wantBlock.Txs {
@@ -239,6 +253,12 @@ func TestRollback(t *testing.T) {
 	require.NoError(t, blockStore.UpdateLabel(eth.Safe, block.Header.Hash))
 	require.NoError(t, blockStore.UpdateLabel(eth.Finalized, block.Header.Hash))
 
+	// Eth state db before rollback.
+	ethState, err := state.New(blockStore.HeadBlock().Header.StateRoot, ethstatedb, nil)
+	require.NoError(t, err)
+	require.NotEqual(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
+
+	// Rollback to genesis block.
 	require.NoError(t, b.Rollback(context.Background(), genesisBlock.Header.Hash, genesisBlock.Header.Hash, genesisBlock.Header.Hash))
 
 	// Application.
@@ -256,6 +276,11 @@ func TestRollback(t *testing.T) {
 	require.Equal(t, uint64(genesisBlock.Header.Height), uint64(headBlock.Header.Height))
 	// We trust that the other parts of a block store rollback were done as well.
 
+	// Eth state db after rollback.
+	ethState, err = state.New(headBlock.Header.StateRoot, ethstatedb, nil)
+	require.NoError(t, err)
+	require.Equal(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
+
 	// Tx store.
 	for _, tx := range bfttypes.ToTxs(testapp.ToTxs(t, kvs)) {
 		result, err := txStore.Get(tx.Hash())
@@ -263,4 +288,26 @@ func TestRollback(t *testing.T) {
 		require.Nil(t, result)
 	}
 	// We trust that the other parts of a tx store rollback were done as well.
+}
+
+// getAppHashFromEVM retrieves the updated cosmos app hash from the monomer EVM state db.
+func getAppHashFromEVM(ethState *state.StateDB) ([]byte, error) {
+	monomerEVM, err := evm.NewEVM(ethState)
+	if err != nil {
+		return nil, fmt.Errorf("new EVM: %v", err)
+	}
+	l2ApplicationStateRootProvider, err := bindings.NewL2ApplicationStateRootProvider(
+		contracts.L2ApplicationStateRootProviderAddr,
+		evm.NewMonomerContractBackend(ethState, monomerEVM),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("new L2ApplicationStateRootProvider: %v", err)
+	}
+
+	appHash, err := l2ApplicationStateRootProvider.L2ApplicationStateRoot(&bind.CallOpts{})
+	if err != nil {
+		return nil, fmt.Errorf("get L2ApplicationStateRoot: %v", err)
+	}
+
+	return appHash[:], nil
 }

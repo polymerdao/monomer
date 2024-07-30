@@ -13,6 +13,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
+	"github.com/polymerdao/monomer/contracts"
 )
 
 type Genesis struct {
@@ -74,8 +75,7 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 	if err != nil {
 		return fmt.Errorf("create ethereum state: %v", err)
 	}
-	// TODO: add predeploy contracts to state
-	ethStateRoot, err := ethState.Commit(initialHeight, true)
+	ethStateRoot, err := g.predeployContracts(ethState).Commit(initialHeight, true)
 	if err != nil {
 		return fmt.Errorf("commit ethereum genesis state: %v", err)
 	}
@@ -94,4 +94,11 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 		}
 	}
 	return nil
+}
+
+func (g *Genesis) predeployContracts(state *state.StateDB) *state.StateDB {
+	for _, predeploy := range contracts.Predeploys {
+		state.SetCode(predeploy.Address, predeploy.DeployedBytecode)
+	}
+	return state
 }
