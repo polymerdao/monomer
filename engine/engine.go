@@ -191,10 +191,13 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		}); err != nil { // a catch-all for errors unrelated to the actual validation.
 			return nil, engine.GenericServerError.With(fmt.Errorf("CheckTx: %v", err))
 		} else if checkTxResult.IsErr() { // validation error.
+			errString := fmt.Sprintf("CheckTx: %s", checkTxResult.Log)
+
 			return &eth.ForkchoiceUpdatedResult{
 				PayloadStatus: eth.PayloadStatusV1{
 					Status:          eth.ExecutionInvalid,
 					LatestValidHash: &fcs.HeadBlockHash,
+					ValidationError: &errString,
 				},
 			}, nil
 		}
