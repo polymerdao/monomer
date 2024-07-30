@@ -53,7 +53,7 @@ go get github.com/polymerdao/monomer
 ### Import `x/rollup` and `x/testmodule`
 
 Now we can import [`x/rollup`](/docs/learn/the-rollup-module) in `app/app.go`. While we're at it, let's also import `x/testmodule` (this
-will [initialize a non-empty validator set](https://github.com/polymerdao/monomer/blob/c98eccb49bf857829cadee899359e60fc36e6745/testapp/x/testmodule/module.go#L82) for us so we don't have to do it manually). When you're ready to deploy your application, you can remove `x/testmodule` and configure your own validator set.
+will [initialize a non-empty validator set](https://github.com/polymerdao/monomer/blob/c98eccb49bf857829cadee899359e60fc36e6745/testapp/x/testmodule/module.go#L82) for us so we don't have to do it manually). When you're ready to deploy your application, you can remove `x/testmodule` and configure your own validator set. Add the following packages to the import statement in `app/app.go`:
 ```go
 import (
     // ...
@@ -67,6 +67,7 @@ import (
     // ...
 )
 ```
+and run `go mod tidy`.
 
 There are a few modifications we need to make to the boilerplate Cosmos SDK app.
 Namely, we need to
@@ -232,7 +233,7 @@ Make sure to use a numeric chain ID. Monomer will fail to start if the chain ID
 cannot be parsed as a `uint64`.
 :::
 
-This will create a new directory in `~/.rollchain/config` with the necessary application configuration files. For the sake of this tutorial, we **must tweak the generated `genesis.json` file** slightly.
+This will create a new directory in `~/.rollchain` with the necessary application configuration files in `~/.rollchain/config`. For the sake of this tutorial, we **must tweak the generated `genesis.json` file** slightly.
 1. Update the `chain_id` parameter to a numeric value.
 2. Include `x/testmodule` in `app_state` so it can be loaded at genesis.
 
