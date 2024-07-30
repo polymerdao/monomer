@@ -272,7 +272,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 		for _, tc := range testTable {
 			t.Run(tc.name, func(t *testing.T) {
 				ethTxs := generateEthTransactions(tc.depNum, tc.nonDepNum, r)
-				cosmosSDKTxs := generateCosmosSDKTx(t, tc.depNum, tc.nonDepNum, ethTxs)
+				cosmosSDKTxs := generateCosmosSDKTx(tc.depNum, tc.nonDepNum, ethTxs)
 				adoptedTxs, err := rolluptypes.AdaptCosmosTxsToEthTxs(cosmosSDKTxs)
 				require.NoError(t, err)
 				assert.Equal(t, len(ethTxs), len(adoptedTxs))
@@ -286,13 +286,14 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 	})
 }
 
-func generateCosmosSDKTx(t *testing.T, depTxsNum, nonDepTxsNum int, ethTxs []*ethtypes.Transaction) bfttypes.Txs {
-	t.Helper()
+func generateCosmosSDKTx(depTxsNum, nonDepTxsNum int, ethTxs []*ethtypes.Transaction) bfttypes.Txs {
 	ethTxsBytes := make([][]byte, len(ethTxs))
 	for i, tx := range ethTxs {
 		tx.RollupCostData()
 		txBytes, err := tx.MarshalBinary()
-		require.NoError(t, err)
+		if err != nil {
+			panic(err)
+		}
 		ethTxsBytes[i] = txBytes
 	}
 
@@ -301,14 +302,18 @@ func generateCosmosSDKTx(t *testing.T, depTxsNum, nonDepTxsNum int, ethTxs []*et
 	msgAny, err := codectypes.NewAnyWithValue(&rollupv1.ApplyL1TxsRequest{
 		TxBytes: depositTxsBytes,
 	})
-	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
 
 	depositSDKMsgBytes, err := (&sdktx.Tx{
 		Body: &sdktx.TxBody{
 			Messages: []*codectypes.Any{msgAny},
 		},
 	}).Marshal()
-	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
 
 	cosmosTxs := make(bfttypes.Txs, 0, 1+nonDepTxsNum)
 	cosmosTxs = append(cosmosTxs, depositSDKMsgBytes)
@@ -316,9 +321,39 @@ func generateCosmosSDKTx(t *testing.T, depTxsNum, nonDepTxsNum int, ethTxs []*et
 	for _, cosmosTx := range ethTxsBytes[depTxsNum:] {
 		var tx ethtypes.Transaction
 		err := tx.UnmarshalBinary(cosmosTx)
-		require.NoError(t, err)
+		if err != nil {
+			panic(err)
+		}
 		cosmosTxs = append(cosmosTxs, tx.Data())
 	}
 
 	return cosmosTxs
+}
+
+func BenchmarkAdaptPayloadTxsToCosmosTxs(b *testing.B) {
+	src := rand.NewSource(0)
+	r := rand.New(src)
+
+	transactions := generateEthTransactions(100, 1000, r)
+	ethTxs := make([]hexutil.Bytes, 1100)
+
+	for i := range transactions {
+		txBinary, _ := transactions[i].MarshalBinary()
+		ethTxs[i] = txBinary
+	}
+	for i := 0; i < b.N; i++ {
+		rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxs)
+	}
+}
+
+func BenchmarkAdaptCosmosTxsToEthTxs(b *testing.B) {
+	src := rand.NewSource(0)
+	r := rand.New(src)
+
+	ethTxs := generateEthTransactions(100, 1000, r)
+	cosmosTxs := generateCosmosSDKTx(100, 1000, ethTxs)
+
+	for i := 0; i < b.N; i++ {
+		rolluptypes.AdaptCosmosTxsToEthTxs(cosmosTxs)
+	}
 }

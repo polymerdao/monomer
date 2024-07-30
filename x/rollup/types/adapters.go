@@ -9,7 +9,7 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/polymerdao/monomer/gen/rollup/v1"
+	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 )
 
 var errL1AttributesNotFound = errors.New("L1 attributes tx not found")
