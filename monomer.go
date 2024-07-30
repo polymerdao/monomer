@@ -123,18 +123,7 @@ func (b *Block) ToEth() (*ethtypes.Block, error) {
 		return nil, fmt.Errorf("adapt txs: %v", err)
 	}
 	return ethtypes.NewBlockWithWithdrawals(
-		&ethtypes.Header{
-			ParentHash:      b.Header.ParentHash,
-			Root:            b.Header.StateRoot,
-			Number:          big.NewInt(b.Header.Height),
-			GasLimit:        b.Header.GasLimit,
-			MixDigest:       common.Hash{},
-			Time:            b.Header.Time,
-			UncleHash:       ethtypes.EmptyUncleHash,
-			ReceiptHash:     ethtypes.EmptyReceiptsHash,
-			BaseFee:         common.Big0,
-			WithdrawalsHash: &ethtypes.EmptyWithdrawalsHash,
-		},
+		b.Header.ToEth(),
 		txs,
 		nil,
 		[]*ethtypes.Receipt{},
