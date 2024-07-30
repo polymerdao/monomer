@@ -49,7 +49,6 @@ func NewProofProvider(db state.Database, blockStore store.BlockStoreReader) *Pro
 // WIP: replace this with a real implementation based on `ProofProvider` being supplied
 // with required data sources
 func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.Header, error) {
-
 	var ethBlock *types.Block
 	var err error
 
@@ -67,7 +66,6 @@ func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.He
 	hash := ethBlock.Hash()
 
 	sdb, err := state.New(hash, p.database, nil)
-
 	if err != nil {
 		return nil, *header, fmt.Errorf("opening state.StateDB: %w", err)
 	}
