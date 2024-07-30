@@ -18,6 +18,7 @@
     "@docusaurus/core": "3.4.0",
     "@docusaurus/preset-classic": "3.4.0",
     "@mdx-js/react": "^3.0.0",
+    "ansi-styles": "^6.2.1",
     "clsx": "^2.0.0",
     "prism-react-renderer": "^2.3.0",
     "react": "^18.0.0",
@@ -44,5 +45,5 @@
   "engines": {
     "node": ">=18.0"
   },
-  "packageManager": "yarn@3.6.3+sha256.08ead1821a257416e6f217e89365425bf4b6d2430c3279318bedcec1a245fff5"
+  "packageManager": "yarn@4.3.1"
 }
