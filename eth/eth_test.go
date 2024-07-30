@@ -128,10 +128,11 @@ func TestGetBlockByHash(t *testing.T) {
 
 func TestGetProof(t *testing.T) {
 	someAddress := common.HexToAddress("0xabc")
+	blockstore := store.NewBlockStore(testutils.NewMemDB(t)) // this blockstore contains no blocks.
 
-	proofProvider := eth.NewProofProvider()
+	proofProvider := eth.NewProofProvider(nil, blockstore)
 
 	pf, err := proofProvider.GetProof(someAddress, []string{}, nil)
-	require.ErrorIs(t, err, eth.ErrNotImplemented, "getProof didn't fail")
-	require.Nil(t, pf, "received proof")
+	require.Error(t, err, "should not succeed in generating proofs with empty blockstore")
+	require.Nil(t, pf, "received proof from empty blockstore")
 }
