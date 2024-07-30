@@ -59,16 +59,24 @@ import (
     // ...
     "sync"
 
-    "github.com/polymerdao/monomer/x/rollup"
-    rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
-    rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
-    "github.com/polymerdao/monomer/testapp/x/testmodule"
-    testmodulekeeper "github.com/polymerdao/monomer/testapp/x/testmodule"
+    "github.com/polymerdao/monomer/x/rollup"                                     // <-- add this line
+    rolluptypes "github.com/polymerdao/monomer/x/rollup/types"                   // <-- add this line
+    rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"                 // <-- add this line
+    "github.com/polymerdao/monomer/testapp/x/testmodule"                         // <-- add this line
+    testmodulekeeper "github.com/polymerdao/monomer/testapp/x/testmodule/keeper" // <-- add this line
     // ...
 )
 ```
 
-There are a few modifications we need to make to the boilerplate Cosmos SDK app. Namely, we need to initialize the module's store keys, add the module to the genesis module order, and initialize the module in `app/app.go`. Let's walk through these changes.
+There are a few modifications we need to make to the boilerplate Cosmos SDK app.
+Namely, we need to
+
+1. Initialize the module's store keys
+2. Add the module to the genesis module order
+3. Initialize the module in `app/app.go`
+
+Let's walk through these changes.
+
 
 ### Setting the Store Keys
 Look for the block that initializes the KV store keys, and add the store key for `x/rollup` and `x/testmodule`:
@@ -164,7 +172,7 @@ command hook that handles the integration between Monomer and the Cosmos SDK:
 
 import (
     // ...
-    "github.com/polymerdao/monomer/integrations"
+    "github.com/polymerdao/monomer/integrations" // <-- add this line
     // ...
 )
 
@@ -224,10 +232,11 @@ Make sure to use a numeric chain ID. Monomer will fail to start if the chain ID
 cannot be parsed as a `uint64`.
 :::
 
-This will create a new directory in `~/.rollchain/config/` with the necessary
-application configuration files. For the sake of this tutorial, we will tweak
-the generated `genesis.json` file slightly. Copy the following genesis file to
-`~/.rollchain/config/genesis.json`.
+This will create a new directory in `~/.rollchain/config` with the necessary application configuration files. For the sake of this tutorial, we **must tweak the generated `genesis.json` file** slightly.
+1. Update the `chain_id` parameter to a numeric value.
+2. Include `x/testmodule` in `app_state` so it can be loaded at genesis.
+
+Copy the following genesis file to `~/.rollchain/config/genesis.json` or make the changes directly.
 
 <details>
 <summary>`genesis.json`</summary>
