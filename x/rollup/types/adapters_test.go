@@ -342,7 +342,10 @@ func BenchmarkAdaptPayloadTxsToCosmosTxs(b *testing.B) {
 		ethTxs[i] = txBinary
 	}
 	for i := 0; i < b.N; i++ {
-		rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxs)
+		_, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxs)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -354,6 +357,9 @@ func BenchmarkAdaptCosmosTxsToEthTxs(b *testing.B) {
 	cosmosTxs := generateCosmosSDKTx(100, 1000, ethTxs)
 
 	for i := 0; i < b.N; i++ {
-		rolluptypes.AdaptCosmosTxsToEthTxs(cosmosTxs)
+		_, err := rolluptypes.AdaptCosmosTxsToEthTxs(cosmosTxs)
+		if err != nil {
+			b.Fatal(err)
+		}
 	}
 }
