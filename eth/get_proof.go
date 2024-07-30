@@ -208,7 +208,7 @@ func (p *ProofProvider) getProof(address common.Address, storageKeys []string, b
 		var storageTrie state.Trie
 		if storageRoot != types.EmptyRootHash && storageRoot != (common.Hash{}) {
 			id := trie.StorageTrieID(header.Root, crypto.Keccak256Hash(address.Bytes()), storageRoot)
-			st, err := trie.NewStateTrie(id, statedb.Database().TrieDB()) // todo
+			st, err := trie.NewStateTrie(id, statedb.Database().TrieDB())
 			if err != nil {
 				return nil, err
 			}
