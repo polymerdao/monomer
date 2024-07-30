@@ -283,7 +283,7 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 			Withdrawals:  e.currentPayloadAttributes.Withdrawals,
 			Transactions: txBytes,
 			GasLimit:     hexutil.Uint64(e.currentPayloadAttributes.GasLimit),
-			StateRoot:    eth.Bytes32(block.Header.AppHash),
+			StateRoot:    eth.Bytes32(block.Header.StateRoot),
 		},
 	}
 	// remove payload
