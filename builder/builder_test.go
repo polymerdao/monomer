@@ -9,7 +9,6 @@ import (
 	cmtpubsub "github.com/cometbft/cometbft/libs/pubsub"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
@@ -290,23 +289,21 @@ func TestRollback(t *testing.T) {
 	// We trust that the other parts of a tx store rollback were done as well.
 }
 
+// TODO: should this be in a helper file?
 // getAppHashFromEVM retrieves the updated cosmos app hash from the monomer EVM state db.
 func getAppHashFromEVM(ethState *state.StateDB) ([]byte, error) {
 	monomerEVM, err := evm.NewEVM(ethState)
 	if err != nil {
 		return nil, fmt.Errorf("new EVM: %v", err)
 	}
-	l2ApplicationStateRootProvider, err := bindings.NewL2ApplicationStateRootProvider(
-		contracts.L2ApplicationStateRootProviderAddr,
-		evm.NewMonomerContractBackend(ethState, monomerEVM),
-	)
+	executer, err := bindings.NewL2ApplicationStateRootProviderExecuter(monomerEVM)
 	if err != nil {
-		return nil, fmt.Errorf("new L2ApplicationStateRootProvider: %v", err)
+		return nil, fmt.Errorf("new L2ApplicationStateRootProviderExecuter: %v", err)
 	}
 
-	appHash, err := l2ApplicationStateRootProvider.L2ApplicationStateRoot(&bind.CallOpts{})
+	appHash, err := executer.GetL2ApplicationStateRoot()
 	if err != nil {
-		return nil, fmt.Errorf("get L2ApplicationStateRoot: %v", err)
+		return nil, fmt.Errorf("set L2ApplicationStateRoot: %v", err)
 	}
 
 	return appHash[:], nil

@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/polymerdao/monomer/bindings"
-	"github.com/polymerdao/monomer/contracts"
 	"slices"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -16,6 +14,7 @@ import (
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
+	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/evm"
 	"github.com/polymerdao/monomer/mempool"
 )
@@ -218,23 +217,14 @@ func (b *Builder) storeAppHashInEVM(appHash []byte, ethState *state.StateDB) err
 	if err != nil {
 		return fmt.Errorf("new EVM: %v", err)
 	}
-	l2ApplicationStateRootProvider, err := bindings.NewL2ApplicationStateRootProvider(
-		contracts.L2ApplicationStateRootProviderAddr,
-		evm.NewMonomerContractBackend(ethState, monomerEVM),
-	)
+	executer, err := bindings.NewL2ApplicationStateRootProviderExecuter(monomerEVM)
 	if err != nil {
-		return fmt.Errorf("new L2ApplicationStateRootProvider: %v", err)
+		return fmt.Errorf("new L2ApplicationStateRootProviderExecuter: %v", err)
 	}
 
-	// TODO: is there an easier way to convert a slice to array? maybe slices package?
 	var appHash32 [32]byte
 	copy(appHash32[:], appHash)
-	opts, err := bindings.NewTransactOpts()
-	if err != nil {
-		return fmt.Errorf("new transact opts: %v", err)
-	}
-	_, err = l2ApplicationStateRootProvider.SetL2ApplicationStateRoot(opts, appHash32)
-	if err != nil {
+	if err := executer.SetL2ApplicationStateRoot(appHash32); err != nil {
 		return fmt.Errorf("set L2ApplicationStateRoot: %v", err)
 	}
 

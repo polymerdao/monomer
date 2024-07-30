@@ -2,13 +2,8 @@ package contracts
 
 import (
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/polymerdao/monomer/bindings"
+	"github.com/polymerdao/monomer/bindings/generated"
 )
-
-// TODO: should MonomerGenesisRootHash be moved to the evm package?
-// TODO: is there a better way to test the genesis? Maybe iterate through the predeploys and check if the address has the correct bytecode?
-// MonomerGenesisRootHash is the known root hash of the monomer ethereum state trie after all predeployed contracts are created.
-var MonomerGenesisRootHash = common.HexToHash("0x4e171626bc7f95d0b053dab23c87327ee0266dda88b213a3e1f1357b741c0c35")
 
 type Predeploy struct {
 	Address          common.Address

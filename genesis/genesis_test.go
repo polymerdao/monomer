@@ -13,8 +13,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
-	"github.com/polymerdao/monomer/bindings"
+	"github.com/polymerdao/monomer/bindings/generated"
 	"github.com/polymerdao/monomer/contracts"
+	"github.com/polymerdao/monomer/evm"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
@@ -76,7 +77,7 @@ func TestCommit(t *testing.T) {
 				Height:    info.GetLastBlockHeight(),
 				Time:      test.genesis.Time,
 				GasLimit:  30_000_000, // We cheat a little and copy the default gas limit here.
-				StateRoot: contracts.MonomerGenesisRootHash,
+				StateRoot: evm.MonomerGenesisRootHash,
 			}, bfttypes.Txs{})
 			require.NoError(t, err)
 			require.Equal(t, block, blockStore.BlockByNumber(info.GetLastBlockHeight()))
@@ -85,7 +86,7 @@ func TestCommit(t *testing.T) {
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Finalized))
 
 			// Eth state db.
-			ethState, err := state.New(contracts.MonomerGenesisRootHash, ethstatedb, nil)
+			ethState, err := state.New(evm.MonomerGenesisRootHash, ethstatedb, nil)
 			require.NoError(t, err)
 			require.Equal(t, ethState.GetCode(contracts.L2ApplicationStateRootProviderAddr), common.FromHex(bindings.L2ApplicationStateRootProviderMetaData.Bin))
 		})

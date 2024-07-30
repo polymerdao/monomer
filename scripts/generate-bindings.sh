@@ -10,6 +10,7 @@ BINDINGS_DIR=$(cd "$MONOMER_DIR/bindings" && pwd)
 # Create forge artifacts and cache directories if they don't exist
 mkdir -p "$BINDINGS_DIR/artifacts"
 mkdir -p "$BINDINGS_DIR/cache"
+mkdir -p "$BINDINGS_DIR/generated"
 FORGE_ARTIFACTS_DIR=$(cd "$BINDINGS_DIR/artifacts" && pwd)
 FORGE_CACHE_DIR=$(cd "$BINDINGS_DIR/cache" && pwd)
 
@@ -48,7 +49,7 @@ find $FORGE_ARTIFACTS_DIR -name "*.json" | while read -r forge_artifact; do
     jq -r ".deployedBytecode.object" $forge_artifact > $bin_file
 
     # Generate Go bindings using abigen
-    go_binding_file="${BINDINGS_DIR}/${contract_name}.go"
+    go_binding_file="${BINDINGS_DIR}/generated/${contract_name}.go"
     abigen --abi=$abi_file --bin=$bin_file --pkg="bindings" --type=$contract_name --out=$go_binding_file
 
     echo "Generated Go bindings for ${contract_name}.sol: ${go_binding_file}"
