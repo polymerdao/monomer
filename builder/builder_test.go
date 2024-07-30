@@ -84,6 +84,7 @@ func TestBuild(t *testing.T) {
 			}
 			blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 			txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
+			ethstatedb := testutils.NewEthStateDB(t)
 
 			var chainID monomer.ChainID
 			app := testapp.NewTest(t, chainID.String())
@@ -102,7 +103,7 @@ func TestBuild(t *testing.T) {
 			subscription, err := eventBus.Subscribe(context.Background(), "test", &queryAll{}, subChannelLen)
 			require.NoError(t, err)
 
-			require.NoError(t, g.Commit(context.Background(), app, blockStore))
+			require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
 
 			b := builder.New(
 				pool,
@@ -111,6 +112,7 @@ func TestBuild(t *testing.T) {
 				txStore,
 				eventBus,
 				g.ChainID,
+				ethstatedb,
 			)
 
 			payload := &builder.Payload{
@@ -137,7 +139,7 @@ func TestBuild(t *testing.T) {
 				}
 			}
 
-			// Block store.
+			// Block store and eth state db.
 			genesisBlock := blockStore.BlockByNumber(preBuildInfo.GetLastBlockHeight())
 			require.NotNil(t, genesisBlock)
 			gotBlock := blockStore.HeadBlock()
@@ -150,12 +152,14 @@ func TestBuild(t *testing.T) {
 				Height:     postBuildInfo.GetLastBlockHeight(),
 				Time:       payload.Timestamp,
 				ParentHash: genesisBlock.Header.Hash,
-				AppHash:    preBuildInfo.GetLastBlockAppHash(),
+				StateRoot:  genesisBlock.Header.StateRoot,
 				GasLimit:   payload.GasLimit,
 			}, bfttypes.ToTxs(allTxs))
 			require.NoError(t, err)
 			require.Equal(t, wantBlock, builtBlock)
 			require.Equal(t, wantBlock, gotBlock)
+
+			// TODO: add test assertions to verify the withdrawals trie is properly updated
 
 			// Tx store and event bus.
 			for i, tx := range wantBlock.Txs {
@@ -194,6 +198,7 @@ func TestRollback(t *testing.T) {
 	pool := mempool.New(testutils.NewMemDB(t))
 	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
 	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
+	ethstatedb := testutils.NewEthStateDB(t)
 
 	var chainID monomer.ChainID
 	app := testapp.NewTest(t, chainID.String())
@@ -208,7 +213,7 @@ func TestRollback(t *testing.T) {
 		require.NoError(t, eventBus.Stop())
 	})
 
-	require.NoError(t, g.Commit(context.Background(), app, blockStore))
+	require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
 	genesisBlock := blockStore.HeadBlock()
 
 	b := builder.New(
@@ -218,6 +223,7 @@ func TestRollback(t *testing.T) {
 		txStore,
 		eventBus,
 		g.ChainID,
+		ethstatedb,
 	)
 
 	kvs := map[string]string{

@@ -15,6 +15,7 @@ import (
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -225,6 +226,8 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	env.DeferErr("close tx db", txdb.Close)
 	mempooldb := dbm.NewMemDB()
 	env.DeferErr("close mempool db", mempooldb.Close)
+	ethstatedb := rawdb.NewMemoryDatabase()
+	env.DeferErr("close eth state db", ethstatedb.Close)
 	n := node.New(
 		app,
 		&genesis.Genesis{
@@ -237,6 +240,7 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		blockdb,
 		mempooldb,
 		txdb,
+		ethstatedb,
 		s.prometheusCfg,
 		s.eventListener,
 	)

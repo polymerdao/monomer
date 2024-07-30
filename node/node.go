@@ -15,6 +15,8 @@ import (
 	jsonrpctypes "github.com/cometbft/cometbft/rpc/jsonrpc/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
@@ -44,6 +46,7 @@ type Node struct {
 	blockdb        dbm.DB
 	txdb           cometdb.DB
 	mempooldb      dbm.DB
+	ethstatedb     state.Database
 	prometheusCfg  *config.InstrumentationConfig
 	eventListener  EventListener
 }
@@ -56,6 +59,7 @@ func New(
 	blockdb,
 	mempooldb dbm.DB,
 	txdb cometdb.DB,
+	ethstatedb ethdb.Database,
 	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
 ) *Node {
@@ -66,6 +70,7 @@ func New(
 		cometHTTPAndWS: cometHTTPAndWS,
 		blockdb:        blockdb,
 		txdb:           txdb,
+		ethstatedb:     state.NewDatabase(ethstatedb),
 		mempooldb:      mempooldb,
 		prometheusCfg:  prometheusCfg,
 		eventListener:  eventListener,
@@ -74,7 +79,7 @@ func New(
 
 func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	blockStore := store.NewBlockStore(n.blockdb)
-	if err := prepareBlockStoreAndApp(ctx, n.genesis, blockStore, n.app); err != nil {
+	if err := prepareBlockStoreAndApp(ctx, n.genesis, blockStore, n.ethstatedb, n.app); err != nil {
 		return err
 	}
 	txStore := txstore.NewTxStore(n.txdb)
@@ -97,7 +102,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		{
 			Namespace: "engine",
 			Service: engine.NewEngineAPI(
-				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID),
+				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID, n.ethstatedb),
 				n.app,
 				blockStore,
 				engineMetrics,
@@ -176,7 +181,13 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	return nil
 }
 
-func prepareBlockStoreAndApp(ctx context.Context, g *genesis.Genesis, blockStore store.BlockStore, app monomer.Application) error {
+func prepareBlockStoreAndApp(
+	ctx context.Context,
+	g *genesis.Genesis,
+	blockStore store.BlockStore,
+	ethstatedb state.Database,
+	app monomer.Application,
+) error {
 	// Get blockStoreHeight and appHeight.
 	var blockStoreHeight uint64
 	if headBlock := blockStore.HeadBlock(); headBlock != nil {
@@ -202,7 +213,7 @@ func prepareBlockStoreAndApp(ctx context.Context, g *genesis.Genesis, blockStore
 
 	// Commit genesis.
 	if blockStoreHeight == 0 { // We know appHeight == blockStoreHeight at this point.
-		if err := g.Commit(ctx, app, blockStore); err != nil {
+		if err := g.Commit(ctx, app, blockStore, ethstatedb); err != nil {
 			return fmt.Errorf("commit genesis: %v", err)
 		}
 	}

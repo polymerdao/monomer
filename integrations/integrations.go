@@ -18,6 +18,7 @@ import (
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
@@ -181,6 +182,10 @@ func startMonomerNode(
 	}
 	env.DeferErr("close mempool db", mempooldb.Close)
 
+	// TODO: use pebble db once the db refactor PR merges
+	ethstatedb := rawdb.NewMemoryDatabase()
+	env.DeferErr("close eth state db", ethstatedb.Close)
+
 	monomerGenesisPath := svrCtx.Config.GenesisFile()
 
 	appGenesis, err := genutiltypes.AppGenesisFromFile(monomerGenesisPath)
@@ -209,6 +214,7 @@ func startMonomerNode(
 		blockdb,
 		mempooldb,
 		txdb,
+		ethstatedb,
 		svrCtx.Config.Instrumentation,
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {

@@ -9,11 +9,13 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
+	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,8 +50,9 @@ func TestCommit(t *testing.T) {
 				require.NoError(t, blockstoredb.Close())
 			})
 			blockStore := store.NewBlockStore(blockstoredb)
+			ethstatedb := testutils.NewEthStateDB(t)
 
-			require.NoError(t, test.genesis.Commit(context.Background(), app, blockStore))
+			require.NoError(t, test.genesis.Commit(context.Background(), app, blockStore, ethstatedb))
 
 			info, err := app.Info(context.Background(), &abci.RequestInfo{})
 			require.NoError(t, err)
@@ -66,16 +69,19 @@ func TestCommit(t *testing.T) {
 
 			// Block store.
 			block, err := monomer.MakeBlock(&monomer.Header{
-				ChainID:  test.genesis.ChainID,
-				Height:   info.GetLastBlockHeight(),
-				Time:     test.genesis.Time,
-				GasLimit: 30_000_000, // We cheat a little and copy the default gas limit here.
+				ChainID:   test.genesis.ChainID,
+				Height:    info.GetLastBlockHeight(),
+				Time:      test.genesis.Time,
+				GasLimit:  30_000_000, // We cheat a little and copy the default gas limit here.
+				StateRoot: gethtypes.EmptyRootHash,
 			}, bfttypes.Txs{})
 			require.NoError(t, err)
 			require.Equal(t, block, blockStore.BlockByNumber(info.GetLastBlockHeight()))
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Unsafe))
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Safe))
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Finalized))
+
+			// TODO: add test assertions to verify the withdrawals trie is properly updated
 		})
 	}
 }
