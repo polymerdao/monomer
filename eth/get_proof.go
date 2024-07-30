@@ -45,9 +45,6 @@ func NewProofProvider(db state.Database, blockStore store.BlockStoreReader) *Pro
 
 // getState returns the state.StateBD and Header of block at the given number.
 // If the passed number is nil, it returns the the db and header of the latest block.
-//
-// WIP: replace this with a real implementation based on `ProofProvider` being supplied
-// with required data sources
 func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.Header, error) {
 	var ethBlock *types.Block
 	var err error
