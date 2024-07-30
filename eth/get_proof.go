@@ -48,10 +48,17 @@ func NewProofProvider(db state.Database, blockStore store.BlockStoreReader) *Pro
 // getState returns the state.StateBD and Header of block at the given number.
 // If the passed number is nil, it returns the the db and header of the latest block.
 //
-// TODO: replace this with a real implementation based on `ProofProvider` being supplied
+// WIP: replace this with a real implementation based on `ProofProvider` being supplied
 // with required data sources
 func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.Header, error) {
-	return nil, types.Header{}, ErrNotImplemented
+
+	ethBlock, err := p.blockStore.BlockByNumber(blockNumber.Int64()).ToEth()
+
+	if err != nil {
+		return nil, types.Header{}, fmt.Errorf("getting eth block %d: %w", blockNumber, err)
+	}
+
+	return nil, *ethBlock.Header(), ErrNotImplemented
 }
 
 // decodeHash parses a hex-encoded 32-byte hash. The input may optionally
