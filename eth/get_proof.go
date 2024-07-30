@@ -16,8 +16,9 @@ import (
 
 var ErrNotImplemented = errors.New("not implemented")
 
-type ProofProvider struct {
-}
+const commonHashLenth = 32
+
+type ProofProvider struct{}
 
 // proofList implements ethdb.KeyValueWriter and collects the proofs as
 // hex-strings for delivery to rpc-caller.
@@ -58,7 +59,7 @@ func decodeHash(s string) (h common.Hash, inputLength int, err error) {
 	if err != nil {
 		return common.Hash{}, 0, errors.New("hex string invalid")
 	}
-	if len(b) > 32 {
+	if len(b) > commonHashLenth {
 		return common.Hash{}, len(b), errors.New("hex string too long, want at most 32 bytes")
 	}
 	return common.BytesToHash(b), len(b), nil
@@ -89,22 +90,6 @@ type StorageResult struct {
 // https://github.com/ethereum-optimism/op-geth/blob/f2e69450c6eec9c35d56af91389a1c47737206ca/ethclient/gethclient/gethclient.go#L83
 // (HEAD @ 2024-07-29)
 func (p *ProofProvider) GetProof(account common.Address, keys []string, blockNumber *big.Int) (*AccountResult, error) {
-	type storageResult struct {
-		Key   string       `json:"key"`
-		Value *hexutil.Big `json:"value"`
-		Proof []string     `json:"proof"`
-	}
-
-	type accountResult struct {
-		Address      common.Address  `json:"address"`
-		AccountProof []string        `json:"accountProof"`
-		Balance      *hexutil.Big    `json:"balance"`
-		CodeHash     common.Hash     `json:"codeHash"`
-		Nonce        hexutil.Uint64  `json:"nonce"`
-		StorageHash  common.Hash     `json:"storageHash"`
-		StorageProof []storageResult `json:"storageProof"`
-	}
-
 	// Avoid keys being 'null'.
 	if keys == nil {
 		keys = []string{}
@@ -209,7 +194,7 @@ func (p *ProofProvider) getProof(address common.Address, storageKeys []string, b
 			// JSON-RPC spec for getProof. This behavior exists to preserve backwards
 			// compatibility with older client versions.
 			var outputKey string
-			if keyLengths[i] != 32 {
+			if keyLengths[i] != commonHashLenth {
 				outputKey = hexutil.EncodeBig(key.Big())
 			} else {
 				outputKey = hexutil.Encode(key[:])
