@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash"
 	"math/big"
@@ -96,6 +97,10 @@ func MakeBlock(h *Header, txs bfttypes.Txs) (*Block, error) {
 }
 
 func (b *Block) ToEth() (*ethtypes.Block, error) {
+	if b == nil {
+		return nil, errors.New("converted a nil block")
+	}
+
 	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(b.Txs)
 	if err != nil {
 		return nil, fmt.Errorf("adapt txs: %v", err)
