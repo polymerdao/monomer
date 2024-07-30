@@ -31,8 +31,8 @@ func NewEVM(ethState vm.StateDB, header *monomer.Header, chainID *big.Int) (*vm.
 		IstanbulBlock:       new(big.Int),
 		MuirGlacierBlock:    new(big.Int),
 		// TODO: investigate SSTORE access list EVM execution bug with BerlinBlock/LondonBlock
-		BerlinBlock:        new(big.Int),
-		LondonBlock:        new(big.Int),
+		//BerlinBlock:        new(big.Int),
+		//LondonBlock:        new(big.Int),
 		ArrowGlacierBlock:  new(big.Int),
 		GrayGlacierBlock:   new(big.Int),
 		MergeNetsplitBlock: new(big.Int),
