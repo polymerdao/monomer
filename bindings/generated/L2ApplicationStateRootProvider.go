@@ -31,7 +31,7 @@ var (
 // L2ApplicationStateRootProviderMetaData contains all meta data concerning the L2ApplicationStateRootProvider contract.
 var L2ApplicationStateRootProviderMetaData = &bind.MetaData{
 	ABI: "[{\"type\":\"function\",\"name\":\"l2ApplicationStateRoot\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setL2ApplicationStateRoot\",\"inputs\":[{\"name\":\"_l2ApplicationStateRoot\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"}]",
-	Bin: "0x6080604052348015600f57600080fd5b506004361060325760003560e01c80633135b57e14603757806389b72f86146051575b600080fd5b603f60005481565b60405190815260200160405180910390f35b6061605c3660046063565b600055565b005b600060208284031215607457600080fd5b503591905056fea26469706673582212205323d48cb3c9db241bd671b86ca8e28dd31c3921a9fa92dc80c40a311e5067a564736f6c63430008190033",
+	Bin: "0x6080604052348015600f57600080fd5b506004361060325760003560e01c80633135b57e14603757806389b72f86146051575b600080fd5b603f60005481565b60405190815260200160405180910390f35b6061605c3660046063565b600055565b005b600060208284031215607457600080fd5b503591905056fea2646970667358221220ad7a0d8822eb5c7d04d0b504b0a613de58eb9e45b01233a46391fb9dca57618e64736f6c63430008190033",
 }
 
 // L2ApplicationStateRootProviderABI is the input ABI used to generate the binding from.

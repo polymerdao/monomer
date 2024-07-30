@@ -1,6 +1,7 @@
 package contracts
 
 import (
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/polymerdao/monomer/bindings/generated"
 )
@@ -16,5 +17,9 @@ var Predeploys = []*Predeploy{
 	{
 		Address:          L2ApplicationStateRootProviderAddr,
 		DeployedBytecode: common.FromHex(bindings.L2ApplicationStateRootProviderMetaData.Bin),
+	},
+	{
+		Address:          predeploys.L2ToL1MessagePasserAddr,
+		DeployedBytecode: common.FromHex(bindings.L2ToL1MessagePasserMetaData.Bin),
 	},
 }

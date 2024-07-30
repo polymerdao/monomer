@@ -8,6 +8,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -89,6 +90,7 @@ func TestCommit(t *testing.T) {
 			ethState, err := state.New(evm.MonomerGenesisRootHash, ethstatedb, nil)
 			require.NoError(t, err)
 			require.Equal(t, ethState.GetCode(contracts.L2ApplicationStateRootProviderAddr), common.FromHex(bindings.L2ApplicationStateRootProviderMetaData.Bin))
+			require.Equal(t, ethState.GetCode(predeploys.L2ToL1MessagePasserAddr), common.FromHex(bindings.L2ToL1MessagePasserMetaData.Bin))
 		})
 	}
 }
