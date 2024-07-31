@@ -4,15 +4,17 @@ import (
 	sdkerrors "cosmossdk.io/errors"
 )
 
-// WrapError wraps an Cosmos-SDK error with extra message while keeping the stack trace at where this func is called.
+// WrapError wraps a Cosmos-SDK error with extra message while keeping the stack trace at where this func is called.
 var WrapError = sdkerrors.Wrapf
 
 var (
 	// error codes starting from 1
-	registerErr     = newErrRegistry(ModuleName, 1)
-	ErrInvalidL1Txs = registerErr("invalid L1 txs")
-	ErrMintETH      = registerErr("failed to mint ETH")
-	ErrL1BlockInfo  = registerErr("L1 block info")
+	registerErr      = newErrRegistry(ModuleName, 1)
+	ErrInvalidL1Txs  = registerErr("invalid L1 txs")
+	ErrMintETH       = registerErr("failed to mint ETH")
+	ErrBurnETH       = registerErr("failed to burn ETH")
+	ErrInvalidSender = registerErr("invalid sender address")
+	ErrL1BlockInfo   = registerErr("L1 block info")
 )
 
 // register new errors without hard-coding error codes
