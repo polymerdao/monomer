@@ -77,7 +77,7 @@ func setupEVM(t *testing.T) *vm.EVM {
 	ethState, err := state.New(types.EmptyRootHash, testutils.NewEthStateDB(t), nil)
 	require.NoError(t, err)
 	monomerEVM, err := evm.NewEVM(
-		contracts.PredeployContracts(ethState),
+		contracts.Predeploy(ethState),
 		&monomer.Header{
 			ChainID: monomer.ChainID(1),
 			Height:  1,

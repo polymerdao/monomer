@@ -75,7 +75,7 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 	if err != nil {
 		return fmt.Errorf("create ethereum state: %v", err)
 	}
-	ethStateRoot, err := contracts.PredeployContracts(ethState).Commit(initialHeight, true)
+	ethStateRoot, err := contracts.Predeploy(ethState).Commit(initialHeight, true)
 	if err != nil {
 		return fmt.Errorf("commit ethereum genesis state: %v", err)
 	}

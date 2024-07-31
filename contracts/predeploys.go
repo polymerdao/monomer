@@ -7,14 +7,14 @@ import (
 	"github.com/polymerdao/monomer/bindings/generated"
 )
 
-type Predeploy struct {
+type predeploy struct {
 	address          common.Address
 	deployedBytecode []byte
 }
 
 var L2ApplicationStateRootProviderAddr = common.HexToAddress("0x4300000000000000000000000000000000000001")
 
-var predeploys = []*Predeploy{
+var predeploys = []*predeploy{
 	{
 		address:          L2ApplicationStateRootProviderAddr,
 		deployedBytecode: common.FromHex(bindings.L2ApplicationStateRootProviderMetaData.Bin),
@@ -25,7 +25,7 @@ var predeploys = []*Predeploy{
 	},
 }
 
-func PredeployContracts(ethState *state.StateDB) *state.StateDB {
+func Predeploy(ethState *state.StateDB) *state.StateDB {
 	// TODO: investigate using the foundry deploy system for setting up the eth genesis state
 	// see https://github.com/polymerdao/monomer/pull/84#discussion_r1697579464
 	for _, predeploy := range predeploys {
