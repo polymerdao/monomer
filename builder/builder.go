@@ -14,6 +14,8 @@ import (
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
+	"github.com/polymerdao/monomer/bindings"
+	"github.com/polymerdao/monomer/evm"
 	"github.com/polymerdao/monomer/mempool"
 )
 
@@ -161,7 +163,11 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	if err != nil {
 		return nil, fmt.Errorf("create ethereum state: %v", err)
 	}
-	// TODO: execute withdrawals
+	// Store the updated cosmos app hash in the monomer EVM state db.
+	if err := b.storeAppHashInEVM(resp.AppHash, ethState, header); err != nil {
+		return nil, fmt.Errorf("store app hash in EVM: %v", err)
+	}
+	// TODO: execute withdrawal transactions
 	ethStateRoot, err := ethState.Commit(uint64(header.Height), true)
 	if err != nil {
 		return nil, fmt.Errorf("commit ethereum state: %v", err)
@@ -203,4 +209,22 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 
 	// TODO publish other things like new blocks.
 	return block, nil
+}
+
+// storeAppHashInEVM stores the updated cosmos app hash in the monomer EVM state db. This is used for proving withdrawals.
+func (b *Builder) storeAppHashInEVM(appHash []byte, ethState *state.StateDB, header *monomer.Header) error {
+	monomerEVM, err := evm.NewEVM(ethState, header, b.chainID.Big())
+	if err != nil {
+		return fmt.Errorf("new EVM: %v", err)
+	}
+	executer, err := bindings.NewL2ApplicationStateRootProviderExecuter(monomerEVM)
+	if err != nil {
+		return fmt.Errorf("new L2ApplicationStateRootProviderExecuter: %v", err)
+	}
+
+	if err := executer.SetL2ApplicationStateRoot(common.BytesToHash(appHash)); err != nil {
+		return fmt.Errorf("set L2ApplicationStateRoot: %v", err)
+	}
+
+	return nil
 }

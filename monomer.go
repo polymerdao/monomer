@@ -100,6 +100,24 @@ func MakeBlock(h *Header, txs bfttypes.Txs) (*Block, error) {
 	return SetHeader(NewBlock(h, txs))
 }
 
+// ToEth converts a partial Monomer Header to an Ethereum Header.
+// Extrinsic properties on the header (like the block hash) need to be set separately by SetHeader.
+func (h *Header) ToEth() *ethtypes.Header {
+	return &ethtypes.Header{
+		ParentHash:      h.ParentHash,
+		Root:            h.StateRoot,
+		Number:          big.NewInt(h.Height),
+		GasLimit:        h.GasLimit,
+		MixDigest:       common.Hash{},
+		Time:            h.Time,
+		UncleHash:       ethtypes.EmptyUncleHash,
+		ReceiptHash:     ethtypes.EmptyReceiptsHash,
+		BaseFee:         common.Big0,
+		WithdrawalsHash: &ethtypes.EmptyWithdrawalsHash,
+		Difficulty:      common.Big0,
+	}
+}
+
 func (b *Block) ToEth() (*ethtypes.Block, error) {
 	if b == nil {
 		return nil, errors.New("converted a nil block")
@@ -110,18 +128,7 @@ func (b *Block) ToEth() (*ethtypes.Block, error) {
 		return nil, fmt.Errorf("adapt txs: %v", err)
 	}
 	return ethtypes.NewBlockWithWithdrawals(
-		&ethtypes.Header{
-			ParentHash:      b.Header.ParentHash,
-			Root:            b.Header.StateRoot,
-			Number:          big.NewInt(b.Header.Height),
-			GasLimit:        b.Header.GasLimit,
-			MixDigest:       common.Hash{},
-			Time:            b.Header.Time,
-			UncleHash:       ethtypes.EmptyUncleHash,
-			ReceiptHash:     ethtypes.EmptyReceiptsHash,
-			BaseFee:         common.Big0,
-			WithdrawalsHash: &ethtypes.EmptyWithdrawalsHash,
-		},
+		b.Header.ToEth(),
 		txs,
 		nil,
 		[]*ethtypes.Receipt{},

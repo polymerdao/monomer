@@ -9,9 +9,13 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
+	"github.com/polymerdao/monomer/bindings/generated"
+	"github.com/polymerdao/monomer/contracts"
+	"github.com/polymerdao/monomer/evm"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
@@ -73,7 +77,7 @@ func TestCommit(t *testing.T) {
 				Height:    info.GetLastBlockHeight(),
 				Time:      test.genesis.Time,
 				GasLimit:  30_000_000, // We cheat a little and copy the default gas limit here.
-				StateRoot: gethtypes.EmptyRootHash,
+				StateRoot: evm.MonomerGenesisRootHash,
 			}, bfttypes.Txs{})
 			require.NoError(t, err)
 			require.Equal(t, block, blockStore.BlockByNumber(info.GetLastBlockHeight()))
@@ -81,7 +85,10 @@ func TestCommit(t *testing.T) {
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Safe))
 			require.Equal(t, block, blockStore.BlockByLabel(eth.Finalized))
 
-			// TODO: add test assertions to verify the withdrawals trie is properly updated
+			// Eth state db.
+			ethState, err := state.New(evm.MonomerGenesisRootHash, ethstatedb, nil)
+			require.NoError(t, err)
+			require.Equal(t, ethState.GetCode(contracts.L2ApplicationStateRootProviderAddr), common.FromHex(bindings.L2ApplicationStateRootProviderMetaData.Bin))
 		})
 	}
 }
