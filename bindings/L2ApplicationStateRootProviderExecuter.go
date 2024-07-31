@@ -35,7 +35,7 @@ func NewL2ApplicationStateRootProviderExecuter(evm *vm.EVM) (*L2ApplicationState
 func (e *L2ApplicationStateRootProviderExecuter) GetL2ApplicationStateRoot() (common.Hash, error) {
 	data, err := e.abi.Pack("l2ApplicationStateRoot")
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("create l2ApplicationStateRoot data: %v", err)
+		return common.Hash{}, fmt.Errorf("create l2ApplicationStateRoot data: %v", err)
 	}
 
 	res, _, err := e.evm.Call(
@@ -46,12 +46,12 @@ func (e *L2ApplicationStateRootProviderExecuter) GetL2ApplicationStateRoot() (co
 		uint256.NewInt(0),
 	)
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("call getL2ApplicationStateRoot: %v", err)
+		return common.Hash{}, fmt.Errorf("call getL2ApplicationStateRoot: %v", err)
 	}
 
 	stateRoot, err := solabi.ReadEthBytes32(bytes.NewReader(res))
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("read state root: %v", err)
+		return common.Hash{}, fmt.Errorf("read state root: %v", err)
 	}
 
 	return common.Hash(stateRoot), err

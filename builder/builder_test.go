@@ -3,7 +3,6 @@ package builder_test
 import (
 	"context"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"testing"
 
@@ -11,6 +10,7 @@ import (
 	cmtpubsub "github.com/cometbft/cometbft/libs/pubsub"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
