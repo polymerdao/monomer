@@ -2,6 +2,7 @@ package evm
 
 import (
 	"fmt"
+	"math/big"
 	"strings"
 
 	gethabi "github.com/ethereum/go-ethereum/accounts/abi"
@@ -16,6 +17,12 @@ type MonomerContractExecuter struct {
 	contractAddr common.Address
 }
 
+type CallParams struct {
+	Sender *common.Address
+	Value  *big.Int
+	Data   []byte
+}
+
 func NewMonomerContractExecuter(evm *vm.EVM, abiJSON string, contractAddr common.Address) (*MonomerContractExecuter, error) {
 	abi, err := gethabi.JSON(strings.NewReader(abiJSON))
 	if err != nil {
@@ -28,17 +35,30 @@ func NewMonomerContractExecuter(evm *vm.EVM, abiJSON string, contractAddr common
 	}, nil
 }
 
-// TODO: use a call struct param to specify the call specific call params or revert to a default if nil
-func (e *MonomerContractExecuter) Call(data []byte, value uint64) ([]byte, error) {
+func (e *MonomerContractExecuter) Call(params *CallParams) ([]byte, error) {
+	sender, value, data := params.getCallParams()
 	res, _, err := e.evm.Call(
-		vm.AccountRef(e.evm.TxContext.Origin),
+		vm.AccountRef(sender),
 		e.contractAddr,
 		data,
 		e.evm.Context.GasLimit,
-		uint256.NewInt(value),
+		value,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("call contract %v: %v", e.contractAddr, err)
 	}
 	return res, nil
+}
+
+func (params *CallParams) getCallParams() (common.Address, *uint256.Int, []byte) {
+	if params.Sender == nil {
+		params.Sender = &MonomerEVMTxOriginAddress
+	}
+	uint256Value := &uint256.Int{}
+	if params.Value == nil {
+		uint256Value = uint256.NewInt(0)
+	} else {
+		uint256Value.SetFromBig(params.Value)
+	}
+	return *params.Sender, uint256Value, params.Data
 }

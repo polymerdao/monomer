@@ -11,6 +11,11 @@ import (
 	monomerevm "github.com/polymerdao/monomer/evm"
 )
 
+const (
+	InitiateWithdrawalMethodName = "initiateWithdrawal"
+	SentMessagesMappingName      = "sentMessages"
+)
+
 type L2ToL1MessagePasserExecuter struct {
 	*monomerevm.MonomerContractExecuter
 }
@@ -34,18 +39,41 @@ func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(
 	gasLimit *big.Int,
 	data []byte,
 ) error {
-	data, err := e.ABI.Pack("initiateWithdrawal", l1Address, gasLimit, data)
+	data, err := e.ABI.Pack(InitiateWithdrawalMethodName, l1Address, gasLimit, data)
 	if err != nil {
 		return fmt.Errorf("create initiateWithdrawal data: %v", err)
 	}
 
-	// TODO: How should we pass through the cosmos sender address to verify that they were the one that withdrew on L2?
-	// Do we need to maintain a separate account mapping to ensure that eth msg.sender matches up instead of using the global EVM tx account?
-	// TODO: How should we ensure that the msg.value has enough funds to cover the withdrawal? Should we prepopulate an account(s) balance?
-	_, err = e.Call(data, 0)
+	senderEthAddress := common.HexToAddress(sender)
+
+	res, err := e.Call(&monomerevm.CallParams{
+		Sender: &senderEthAddress,
+		Value:  amount,
+		Data:   data,
+	})
 	if err != nil {
 		return fmt.Errorf("call initiateWithdrawal: %v", err)
 	}
 
 	return nil
+}
+
+func (e *L2ToL1MessagePasserExecuter) GetSentMessagesMappingValue(withdrawalHash common.Hash) (bool, error) {
+	data, err := e.ABI.Pack(SentMessagesMappingName, withdrawalHash)
+	if err != nil {
+		return false, fmt.Errorf("create sentMessages data: %v", err)
+	}
+
+	res, err := e.Call(&monomerevm.CallParams{Data: data})
+	if err != nil {
+		return false, fmt.Errorf("call sentMessages: %v", err)
+	}
+
+	var withdrawalHashIncluded bool
+	err = e.ABI.UnpackIntoInterface(&withdrawalHashIncluded, SentMessagesMappingName, res)
+	if err != nil {
+		return false, fmt.Errorf("unpack sentMessages: %v", err)
+	}
+
+	return withdrawalHashIncluded, nil
 }

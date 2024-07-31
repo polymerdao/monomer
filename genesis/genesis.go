@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/polymerdao/monomer/contracts"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -13,7 +14,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
-	"github.com/polymerdao/monomer/contracts"
 )
 
 type Genesis struct {
@@ -75,7 +75,7 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 	if err != nil {
 		return fmt.Errorf("create ethereum state: %v", err)
 	}
-	ethStateRoot, err := g.predeployContracts(ethState).Commit(initialHeight, true)
+	ethStateRoot, err := contracts.PredeployContracts(ethState).Commit(initialHeight, true)
 	if err != nil {
 		return fmt.Errorf("commit ethereum genesis state: %v", err)
 	}
@@ -94,13 +94,4 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 		}
 	}
 	return nil
-}
-
-func (g *Genesis) predeployContracts(ethState *state.StateDB) *state.StateDB {
-	// TODO: investigate using the foundry deploy system for setting up the eth genesis state
-	// see https://github.com/polymerdao/monomer/pull/84#discussion_r1697579464
-	for _, predeploy := range contracts.Predeploys {
-		ethState.SetCode(predeploy.Address, predeploy.DeployedBytecode)
-	}
-	return ethState
 }
