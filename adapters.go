@@ -87,10 +87,21 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	}
 	txsBytes := cosmosTxs.ToSliceOfBytes()
 
-	var txs ethtypes.Transactions
-
 	// Unpack deposits from the MsgL1Txs msg.
-	cosmosEthTxBytes := txsBytes[0]
+	txs, err := AdaptCosmosDepositTxToEthTx(txsBytes[0])
+	if err != nil {
+		return nil, fmt.Errorf("adapt cosmos deposit tx: %v", err)
+	}
+
+	// Pack Cosmos txs into Ethereum txs.
+	for _, txBytes := range txsBytes[1:] {
+		txs = append(txs, AdaptNonDepositCosmosTxToEthTx(txBytes))
+	}
+
+	return txs, nil
+}
+
+func AdaptCosmosDepositTxToEthTx(cosmosEthTxBytes []byte) (ethtypes.Transactions, error) {
 	cosmosEthTx := new(sdktx.Tx)
 	if err := cosmosEthTx.Unmarshal(cosmosEthTxBytes); err != nil {
 		return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
@@ -107,7 +118,8 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	if len(ethTxsBytes) == 0 {
 		return nil, errors.New("L1 Attributes tx not found")
 	}
-	for _, txBytes := range ethTxsBytes {
+	txs := make(ethtypes.Transactions, len(ethTxsBytes))
+	for i, txBytes := range ethTxsBytes {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
 			break
@@ -115,12 +127,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 		if !tx.IsDepositTx() {
 			return nil, errors.New("MsgL1Tx contains non-deposit tx")
 		}
-		txs = append(txs, &tx)
-	}
-
-	// Pack Cosmos txs into Ethereum txs.
-	for _, txBytes := range txsBytes[1:] {
-		txs = append(txs, AdaptNonDepositCosmosTxToEthTx(txBytes))
+		txs[i] = &tx
 	}
 
 	return txs, nil
