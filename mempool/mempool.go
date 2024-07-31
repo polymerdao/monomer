@@ -37,7 +37,7 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) error {
 	// NOTE: we should do reads and writes on the same view. Right now they occur on separate views.
 	// Unfortunately, comet's DB interface doesn't support it.
 	// Moving to a different DB interface is left for future work.
-	if _, err := rolluptypes.AdaptCosmosDepositTxToEthTx(userTxn); err == nil {
+	if txs, _ := rolluptypes.AdaptCosmosDepositTxToEthTx(userTxn); len(txs) > 0 {
 		return errors.New("deposit txs are not allowed in the pool")
 	}
 

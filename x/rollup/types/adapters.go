@@ -107,8 +107,8 @@ func AdaptCosmosDepositTxToEthTx(cosmosEthTxBytes []byte) (ethtypes.Transactions
 	if len(ethTxsBytes) == 0 {
 		return nil, errors.New("L1 Attributes tx not found")
 	}
-	txs := make(ethtypes.Transactions, len(ethTxsBytes))
-	for i, txBytes := range ethTxsBytes {
+	txs := make(ethtypes.Transactions, 0, len(ethTxsBytes))
+	for _, txBytes := range ethTxsBytes {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
 			break
@@ -116,7 +116,7 @@ func AdaptCosmosDepositTxToEthTx(cosmosEthTxBytes []byte) (ethtypes.Transactions
 		if !tx.IsDepositTx() {
 			return nil, errors.New("MsgL1Tx contains non-deposit tx")
 		}
-		txs[i] = &tx
+		txs = append(txs, &tx)
 	}
 
 	return txs, nil
