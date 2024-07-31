@@ -40,13 +40,8 @@ const config: Config = {
           editUrl:
             'https://github.com/polymerdao/monomer/tree/main/doc/',
         },
-        blog: {
-          showReadingTime: true,
-          // Please change this to your repo.
-          // Remove this to remove the "edit this page" links.
-          editUrl:
-            'https://github.com/polymerdao/monomer/tree/main/doc/',
-        },
+        // Do not include a blog
+        blog: false,
         theme: {
           customCss: './src/css/custom.css',
         },
@@ -70,7 +65,6 @@ const config: Config = {
           position: 'left',
           label: 'Overview',
         },
-        {to: '/blog', label: 'Blog', position: 'left'},
         {
           href: 'https://github.com/polymerdao/monomer',
           label: 'GitHub',
