@@ -49,7 +49,7 @@ func TestL2ToL1MessagePasserExecuter(t *testing.T) {
 	data := []byte("data")
 
 	withdrawalHash, err := crossdomain.NewWithdrawal(
-		big.NewInt(1), // expected nonce
+		crossdomain.EncodeVersionedNonce(big.NewInt(0), big.NewInt(1)),
 		&ethSenderAddr,
 		&l1TargetAddress,
 		amount,
