@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -34,47 +35,47 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollupv1.ApplyL1TxsReque
 	}
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	ctx.Logger().Debug("processing L1 txs", "txCount", len(msg.TxBytes))
+	ctx.Logger().Debug("Processing L1 txs", "txCount", len(msg.TxBytes))
 
 	// process L1 system deposit tx
 	txBytes := msg.TxBytes[0]
 	var tx ethtypes.Transaction
 	if err := tx.UnmarshalBinary(txBytes); err != nil {
-		ctx.Logger().Error("failed to unmarshal system deposit transaction", "index", 0, "err", err, "txBytes", txBytes)
+		ctx.Logger().Error("Failed to unmarshal system deposit transaction", "index", 0, "err", err, "txBytes", txBytes)
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to unmarshal system deposit transaction: %v", err)
 	}
 	if !tx.IsDepositTx() {
-		ctx.Logger().Error("first L1 tx must be a system deposit tx", "type", tx.Type())
+		ctx.Logger().Error("First L1 tx must be a system deposit tx", "type", tx.Type())
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "first L1 tx must be a system deposit tx, but got type %d", tx.Type())
 	}
 	l1blockInfo, err := derive.L1BlockInfoFromBytes(k.rollupCfg, 0, tx.Data())
 	if err != nil {
-		ctx.Logger().Error("failed to derive L1 block info from L1 Info Deposit tx", "err", err, "txBytes", txBytes)
+		ctx.Logger().Error("Failed to derive L1 block info from L1 Info Deposit tx", "err", err, "txBytes", txBytes)
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to derive L1 block info from L1 Info Deposit tx: %v", err)
 	}
 
 	// save L1 block info to AppState
-	if err := k.SetL1BlockInfo(&ctx, *l1blockInfo); err != nil {
-		ctx.Logger().Error("failed to save L1 block info to AppState", "err", err)
+	if err := k.SetL1BlockInfo(ctx, *l1blockInfo); err != nil {
+		ctx.Logger().Error("Failed to save L1 block info to AppState", "err", err)
 		return nil, types.WrapError(types.ErrL1BlockInfo, "save error: %v", err)
 	}
 
-	ctx.Logger().Info("save L1 block info", "l1blockInfo", string(lo.Must(json.Marshal(l1blockInfo))))
+	ctx.Logger().Info("Save L1 block info", "l1blockInfo", string(lo.Must(json.Marshal(l1blockInfo))))
 
 	// save L1 block History to AppState
 	if err := k.SetL1BlockHistory(&ctx, l1blockInfo); err != nil {
-		ctx.Logger().Error("failed to save L1 block history info to AppState", "err", err)
+		ctx.Logger().Error("Failed to save L1 block history info to AppState", "err", err)
 		return nil, types.WrapError(types.ErrL1BlockInfo, "save error: %v", err)
 	}
 
-	ctx.Logger().Info("save L1 block history info", "l1blockHistoryInfo", string(lo.Must(json.Marshal(l1blockInfo))))
+	ctx.Logger().Info("Save L1 block history info", "l1blockHistoryInfo", string(lo.Must(json.Marshal(l1blockInfo))))
 
 	// process L1 user deposit txs
 	for i := 1; i < len(msg.TxBytes); i++ {
 		txBytes := msg.TxBytes[i]
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
-			ctx.Logger().Error("failed to unmarshal user deposit transaction", "index", i, "err", err, "txBytes", txBytes)
+			ctx.Logger().Error("Failed to unmarshal user deposit transaction", "index", i, "err", err, "txBytes", txBytes)
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to unmarshal user deposit transaction", "index", i, "err", err)
 		}
 		if !tx.IsDepositTx() {
@@ -85,7 +86,7 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollupv1.ApplyL1TxsReque
 			ctx.Logger().Error("L1 tx must be a user deposit tx", "type", tx.Type())
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "L1 tx must be a user deposit tx, type %d", tx.Type())
 		}
-		ctx.Logger().Debug("user deposit tx", "index", i, "tx", string(lo.Must(tx.MarshalJSON())))
+		ctx.Logger().Debug("User deposit tx", "index", i, "tx", string(lo.Must(tx.MarshalJSON())))
 		to := tx.To()
 		// if the receipient is nil, it means the tx is creating a contract which we don't support, so return an error.
 		// see https://github.com/ethereum-optimism/op-geth/blob/v1.101301.0-rc.2/core/state_processor.go#L154
@@ -95,31 +96,57 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *rollupv1.ApplyL1TxsReque
 		}
 		cosmAddr := evmToCosmos(*to)
 		mintAmount := sdkmath.NewIntFromBigInt(tx.Value())
-		err := k.MintETH(&ctx, cosmAddr, mintAmount)
+		err := k.MintETH(ctx, cosmAddr, mintAmount)
 		if err != nil {
-			ctx.Logger().Error("failed to mint ETH", "evmAddress", to, "polymerAddress", cosmAddr, "err", err)
-			return nil, types.WrapError(types.ErrMintETH, "failed to mint ETH", "polymerAddress", cosmAddr, "err", err)
+			ctx.Logger().Error("Failed to mint ETH", "evmAddress", to, "cosmosAddress", cosmAddr, "err", err)
+			return nil, types.WrapError(types.ErrMintETH, "failed to mint ETH for cosmosAddress: %v; err: %v", cosmAddr, err)
 		}
 	}
 	return &rollupv1.ApplyL1TxsResponse{}, nil
 }
 
-// TODO: implement InitiateWithdrawal handler
 func (k *Keeper) InitiateWithdrawal(
 	goCtx context.Context,
 	msg *rollupv1.InitiateWithdrawalRequest,
 ) (*rollupv1.InitiateWithdrawalResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	ctx.Logger().Debug("Withdrawing L2 assets", "sender", msg.Sender, "amount", msg.Amount)
+
+	cosmAddr, err := sdk.AccAddressFromBech32(msg.Sender)
+	if err != nil {
+		ctx.Logger().Error("Invalid sender address", "sender", msg.Sender, "err", err)
+		return nil, types.WrapError(types.ErrInvalidSender, "failed to create cosmos address for sender: %v; error: %v", msg.Sender, err)
+	}
+
+	if err := k.BurnETH(ctx, cosmAddr, msg.Amount); err != nil {
+		ctx.Logger().Error("Failed to burn ETH", "cosmosAddress", cosmAddr, "evmAddress", msg.Target, "err", err)
+		return nil, types.WrapError(types.ErrBurnETH, "failed to burn ETH for cosmosAddress: %v; err: %v", cosmAddr, err)
+	}
+
+	ctx.EventManager().EmitEvents(sdk.Events{
+		sdk.NewEvent(
+			sdk.EventTypeMessage,
+			sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
+		),
+		sdk.NewEvent(
+			types.EventTypeWithdrawalInitiated,
+			sdk.NewAttribute(types.AttributeKeySender, msg.Sender),
+			sdk.NewAttribute(types.AttributeKeyL1Target, msg.Target),
+			sdk.NewAttribute(types.AttributeKeyAmount, hexutil.Encode(msg.Amount.BigInt().Bytes())),
+		),
+	})
+
 	return &rollupv1.InitiateWithdrawalResponse{}, nil
 }
 
 // MintETH mints ETH to an account where the amount is in wei, the smallest unit of ETH
-func (k *Keeper) MintETH(ctx *sdk.Context, addr sdk.AccAddress, amount sdkmath.Int) error {
+func (k *Keeper) MintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.Int) error { //nolint:gocritic // hugeParam
 	coin := sdk.NewCoin(types.ETH, amount)
-	if err := k.mintKeeper.MintCoins(*ctx, sdk.NewCoins(coin)); err != nil {
-		return err
+	if err := k.mintKeeper.MintCoins(ctx, sdk.NewCoins(coin)); err != nil {
+		return fmt.Errorf("failed to mint deposit coins from mint module: %v", err)
 	}
-	if err := k.bankkeeper.SendCoinsFromModuleToAccount(*ctx, types.MintModule, addr, sdk.NewCoins(coin)); err != nil {
-		return err
+	if err := k.bankkeeper.SendCoinsFromModuleToAccount(ctx, types.MintModule, addr, sdk.NewCoins(coin)); err != nil {
+		return fmt.Errorf("failed to send deposit coins from mint module to user account %v: %v", addr, err)
 	}
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
@@ -130,7 +157,37 @@ func (k *Keeper) MintETH(ctx *sdk.Context, addr sdk.AccAddress, amount sdkmath.I
 			types.EventTypeMintETH,
 			sdk.NewAttribute(types.AttributeKeyL1DepositTxType, types.L1UserDepositTxType),
 			sdk.NewAttribute(types.AttributeKeyToCosmosAddress, addr.String()),
-			sdk.NewAttribute(types.AttributeKeyAmount, hexutil.Encode((amount.BigInt().Bytes()))),
+			sdk.NewAttribute(types.AttributeKeyAmount, hexutil.Encode(amount.BigInt().Bytes())),
+		),
+	})
+	return nil
+}
+
+// BurnETH burns ETH from an account where the amount is in wei
+func (k *Keeper) BurnETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.Int) error { //nolint:gocritic // hugeParam
+	coins := sdk.NewCoins(sdk.NewCoin(types.ETH, amount))
+
+	// Transfer the coins to withdraw from the user account to the mint module
+	err := k.bankkeeper.SendCoinsFromAccountToModule(ctx, addr, types.MintModule, coins)
+	if err != nil {
+		return fmt.Errorf("failed to send withdrawal coins from user account %v to mint module: %v", addr, err)
+	}
+
+	// Burn the ETH coins from the mint module
+	if err := k.bankkeeper.BurnCoins(ctx, types.MintModule, coins); err != nil {
+		return fmt.Errorf("failed to burn withdrawal coins from mint module: %v", err)
+	}
+
+	ctx.EventManager().EmitEvents(sdk.Events{
+		sdk.NewEvent(
+			sdk.EventTypeMessage,
+			sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
+		),
+		sdk.NewEvent(
+			types.EventTypeBurnETH,
+			sdk.NewAttribute(types.AttributeKeyL2WithdrawalTx, types.EventTypeWithdrawalInitiated),
+			sdk.NewAttribute(types.AttributeKeyFromCosmosAddress, addr.String()),
+			sdk.NewAttribute(types.AttributeKeyAmount, hexutil.Encode(amount.BigInt().Bytes())),
 		),
 	})
 	return nil
@@ -140,7 +197,7 @@ func (k *Keeper) MintETH(ctx *sdk.Context, addr sdk.AccAddress, amount sdkmath.I
 //
 // Persisted data conforms to optimism specs on L1 attributes:
 // https://github.com/ethereum-optimism/optimism/blob/develop/specs/deposits.md#l1-attributes-predeployed-contract
-func (k *Keeper) SetL1BlockInfo(ctx *sdk.Context, info derive.L1BlockInfo) error { //nolint:gocritic
+func (k *Keeper) SetL1BlockInfo(ctx sdk.Context, info derive.L1BlockInfo) error { //nolint:gocritic
 	infoBytes, err := json.Marshal(info)
 	if err != nil {
 		return types.WrapError(err, "marshal L1 block info")
@@ -165,5 +222,5 @@ func (k *Keeper) SetL1BlockHistory(ctx context.Context, info *derive.L1BlockInfo
 
 // evmToCosmos converts an EVM address to a sdk.AccAddress
 func evmToCosmos(addr common.Address) sdk.AccAddress {
-	return sdk.AccAddress(addr.Bytes())
+	return addr.Bytes()
 }
