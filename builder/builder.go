@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"slices"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
+	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -16,6 +18,7 @@ import (
 	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/evm"
+	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/mempool"
 )
 
@@ -167,7 +170,37 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	if err := b.storeAppHashInEVM(resp.AppHash, ethState, header); err != nil {
 		return nil, fmt.Errorf("store app hash in EVM: %v", err)
 	}
-	// TODO: execute withdrawal transactions
+
+	execTxResults := resp.GetTxResults()
+	txResults := make([]*abcitypes.TxResult, 0, len(execTxResults))
+	for i, execTxResult := range execTxResults {
+		tx := txs[i]
+		txResults = append(txResults, &abcitypes.TxResult{
+			Height: header.Height,
+			Index:  uint32(i),
+			// This should work https://docs.cometbft.com/v0.38/spec/abci/abci++_methods#finalizeblock
+			// The application shouldn't return the execTxResults in a different order than the corresponding txs.
+			Tx:     tx,
+			Result: *execTxResult,
+		})
+
+		cosmosTx := new(sdktx.Tx)
+		if err := cosmosTx.Unmarshal(tx); err != nil {
+			return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
+		}
+		// TODO: will the withdrawal msg always be the first tx message or do all tx messages need to be checked?
+		for _, msg := range cosmosTx.GetBody().GetMessages() {
+			withdrawalMsg := new(rollupv1.InitiateWithdrawalRequest)
+			// TODO: is there a better way to check if a message is a withdrawal message type?
+			if err := withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
+				continue
+			}
+			if err := b.storeWithdrawalMsgInEVM(withdrawalMsg, ethState, header); err != nil {
+				return nil, fmt.Errorf("store withdrawal msg in EVM: %v", err)
+			}
+		}
+	}
+
 	ethStateRoot, err := ethState.Commit(uint64(header.Height), true)
 	if err != nil {
 		return nil, fmt.Errorf("commit ethereum state: %v", err)
@@ -182,18 +215,6 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	// Append block.
 	b.blockStore.AddBlock(block)
 
-	execTxResults := resp.GetTxResults()
-	txResults := make([]*abcitypes.TxResult, 0, len(execTxResults))
-	for i, execTxResult := range execTxResults {
-		txResults = append(txResults, &abcitypes.TxResult{
-			Height: header.Height,
-			Index:  uint32(i),
-			// This should work https://docs.cometbft.com/v0.38/spec/abci/abci++_methods#finalizeblock
-			// The application shouldn't return the execTxResults in a different order than the corresponding txs.
-			Tx:     txs[i],
-			Result: *execTxResult,
-		})
-	}
 	// Index txs.
 	if err := b.txStore.Add(txResults); err != nil {
 		return nil, fmt.Errorf("add tx results: %v", err)
@@ -224,6 +245,30 @@ func (b *Builder) storeAppHashInEVM(appHash []byte, ethState *state.StateDB, hea
 
 	if err := executer.SetL2ApplicationStateRoot(common.BytesToHash(appHash)); err != nil {
 		return fmt.Errorf("set L2ApplicationStateRoot: %v", err)
+	}
+
+	return nil
+}
+
+// storeWithdrawalMsgInEVM stores the withdrawal message hash in the monomer evm state db. This is used for proving withdrawals.
+func (b *Builder) storeWithdrawalMsgInEVM(withdrawalMsg *rollupv1.InitiateWithdrawalRequest, ethState *state.StateDB, header *monomer.Header) error {
+	monomerEVM, err := evm.NewEVM(ethState, header, b.chainID.Big())
+	if err != nil {
+		return fmt.Errorf("new EVM: %v", err)
+	}
+	executer, err := bindings.NewL2ToL1MessagePasserExecuter(monomerEVM)
+	if err != nil {
+		return fmt.Errorf("new L2ToL1MessagePasserExecuter: %v", err)
+	}
+
+	if err := executer.InitiateWithdrawal(
+		withdrawalMsg.GetSender(),
+		withdrawalMsg.Amount.BigInt(),
+		common.HexToAddress(withdrawalMsg.GetTarget()),
+		new(big.Int).SetBytes(withdrawalMsg.GasLimit),
+		withdrawalMsg.GetData(),
+	); err != nil {
+		return fmt.Errorf("initiate withdrawal: %v", err)
 	}
 
 	return nil
