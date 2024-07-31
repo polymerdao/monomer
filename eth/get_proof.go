@@ -3,6 +3,7 @@ package eth
 import (
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"math/big"
 	"strings"
 
@@ -12,13 +13,15 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/polymerdao/monomer/app/peptide/store"
 )
 
-var ErrNotImplemented = errors.New("not implemented")
+const commonHashLength = 32
 
-const commonHashLenth = 32
-
-type ProofProvider struct{}
+type ProofProvider struct {
+	database   state.Database
+	blockStore store.BlockStoreReader
+}
 
 // proofList implements ethdb.KeyValueWriter and collects the proofs as
 // hex-strings for delivery to rpc-caller.
@@ -33,17 +36,38 @@ func (n *proofList) Delete(key []byte) error {
 	panic("not supported")
 }
 
-func NewProofProvider() *ProofProvider {
-	return &ProofProvider{}
+func NewProofProvider(db state.Database, blockStore store.BlockStoreReader) *ProofProvider {
+	return &ProofProvider{
+		database:   db,
+		blockStore: blockStore,
+	}
 }
 
 // getState returns the state.StateBD and Header of block at the given number.
 // If the passed number is nil, it returns the the db and header of the latest block.
-//
-// TODO: replace this with a real implementation based on `ProofProvider` being supplied
-// with required data sources
 func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.Header, error) {
-	return nil, types.Header{}, ErrNotImplemented
+	var ethBlock *types.Block
+	var err error
+
+	if blockNumber == nil {
+		ethBlock, err = p.blockStore.HeadBlock().ToEth()
+	} else {
+		ethBlock, err = p.blockStore.BlockByNumber(blockNumber.Int64()).ToEth()
+	}
+
+	if err != nil {
+		return nil, types.Header{}, fmt.Errorf("getting eth block %d: %w", blockNumber, err)
+	}
+
+	header := ethBlock.Header()
+	hash := ethBlock.Hash()
+
+	sdb, err := state.New(hash, p.database, nil)
+	if err != nil {
+		return nil, *header, fmt.Errorf("opening state.StateDB: %w", err)
+	}
+
+	return sdb, *header, nil
 }
 
 // decodeHash parses a hex-encoded 32-byte hash. The input may optionally
@@ -59,7 +83,7 @@ func decodeHash(s string) (h common.Hash, inputLength int, err error) {
 	if err != nil {
 		return common.Hash{}, 0, errors.New("hex string invalid")
 	}
-	if len(b) > commonHashLenth {
+	if len(b) > commonHashLength {
 		return common.Hash{}, len(b), errors.New("hex string too long, want at most 32 bytes")
 	}
 	return common.BytesToHash(b), len(b), nil
@@ -194,7 +218,7 @@ func (p *ProofProvider) getProof(address common.Address, storageKeys []string, b
 			// JSON-RPC spec for getProof. This behavior exists to preserve backwards
 			// compatibility with older client versions.
 			var outputKey string
-			if keyLengths[i] != commonHashLenth {
+			if keyLengths[i] != commonHashLength {
 				outputKey = hexutil.EncodeBig(key.Big())
 			} else {
 				outputKey = hexutil.Encode(key[:])

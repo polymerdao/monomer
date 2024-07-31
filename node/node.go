@@ -117,7 +117,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 			}{
 				ChainID:       eth.NewChainID(n.genesis.ChainID.HexBig(), ethMetrics),
 				Block:         eth.NewBlock(blockStore, n.genesis.ChainID.Big(), ethMetrics),
-				ProofProvider: eth.NewProofProvider(),
+				ProofProvider: eth.NewProofProvider(n.ethstatedb, blockStore),
 			},
 		},
 	} {
