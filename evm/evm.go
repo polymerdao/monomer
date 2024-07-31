@@ -16,9 +16,9 @@ import (
 
 var (
 	// MonomerGenesisRootHash is the known root hash of the monomer ethereum state trie after all predeployed contracts are created.
-	MonomerGenesisRootHash = common.HexToHash("0x4e171626bc7f95d0b053dab23c87327ee0266dda88b213a3e1f1357b741c0c35")
+	MonomerGenesisRootHash = common.HexToHash("0x3a095829019f8dd6c1cb02adf75ad95fe380ddff00acf3c54fc727305eac95ad")
 	// MonomerEVMTxOriginAddress is the address used for executing transactions in the monomer EVM.
-	MonomerEVMTxOriginAddress = common.HexToAddress("0xae76d9126c32d7eafe3f5b7bd5a7b44f2d5bb8b1")
+	MonomerEVMTxOriginAddress = common.HexToAddress("0x4300000000000000000000000000000000000000")
 )
 
 func NewEVM(ethState vm.StateDB, header *monomer.Header, chainID *big.Int) (*vm.EVM, error) {

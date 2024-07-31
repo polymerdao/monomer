@@ -222,9 +222,7 @@ func (b *Builder) storeAppHashInEVM(appHash []byte, ethState *state.StateDB, hea
 		return fmt.Errorf("new L2ApplicationStateRootProviderExecuter: %v", err)
 	}
 
-	var appHash32 [32]byte
-	copy(appHash32[:], appHash)
-	if err := executer.SetL2ApplicationStateRoot(appHash32); err != nil {
+	if err := executer.SetL2ApplicationStateRoot(common.BytesToHash(appHash)); err != nil {
 		return fmt.Errorf("set L2ApplicationStateRoot: %v", err)
 	}
 

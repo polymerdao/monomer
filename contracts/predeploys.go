@@ -10,7 +10,7 @@ type Predeploy struct {
 	DeployedBytecode []byte
 }
 
-var L2ApplicationStateRootProviderAddr = common.HexToAddress("0x4e7a96d48e79e61c7aee5ef9e59d7cfc6f0bdc8d")
+var L2ApplicationStateRootProviderAddr = common.HexToAddress("0x4300000000000000000000000000000000000001")
 
 var Predeploys = []*Predeploy{
 	{

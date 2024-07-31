@@ -32,7 +32,7 @@ func NewL2ApplicationStateRootProviderExecuter(evm *vm.EVM) (*L2ApplicationState
 	}, nil
 }
 
-func (e *L2ApplicationStateRootProviderExecuter) GetL2ApplicationStateRoot() ([32]byte, error) {
+func (e *L2ApplicationStateRootProviderExecuter) GetL2ApplicationStateRoot() (common.Hash, error) {
 	data, err := e.abi.Pack("l2ApplicationStateRoot")
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("create l2ApplicationStateRoot data: %v", err)
@@ -54,10 +54,10 @@ func (e *L2ApplicationStateRootProviderExecuter) GetL2ApplicationStateRoot() ([3
 		return [32]byte{}, fmt.Errorf("read state root: %v", err)
 	}
 
-	return stateRoot, err
+	return common.Hash(stateRoot), err
 }
 
-func (e *L2ApplicationStateRootProviderExecuter) SetL2ApplicationStateRoot(stateRoot [32]byte) error {
+func (e *L2ApplicationStateRootProviderExecuter) SetL2ApplicationStateRoot(stateRoot common.Hash) error {
 	data, err := e.abi.Pack("setL2ApplicationStateRoot", stateRoot)
 	if err != nil {
 		return fmt.Errorf("create setL2ApplicationStateRoot data: %v", err)

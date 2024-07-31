@@ -3,6 +3,7 @@ package builder_test
 import (
 	"context"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common"
 	"math/big"
 	"testing"
 
@@ -174,7 +175,7 @@ func TestBuild(t *testing.T) {
 			require.NoError(t, err)
 			appHash, err := getAppHashFromEVM(ethState, header, chainID.Big())
 			require.NoError(t, err)
-			require.Equal(t, appHash, postBuildInfo.GetLastBlockAppHash())
+			require.Equal(t, appHash[:], postBuildInfo.GetLastBlockAppHash())
 
 			// Tx store and event bus.
 			for i, tx := range wantBlock.Txs {
@@ -291,22 +292,21 @@ func TestRollback(t *testing.T) {
 	// We trust that the other parts of a tx store rollback were done as well.
 }
 
-// TODO: should this be in a helper file?
 // getAppHashFromEVM retrieves the updated cosmos app hash from the monomer EVM state db.
-func getAppHashFromEVM(ethState *state.StateDB, header *monomer.Header, chainID *big.Int) ([]byte, error) {
+func getAppHashFromEVM(ethState *state.StateDB, header *monomer.Header, chainID *big.Int) (common.Hash, error) {
 	monomerEVM, err := evm.NewEVM(ethState, header, chainID)
 	if err != nil {
-		return nil, fmt.Errorf("new EVM: %v", err)
+		return common.Hash{}, fmt.Errorf("new EVM: %v", err)
 	}
 	executer, err := bindings.NewL2ApplicationStateRootProviderExecuter(monomerEVM)
 	if err != nil {
-		return nil, fmt.Errorf("new L2ApplicationStateRootProviderExecuter: %v", err)
+		return common.Hash{}, fmt.Errorf("new L2ApplicationStateRootProviderExecuter: %v", err)
 	}
 
 	appHash, err := executer.GetL2ApplicationStateRoot()
 	if err != nil {
-		return nil, fmt.Errorf("set L2ApplicationStateRoot: %v", err)
+		return common.Hash{}, fmt.Errorf("set L2ApplicationStateRoot: %v", err)
 	}
 
-	return appHash[:], nil
+	return appHash, nil
 }
