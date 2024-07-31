@@ -62,7 +62,7 @@ echo "Compiling optimism contracts..."
 forge build --root $TEMP_OP_CONTRACTS_ROOT_DIR --contracts $TEMP_OP_CONTRACTS_DIR --out $FORGE_ARTIFACTS_DIR --cache-path $FORGE_CACHE_DIR
 
 # Remove the copied optimism contracts from the monomer contracts directory
-rm -rf "$CONTRACTS_ROOT_DIR/optimism"
+rm -rf $TEMP_OP_CONTRACTS_ROOT_DIR
 
 # Loop through each generated forge artifact to generate Go bindings
 find $FORGE_ARTIFACTS_DIR -name "*.json" | while read -r forge_artifact; do
