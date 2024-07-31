@@ -3,7 +3,6 @@ package builder_test
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -173,7 +172,7 @@ func TestBuild(t *testing.T) {
 			// Eth state db.
 			ethState, err := state.New(ethStateRoot, ethstatedb, nil)
 			require.NoError(t, err)
-			appHash, err := getAppHashFromEVM(ethState, header, chainID.Big())
+			appHash, err := getAppHashFromEVM(ethState, header)
 			require.NoError(t, err)
 			require.Equal(t, appHash[:], postBuildInfo.GetLastBlockAppHash())
 
@@ -293,8 +292,8 @@ func TestRollback(t *testing.T) {
 }
 
 // getAppHashFromEVM retrieves the updated cosmos app hash from the monomer EVM state db.
-func getAppHashFromEVM(ethState *state.StateDB, header *monomer.Header, chainID *big.Int) (common.Hash, error) {
-	monomerEVM, err := evm.NewEVM(ethState, header, chainID)
+func getAppHashFromEVM(ethState *state.StateDB, header *monomer.Header) (common.Hash, error) {
+	monomerEVM, err := evm.NewEVM(ethState, header)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("new EVM: %v", err)
 	}

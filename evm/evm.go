@@ -10,6 +10,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/utils"
 )
@@ -21,9 +22,9 @@ var (
 	MonomerEVMTxOriginAddress = common.HexToAddress("0x4300000000000000000000000000000000000000")
 )
 
-func NewEVM(ethState vm.StateDB, header *monomer.Header, chainID *big.Int) (*vm.EVM, error) {
+func NewEVM(ethState vm.StateDB, header *monomer.Header) (*vm.EVM, error) {
 	chainConfig := &params.ChainConfig{
-		ChainID: chainID,
+		ChainID: header.ChainID.Big(),
 
 		ByzantiumBlock:      new(big.Int),
 		ConstantinopleBlock: new(big.Int),
@@ -44,6 +45,7 @@ func NewEVM(ethState vm.StateDB, header *monomer.Header, chainID *big.Int) (*vm.
 	blockContext := core.NewEVMBlockContext(header.ToEth(), mockChainContext{}, &MonomerEVMTxOriginAddress, chainConfig, ethState)
 	// TODO: investigate having an unlimited gas limit for monomer EVM execution
 	blockContext.GasLimit = 100_000_000
+	blockContext.CanTransfer = CanTransfer
 
 	return vm.NewEVM(
 		blockContext,
@@ -57,6 +59,11 @@ func NewEVM(ethState vm.StateDB, header *monomer.Header, chainID *big.Int) (*vm.
 			NoBaseFee: true,
 		},
 	), nil
+}
+
+// CanTransfer is overridden to explicitly allow all transfers in the monomer EVM. This avoids needing to deal with account balances.
+func CanTransfer(db vm.StateDB, addr common.Address, amount *uint256.Int) bool {
+	return true
 }
 
 type mockChainContext struct{}
