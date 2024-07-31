@@ -9,6 +9,7 @@ import (
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
+	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
@@ -188,15 +189,18 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		if err := cosmosTx.Unmarshal(tx); err != nil {
 			return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
 		}
-		// TODO: will the withdrawal msg always be the first tx message or do all tx messages need to be checked?
+
+		// Check for withdrawal messages.
 		for _, msg := range cosmosTx.GetBody().GetMessages() {
 			withdrawalMsg := new(rollupv1.InitiateWithdrawalRequest)
-			// TODO: is there a better way to check if a message is a withdrawal message type?
-			if err := withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
-				continue
-			}
-			if err := b.storeWithdrawalMsgInEVM(withdrawalMsg, ethState, header); err != nil {
-				return nil, fmt.Errorf("store withdrawal msg in EVM: %v", err)
+			if msg.TypeUrl == cdctypes.MsgTypeURL(withdrawalMsg) {
+				if err := withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
+					return nil, fmt.Errorf("unmarshal InitiateWithdrawalRequest: %v", err)
+				}
+				// Store the withdrawal message hash in the monomer EVM state db.
+				if err := b.storeWithdrawalMsgInEVM(withdrawalMsg, ethState, header); err != nil {
+					return nil, fmt.Errorf("store withdrawal msg in EVM: %v", err)
+				}
 			}
 		}
 	}
@@ -251,7 +255,11 @@ func (b *Builder) storeAppHashInEVM(appHash []byte, ethState *state.StateDB, hea
 }
 
 // storeWithdrawalMsgInEVM stores the withdrawal message hash in the monomer evm state db. This is used for proving withdrawals.
-func (b *Builder) storeWithdrawalMsgInEVM(withdrawalMsg *rollupv1.InitiateWithdrawalRequest, ethState *state.StateDB, header *monomer.Header) error {
+func (b *Builder) storeWithdrawalMsgInEVM(
+	withdrawalMsg *rollupv1.InitiateWithdrawalRequest,
+	ethState *state.StateDB,
+	header *monomer.Header,
+) error {
 	monomerEVM, err := evm.NewEVM(ethState, header, b.chainID.Big())
 	if err != nil {
 		return fmt.Errorf("new EVM: %v", err)

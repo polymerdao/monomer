@@ -2,12 +2,13 @@ package bindings
 
 import (
 	"fmt"
+	"math/big"
+
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	bindings "github.com/polymerdao/monomer/bindings/generated"
 	monomerevm "github.com/polymerdao/monomer/evm"
-	"math/big"
 )
 
 type L2ToL1MessagePasserExecuter struct {

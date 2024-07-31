@@ -17,7 +17,7 @@ import (
 var (
 	// MonomerGenesisRootHash is the known root hash of the monomer ethereum state trie after all predeployed contracts are created.
 	MonomerGenesisRootHash = common.HexToHash("0x5be0a68aae2d389cd9c9276ece59f483b97da7e99d2ff157923f4822dc107b6b")
-	// MonomerEVMTxOriginAddress is the address used for executing transactions in the monomer evm.
+	// MonomerEVMTxOriginAddress is the address used for executing transactions in the monomer EVM.
 	MonomerEVMTxOriginAddress = common.HexToAddress("0x4300000000000000000000000000000000000000")
 )
 
@@ -30,7 +30,7 @@ func NewEVM(ethState vm.StateDB, header *monomer.Header, chainID *big.Int) (*vm.
 		PetersburgBlock:     new(big.Int),
 		IstanbulBlock:       new(big.Int),
 		MuirGlacierBlock:    new(big.Int),
-		// TODO: investigate SSTORE access list evm execution bug with BerlinBlock/LondonBlock
+		// TODO: investigate SSTORE access list EVM execution bug with BerlinBlock/LondonBlock
 		// BerlinBlock:        new(big.Int),
 		// LondonBlock:        new(big.Int),
 		ArrowGlacierBlock:  new(big.Int),
@@ -42,7 +42,7 @@ func NewEVM(ethState vm.StateDB, header *monomer.Header, chainID *big.Int) (*vm.
 		CanyonTime:   utils.Ptr(uint64(0)),
 	}
 	blockContext := core.NewEVMBlockContext(header.ToEth(), mockChainContext{}, &MonomerEVMTxOriginAddress, chainConfig, ethState)
-	// TODO: investigate having an unlimited gas limit for monomer evm execution
+	// TODO: investigate having an unlimited gas limit for monomer EVM execution
 	blockContext.GasLimit = 100_000_000
 
 	return vm.NewEVM(
