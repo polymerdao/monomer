@@ -29,6 +29,8 @@ import (
 
 const (
 	monomerEngineWSFlag = "monomer-engine-ws"
+	defaultCacheSize    = 16 // 16 MB
+	defaultHandlesSize  = 16
 )
 
 var sigCh = make(chan os.Signal, 1)
@@ -182,8 +184,17 @@ func startMonomerNode(
 	}
 	env.DeferErr("close mempool db", mempooldb.Close)
 
-	// TODO: use pebble db once the db refactor PR merges
-	ethstatedb := rawdb.NewMemoryDatabase()
+	ethstatedb, err := rawdb.NewPebbleDBDatabase(
+		svrCtx.Config.RootDir+"/ethstate",
+		defaultCacheSize,
+		defaultHandlesSize,
+		"",
+		false,
+		false,
+	)
+	if err != nil {
+		return fmt.Errorf("create eth state db: %v", err)
+	}
 	env.DeferErr("close eth state db", ethstatedb.Close)
 
 	monomerGenesisPath := svrCtx.Config.GenesisFile()

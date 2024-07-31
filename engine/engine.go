@@ -113,12 +113,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 			headBlock.Header.Height))
 	}
 
-	// Engine API spec:
-	//   Client software MAY skip an update of the forkchoice state and MUST NOT begin a payload build process if
-	//   forkchoiceState.headBlockHash references an ancestor of the head of canonical chain.
-	// This part of the spec does not apply to us.
-	// Because we assume we're the sole proposer, the CL should only give us a past block head hash when L1 reorgs.
-	// TODO Is reorg handling in the Engine API discussed in the OP Execution Engine spec?
+	// It is possible for reorgs to occur on unsafe block consolidation when the batcher's txs don't land on L1 in time.
 	if headBlock.Header.Height < e.blockStore.HeadBlock().Header.Height {
 		if err := e.builder.Rollback(ctx, fcs.HeadBlockHash, fcs.SafeBlockHash, fcs.FinalizedBlockHash); err != nil {
 			return nil, engine.GenericServerError.With(fmt.Errorf("rollback: %v", err))
@@ -303,7 +298,6 @@ func (e *EngineAPI) NewPayloadV2(payload eth.ExecutionPayload) (*eth.PayloadStat
 }
 
 // NewPayloadV3 ensures the payload's block hash is present in the block store.
-// TODO will this ever be called if we are the sole block proposer?
 func (e *EngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
 	e.lock.Lock()
 	defer e.lock.Unlock()
@@ -317,6 +311,6 @@ func (e *EngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStat
 	headBlockHash := e.blockStore.HeadBlock().Header.Hash
 	return &eth.PayloadStatusV1{
 		Status:          eth.ExecutionValid,
-		LatestValidHash: &headBlockHash,
+		LatestValidHash: &headBlockHash, // TODO should we be using unsafe head instead?
 	}, nil
 }

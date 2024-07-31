@@ -33,6 +33,7 @@ func gethdevnet(blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, e
 	if err != nil {
 		return nil, "", fmt.Errorf("start geth L1: %w", err)
 	}
+	// TODO close node
 
 	return node.Attach(), node.WSEndpoint(), nil
 }
