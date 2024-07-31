@@ -46,7 +46,7 @@ func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(
 
 	senderEthAddress := common.HexToAddress(sender)
 
-	res, err := e.Call(&monomerevm.CallParams{
+	_, err = e.Call(&monomerevm.CallParams{
 		Sender: &senderEthAddress,
 		Value:  amount,
 		Data:   data,

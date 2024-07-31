@@ -1,10 +1,10 @@
 package evm_test
 
 import (
-	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"math/big"
 	"testing"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"

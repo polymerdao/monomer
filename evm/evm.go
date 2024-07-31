@@ -1,7 +1,6 @@
 package evm
 
 import (
-	"github.com/holiman/uint256"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +10,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/holiman/uint256"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/utils"
 )
@@ -61,7 +61,7 @@ func NewEVM(ethState vm.StateDB, header *monomer.Header) (*vm.EVM, error) {
 	), nil
 }
 
-// CanTransfer is overridden to explicilty allow all transfers in the monomer EVM. This avoids needing to deal with account balances.
+// CanTransfer is overridden to explicitly allow all transfers in the monomer EVM. This avoids needing to deal with account balances.
 func CanTransfer(db vm.StateDB, addr common.Address, amount *uint256.Int) bool {
 	return true
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/polymerdao/monomer/contracts"
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
@@ -14,6 +13,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
+	"github.com/polymerdao/monomer/contracts"
 )
 
 type Genesis struct {
