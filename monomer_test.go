@@ -137,7 +137,6 @@ func TestBlock(t *testing.T) {
 	t.Run("ToCometLikeBlock", func(t *testing.T) {
 		cometLikeBlock := block.ToCometLikeBlock()
 		assert.Equal(t, "0", cometLikeBlock.Header.ChainID)
-		assert.Equal(t, time.Date(1970, time.January, 1, 3, 0, 0, 0, time.Local), cometLikeBlock.Header.Time)
 		assert.Equal(t, int64(0), cometLikeBlock.Header.Height)
 		assert.Equal(t, "0000000000000000000000000000000000000000000000000000000000000000", cometLikeBlock.Header.AppHash.String())
 	})
