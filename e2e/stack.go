@@ -150,7 +150,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client, l1HTTPendpoint, err := gethdevnet(ctx, deployConfig.L1BlockTime, l1genesis)
+	l1client, l1HTTPendpoint, err := gethdevnet(env, deployConfig.L1BlockTime, l1genesis)
 	if err != nil {
 		return nil, fmt.Errorf("ethdevnet: %v", err)
 	}

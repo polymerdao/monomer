@@ -1,9 +1,7 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
-	"log"
 	"path/filepath"
 	"time"
 
@@ -12,9 +10,10 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/polymerdao/monomer/environment"
 )
 
-func gethdevnet(ctx context.Context, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, error) {
+func gethdevnet(env *environment.Env, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, error) {
 	blobsDirectory := filepath.Join("artifacts", "blobs")
 
 	beacon := fakebeacon.NewBeacon(nil, blobsDirectory, genesis.Timestamp, blockTime)
@@ -35,13 +34,8 @@ func gethdevnet(ctx context.Context, blockTime uint64, genesis *core.Genesis) (*
 	if err != nil {
 		return nil, "", fmt.Errorf("start geth L1: %w", err)
 	}
-	// TODO close node
-	go func() {
-		<-ctx.Done()
-		if err := node.Close(); err != nil {
-			log.Printf("failed to close node: %v", err)
-		}
-	}()
+
+	env.DeferErr(fmt.Errorf("close geth L1: %w", err).Error(), node.Close)
 
 	return node.Attach(), node.WSEndpoint(), nil
 }
