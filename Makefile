@@ -43,6 +43,8 @@ install-gofumpt:
 .PHONY: install-buf
 install-buf:
 	go install github.com/bufbuild/buf/cmd/buf@v1.31.0
+	go install github.com/cosmos/gogoproto/protoc-gen-gocosmos@1.5.0
+	go install github.com/cosmos/cosmos-proto/cmd/protoc-gen-go-pulsar@1.0.0-beta.5
 
 .PHONY: install-go-test-coverage
 install-go-test-coverage:
