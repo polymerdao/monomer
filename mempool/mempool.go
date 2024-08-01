@@ -37,7 +37,12 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) error {
 	// NOTE: we should do reads and writes on the same view. Right now they occur on separate views.
 	// Unfortunately, comet's DB interface doesn't support it.
 	// Moving to a different DB interface is left for future work.
+
+	// Attempt to adapt the Cosmos transaction to an Ethereum deposit transaction.
+	// If the adaptation results in one or more transactions, it indicates that the
+	// user transaction is a deposit transaction, which is not allowed in the pool.
 	if txs, _ := rolluptypes.AdaptCosmosDepositTxToEthTx(userTxn); len(txs) > 0 {
+		// Return an error indicating that deposit transactions are not allowed in the pool.
 		return errors.New("deposit txs are not allowed in the pool")
 	}
 
