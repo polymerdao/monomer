@@ -190,16 +190,18 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 			return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
 		}
 
-		// Check for withdrawal messages.
-		for _, msg := range cosmosTx.GetBody().GetMessages() {
-			withdrawalMsg := new(rollupv1.InitiateWithdrawalRequest)
-			if msg.TypeUrl == cdctypes.MsgTypeURL(withdrawalMsg) {
-				if err := withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
-					return nil, fmt.Errorf("unmarshal InitiateWithdrawalRequest: %v", err)
-				}
-				// Store the withdrawal message hash in the monomer EVM state db.
-				if err := b.storeWithdrawalMsgInEVM(withdrawalMsg, ethState, header); err != nil {
-					return nil, fmt.Errorf("store withdrawal msg in EVM: %v", err)
+		// Check for withdrawal messages if the tx was successful.
+		if execTxResult.IsOK() {
+			for _, msg := range cosmosTx.GetBody().GetMessages() {
+				withdrawalMsg := new(rollupv1.InitiateWithdrawalRequest)
+				if msg.TypeUrl == cdctypes.MsgTypeURL(withdrawalMsg) {
+					if err := withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
+						return nil, fmt.Errorf("unmarshal InitiateWithdrawalRequest: %v", err)
+					}
+					// Store the withdrawal message hash in the monomer EVM state db.
+					if err := b.storeWithdrawalMsgInEVM(withdrawalMsg, ethState, header); err != nil {
+						return nil, fmt.Errorf("store withdrawal msg in EVM: %v", err)
+					}
 				}
 			}
 		}
