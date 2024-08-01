@@ -16,7 +16,7 @@ jobs:
           go-version-file: go.mod
       - run: make test
 
-  devrequirments:
+  devrequirements:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
