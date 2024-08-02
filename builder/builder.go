@@ -21,7 +21,7 @@ import (
 	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 )
 
-//go:generate mockgen -destination mock_builder_test.go -package builder_test github.com/polymerdao/monomer/builder Pool,TxStore,EventBus,Application,BlockStore
+//go:generate mockgen -destination mock_builder_test.go -package builder_test github.com/polymerdao/monomer/builder Pool,TxStore,EventBus,Application,BlockStore,Database
 type Pool interface {
 	Len() (uint64, error)
 	Dequeue() (types.Tx, error)
@@ -52,6 +52,10 @@ type BlockStore interface {
 	UpdateLabel(eth.BlockLabel, common.Hash) error
 }
 
+type Database interface {
+	state.Database
+}
+
 type Builder struct {
 	mempool    Pool
 	app        Application
@@ -59,7 +63,7 @@ type Builder struct {
 	txStore    TxStore
 	eventBus   EventBus
 	chainID    monomer.ChainID
-	ethstatedb state.Database
+	ethstatedb Database
 }
 
 func New(
@@ -69,7 +73,7 @@ func New(
 	txStore TxStore,
 	eventBus EventBus,
 	chainID monomer.ChainID,
-	ethstatedb state.Database,
+	ethstatedb Database,
 ) *Builder {
 	return &Builder{
 		mempool:    mpool,
