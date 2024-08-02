@@ -8,7 +8,6 @@ import (
 	"slices"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
@@ -24,7 +23,7 @@ import (
 //go:generate mockgen -destination mock_builder_test.go -package builder_test github.com/polymerdao/monomer/builder Pool,TxStore,EventBus,Application,BlockStore,Database
 type Pool interface {
 	Len() (uint64, error)
-	Dequeue() (types.Tx, error)
+	Dequeue() (bfttypes.Tx, error)
 }
 
 type TxStore interface {
