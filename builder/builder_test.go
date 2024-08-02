@@ -2,6 +2,7 @@ package builder_test
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/require"
+	gomock "go.uber.org/mock/gomock"
 )
 
 type queryAll struct{}
@@ -308,4 +310,99 @@ func getAppHashFromEVM(ethState *state.StateDB, header *monomer.Header) (common.
 	}
 
 	return appHash, nil
+}
+
+func TestBuilder(t *testing.T) {
+	ctrl := gomock.NewController(t)
+	defer ctrl.Finish()
+
+	mockPool := NewMockPool(ctrl)
+	mockApp := NewMockApplication(ctrl)
+	mockBlockStore := NewMockBlockStore(ctrl)
+	mockTxStore := NewMockTxStore(ctrl)
+	mockEventBus := NewMockEventBus(ctrl)
+
+	b := builder.New(mockPool, mockApp, mockBlockStore, mockTxStore, mockEventBus, 0, nil)
+
+	headBlock := &monomer.Block{
+		Header: &monomer.Header{
+			Height: 1,
+		},
+	}
+
+	// t.Run("Rollback", func(t *testing.T) {
+	t.Run("head block not found", func(t *testing.T) {
+		mockBlockStore.EXPECT().HeadBlock().Return(nil)
+		err := b.Rollback(context.Background(), common.Hash{}, common.Hash{}, common.Hash{})
+		require.Error(t, err)
+	})
+	t.Run("block not found with hash", func(t *testing.T) {
+		mockBlockStore.EXPECT().HeadBlock().Return(headBlock)
+		mockBlockStore.EXPECT().BlockByHash(gomock.Any()).Return(nil)
+		err := b.Rollback(context.Background(), common.Hash{}, common.Hash{}, common.Hash{})
+		require.Error(t, err)
+	})
+	t.Run("rollback block store", func(t *testing.T) {
+		mockBlockStore.EXPECT().HeadBlock().Return(headBlock)
+		mockBlockStore.EXPECT().BlockByHash(gomock.Any()).Return(headBlock)
+		mockBlockStore.EXPECT().RollbackToHeight(gomock.Any()).Return(errors.New("rollback error"))
+		err := b.Rollback(context.Background(), common.Hash{}, common.Hash{}, common.Hash{})
+		require.Error(t, err)
+	})
+
+	t.Run("update unsafe label", func(t *testing.T) {
+		mockBlockStore.EXPECT().HeadBlock().Return(headBlock)
+		mockBlockStore.EXPECT().BlockByHash(gomock.Any()).Return(headBlock)
+		mockBlockStore.EXPECT().RollbackToHeight(gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Unsafe), gomock.Any()).Return(errors.New("update unsafe error"))
+		err := b.Rollback(context.Background(), common.Hash{}, common.Hash{}, common.Hash{})
+		require.Error(t, err)
+	})
+
+	t.Run("update safe label", func(t *testing.T) {
+		mockBlockStore.EXPECT().HeadBlock().Return(headBlock)
+		mockBlockStore.EXPECT().BlockByHash(gomock.Any()).Return(headBlock)
+		mockBlockStore.EXPECT().RollbackToHeight(gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Unsafe), gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Safe), gomock.Any()).Return(errors.New("update safe error"))
+		err := b.Rollback(context.Background(), common.Hash{}, common.Hash{}, common.Hash{})
+		require.Error(t, err)
+	})
+
+	t.Run("update finalized label", func(t *testing.T) {
+		mockBlockStore.EXPECT().HeadBlock().Return(headBlock)
+		mockBlockStore.EXPECT().BlockByHash(gomock.Any()).Return(headBlock)
+		mockBlockStore.EXPECT().RollbackToHeight(gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Unsafe), gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Safe), gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Finalized), gomock.Any()).Return(errors.New("update finalized error"))
+		err := b.Rollback(context.Background(), common.Hash{}, common.Hash{}, common.Hash{})
+		require.Error(t, err)
+	})
+
+	t.Run("rollback tx store", func(t *testing.T) {
+		mockBlockStore.EXPECT().HeadBlock().Return(headBlock)
+		mockBlockStore.EXPECT().BlockByHash(gomock.Any()).Return(headBlock)
+		mockBlockStore.EXPECT().RollbackToHeight(gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Unsafe), gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Safe), gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Finalized), gomock.Any()).Return(nil)
+		mockTxStore.EXPECT().RollbackToHeight(gomock.Any(), gomock.Any()).Return(errors.New("rollback tx store error"))
+		err := b.Rollback(context.Background(), common.Hash{}, common.Hash{}, common.Hash{})
+		require.Error(t, err)
+	})
+
+	t.Run("rollback app", func(t *testing.T) {
+		mockBlockStore.EXPECT().HeadBlock().Return(headBlock)
+		mockBlockStore.EXPECT().BlockByHash(gomock.Any()).Return(headBlock)
+		mockBlockStore.EXPECT().RollbackToHeight(gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Unsafe), gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Safe), gomock.Any()).Return(nil)
+		mockBlockStore.EXPECT().UpdateLabel(eth.BlockLabel(eth.Finalized), gomock.Any()).Return(nil)
+		mockTxStore.EXPECT().RollbackToHeight(gomock.Any(), gomock.Any()).Return(nil)
+		mockApp.EXPECT().RollbackToHeight(gomock.Any(), gomock.Any()).Return(errors.New("rollback app error"))
+		err := b.Rollback(context.Background(), common.Hash{}, common.Hash{}, common.Hash{})
+		require.Error(t, err)
+	})
+	// })
 }
