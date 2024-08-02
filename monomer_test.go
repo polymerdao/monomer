@@ -32,17 +32,21 @@ func TestChainID(t *testing.T) {
 	assert.Equal(t, hexID, id.HexBig())
 }
 
-func TestHeader(t *testing.T) {
-	timestamp := time.Now()
-	header := &monomer.Header{
-		ChainID:    monomer.ChainID(12345),
-		Height:     int64(67890),
-		Time:       uint64(timestamp.Unix()),
+func newTestHeader() *monomer.Header {
+	return &monomer.Header{
+		ChainID:    12345,
+		Height:     67890,
+		Time:       uint64(time.Now().Unix()),
 		StateRoot:  common.HexToHash("0x1"),
 		ParentHash: common.HexToHash("0x2"),
-		GasLimit:   uint64(3000000),
+		GasLimit:   3000000,
 		Hash:       common.HexToHash("0x3"),
 	}
+}
+
+func TestHeader(t *testing.T) {
+	timestamp := time.Now()
+	header := newTestHeader()
 
 	t.Run("ToComet", func(t *testing.T) {
 		cometHeader := header.ToComet()
@@ -72,15 +76,7 @@ func assertPanic(t *testing.T, f func()) {
 }
 
 func TestBlock(t *testing.T) {
-	header := &monomer.Header{
-		ChainID:    12345,
-		Height:     67890,
-		Time:       uint64(time.Now().Unix()),
-		StateRoot:  common.HexToHash("0x1"),
-		ParentHash: common.HexToHash("0x2"),
-		GasLimit:   3000000,
-		Hash:       common.HexToHash("0x3"),
-	}
+	header := newTestHeader()
 
 	l1InfoTx, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
 	txs := ethtypes.Transactions{l1InfoTx, depositTx, cosmosEthTx}
@@ -98,9 +94,15 @@ func TestBlock(t *testing.T) {
 		assert.Equal(t, header, newBlock.Header)
 		assert.Equal(t, emptyTxs, newBlock.Txs)
 
-		assertPanic(t, func() { monomer.NewBlock(nil, emptyTxs) })
-		assertPanic(t, func() { monomer.NewBlock(header, nil) })
-		assertPanic(t, func() { monomer.NewBlock(nil, nil) })
+		t.Run("Panic on nil header", func(t *testing.T) {
+			assertPanic(t, func() { monomer.NewBlock(nil, emptyTxs) })
+		})
+		t.Run("Panic on nil txs", func(t *testing.T) {
+			assertPanic(t, func() { monomer.NewBlock(header, nil) })
+		})
+		t.Run("Panic on nil header and txs", func(t *testing.T) {
+			assertPanic(t, func() { monomer.NewBlock(nil, nil) })
+		})
 	})
 
 	t.Run("SetHeader", func(t *testing.T) {
