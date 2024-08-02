@@ -13,14 +13,16 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/evm"
-	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
+	"github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/mempool"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type Builder struct {
@@ -168,7 +170,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		return nil, fmt.Errorf("create ethereum state: %v", err)
 	}
 	// Store the updated cosmos app hash in the monomer EVM state db.
-	if err := b.storeAppHashInEVM(resp.AppHash, ethState, header); err != nil {
+	if err = b.storeAppHashInEVM(resp.AppHash, ethState, header); err != nil {
 		return nil, fmt.Errorf("store app hash in EVM: %v", err)
 	}
 
@@ -176,6 +178,40 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	txResults := make([]*abcitypes.TxResult, 0, len(execTxResults))
 	for i, execTxResult := range execTxResults {
 		tx := txs[i]
+
+		// Check for withdrawal messages if the tx was successful.
+		if execTxResult.IsOK() {
+			cosmosTx := new(sdktx.Tx)
+			if err = cosmosTx.Unmarshal(tx); err != nil {
+				return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
+			}
+			for _, msg := range cosmosTx.GetBody().GetMessages() {
+				withdrawalMsg := new(rollupv1.InitiateWithdrawalRequest)
+				if msg.TypeUrl == cdctypes.MsgTypeURL(withdrawalMsg) {
+					if err = withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
+						return nil, fmt.Errorf("unmarshal InitiateWithdrawalRequest: %v", err)
+					}
+
+					// Store the withdrawal message hash in the monomer EVM state db.
+					var nonce *big.Int
+					nonce, err = b.storeWithdrawalMsgInEVM(withdrawalMsg, ethState, header)
+					if err != nil {
+						return nil, fmt.Errorf("store withdrawal msg in EVM: %v", err)
+					}
+
+					// Populate the nonce in the tx event attributes.
+					for _, event := range execTxResult.GetEvents() {
+						if event.GetType() == rolluptypes.EventTypeWithdrawalInitiated {
+							event.Attributes = append(event.Attributes, abcitypes.EventAttribute{
+								Key:   rolluptypes.AttributeKeyNonce,
+								Value: hexutil.Encode(nonce.Bytes()),
+							})
+						}
+					}
+				}
+			}
+		}
+
 		txResults = append(txResults, &abcitypes.TxResult{
 			Height: header.Height,
 			Index:  uint32(i),
@@ -184,27 +220,6 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 			Tx:     tx,
 			Result: *execTxResult,
 		})
-
-		cosmosTx := new(sdktx.Tx)
-		if err := cosmosTx.Unmarshal(tx); err != nil {
-			return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
-		}
-
-		// Check for withdrawal messages if the tx was successful.
-		if execTxResult.IsOK() {
-			for _, msg := range cosmosTx.GetBody().GetMessages() {
-				withdrawalMsg := new(rollupv1.InitiateWithdrawalRequest)
-				if msg.TypeUrl == cdctypes.MsgTypeURL(withdrawalMsg) {
-					if err := withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
-						return nil, fmt.Errorf("unmarshal InitiateWithdrawalRequest: %v", err)
-					}
-					// Store the withdrawal message hash in the monomer EVM state db.
-					if err := b.storeWithdrawalMsgInEVM(withdrawalMsg, ethState, header); err != nil {
-						return nil, fmt.Errorf("store withdrawal msg in EVM: %v", err)
-					}
-				}
-			}
-		}
 	}
 
 	ethStateRoot, err := ethState.Commit(uint64(header.Height), true)
@@ -261,25 +276,32 @@ func (b *Builder) storeWithdrawalMsgInEVM(
 	withdrawalMsg *rollupv1.InitiateWithdrawalRequest,
 	ethState *state.StateDB,
 	header *monomer.Header,
-) error {
+) (*big.Int, error) {
 	monomerEVM, err := evm.NewEVM(ethState, header)
 	if err != nil {
-		return fmt.Errorf("new EVM: %v", err)
+		return nil, fmt.Errorf("new EVM: %v", err)
 	}
 	executer, err := bindings.NewL2ToL1MessagePasserExecuter(monomerEVM)
 	if err != nil {
-		return fmt.Errorf("new L2ToL1MessagePasserExecuter: %v", err)
+		return nil, fmt.Errorf("new L2ToL1MessagePasserExecuter: %v", err)
 	}
 
-	if err := executer.InitiateWithdrawal(
+	// Get the current message nonce before initiating the withdrawal.
+	messageNonce, err := executer.GetMessageNonce()
+	if err != nil {
+		return nil, fmt.Errorf("get message nonce: %v", err)
+	}
+
+	// Initiate the withdrawal in the Monomer ethereum state.
+	if err = executer.InitiateWithdrawal(
 		withdrawalMsg.GetSender(),
-		withdrawalMsg.Amount.BigInt(),
+		withdrawalMsg.Value.BigInt(),
 		common.HexToAddress(withdrawalMsg.GetTarget()),
 		new(big.Int).SetBytes(withdrawalMsg.GasLimit),
 		withdrawalMsg.GetData(),
 	); err != nil {
-		return fmt.Errorf("initiate withdrawal: %v", err)
+		return nil, fmt.Errorf("initiate withdrawal: %v", err)
 	}
 
-	return nil
+	return messageNonce, nil
 }
