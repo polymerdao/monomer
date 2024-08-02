@@ -8,6 +8,7 @@ import (
 	"slices"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
@@ -15,30 +16,58 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
-	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/evm"
 	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
-	"github.com/polymerdao/monomer/mempool"
 )
 
+//go:generate mockgen -destination mock_builder_test.go -package builder_test github.com/polymerdao/monomer/builder Pool,TxStore,EventBus,Application,BlockStore
+type Pool interface {
+	Len() (uint64, error)
+	Dequeue() (types.Tx, error)
+}
+
+type TxStore interface {
+	Add([]*abcitypes.TxResult) error
+	RollbackToHeight(int64, int64) error
+}
+
+type EventBus interface {
+	PublishEventTx(bfttypes.EventDataTx) error
+}
+
+type Application interface {
+	Info(context.Context, *abcitypes.RequestInfo) (*abcitypes.ResponseInfo, error)
+	FinalizeBlock(context.Context, *abcitypes.RequestFinalizeBlock) (*abcitypes.ResponseFinalizeBlock, error)
+	Commit(context.Context, *abcitypes.RequestCommit) (*abcitypes.ResponseCommit, error)
+	RollbackToHeight(context.Context, uint64) error
+}
+
+type BlockStore interface {
+	HeadBlock() *monomer.Block
+	BlockByHash(common.Hash) *monomer.Block
+	BlockByNumber(int64) *monomer.Block
+	AddBlock(*monomer.Block)
+	RollbackToHeight(int64) error
+	UpdateLabel(eth.BlockLabel, common.Hash) error
+}
+
 type Builder struct {
-	mempool    *mempool.Pool
-	app        monomer.Application
-	blockStore store.BlockStore
-	txStore    txstore.TxStore
-	eventBus   *bfttypes.EventBus
+	mempool    Pool
+	app        Application
+	blockStore BlockStore
+	txStore    TxStore
+	eventBus   EventBus
 	chainID    monomer.ChainID
 	ethstatedb state.Database
 }
 
 func New(
-	mpool *mempool.Pool,
-	app monomer.Application,
-	blockStore store.BlockStore,
-	txStore txstore.TxStore,
-	eventBus *bfttypes.EventBus,
+	mpool Pool,
+	app Application,
+	blockStore BlockStore,
+	txStore TxStore,
+	eventBus EventBus,
 	chainID monomer.ChainID,
 	ethstatedb state.Database,
 ) *Builder {
