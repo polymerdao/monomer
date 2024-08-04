@@ -16,7 +16,8 @@ From the [OP stack](https://specs.optimism.io/protocol/overview.html#components)
 compatible execution engine. From the [Cosmos application](https://docs.cosmos.network/v0.50/learn/intro/why-app-specific#what-are-application-specific-blockchains)'s perspective,
 Monomer replaces the CometBFT consensus layer.
 
-:::note[Architecture] 
+### Architecture
+
 ![Architecture](/img/architecture.png)
-:::
+
 
