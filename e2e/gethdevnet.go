@@ -10,9 +10,10 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/polymerdao/monomer/environment"
 )
 
-func gethdevnet(blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, error) {
+func gethdevnet(env *environment.Env, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, error) {
 	blobsDirectory := filepath.Join("artifacts", "blobs")
 
 	beacon := fakebeacon.NewBeacon(nil, blobsDirectory, genesis.Timestamp, blockTime)
@@ -33,7 +34,8 @@ func gethdevnet(blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, e
 	if err != nil {
 		return nil, "", fmt.Errorf("start geth L1: %w", err)
 	}
-	// TODO close node
+
+	env.DeferErr("close geth node", node.Close)
 
 	return node.Attach(), node.WSEndpoint(), nil
 }
