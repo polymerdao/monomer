@@ -250,7 +250,7 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 		NoTxPool:             e.currentPayloadAttributes.NoTxPool,
 	})
 	if err != nil {
-		return nil, engine.GenericServerError.With(fmt.Errorf("build block: %v", err))
+		panic(fmt.Errorf("build block: %v", err))
 	}
 
 	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
