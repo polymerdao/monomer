@@ -110,7 +110,7 @@ func (k *Keeper) InitiateWithdrawal(
 	msg *rollupv1.InitiateWithdrawalRequest,
 ) (*rollupv1.InitiateWithdrawalResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	ctx.Logger().Debug("Withdrawing L2 assets", "sender", msg.Sender, "amount", msg.Amount)
+	ctx.Logger().Debug("Withdrawing L2 assets", "sender", msg.Sender, "value", msg.Value)
 
 	cosmAddr, err := sdk.AccAddressFromBech32(msg.Sender)
 	if err != nil {
@@ -118,7 +118,7 @@ func (k *Keeper) InitiateWithdrawal(
 		return nil, types.WrapError(types.ErrInvalidSender, "failed to create cosmos address for sender: %v; error: %v", msg.Sender, err)
 	}
 
-	if err := k.BurnETH(ctx, cosmAddr, msg.Amount); err != nil {
+	if err := k.BurnETH(ctx, cosmAddr, msg.Value); err != nil {
 		ctx.Logger().Error("Failed to burn ETH", "cosmosAddress", cosmAddr, "evmAddress", msg.Target, "err", err)
 		return nil, types.WrapError(types.ErrBurnETH, "failed to burn ETH for cosmosAddress: %v; err: %v", cosmAddr, err)
 	}
@@ -132,7 +132,10 @@ func (k *Keeper) InitiateWithdrawal(
 			types.EventTypeWithdrawalInitiated,
 			sdk.NewAttribute(types.AttributeKeySender, msg.Sender),
 			sdk.NewAttribute(types.AttributeKeyL1Target, msg.Target),
-			sdk.NewAttribute(types.AttributeKeyAmount, hexutil.Encode(msg.Amount.BigInt().Bytes())),
+			sdk.NewAttribute(types.AttributeKeyValue, hexutil.Encode(msg.Value.BigInt().Bytes())),
+			sdk.NewAttribute(types.AttributeKeyGasLimit, hexutil.Encode(msg.GasLimit)),
+			sdk.NewAttribute(types.AttributeKeyData, hexutil.Encode(msg.Data)),
+			// The nonce attribute will be set by Monomer
 		),
 	})
 
@@ -157,7 +160,7 @@ func (k *Keeper) MintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.In
 			types.EventTypeMintETH,
 			sdk.NewAttribute(types.AttributeKeyL1DepositTxType, types.L1UserDepositTxType),
 			sdk.NewAttribute(types.AttributeKeyToCosmosAddress, addr.String()),
-			sdk.NewAttribute(types.AttributeKeyAmount, hexutil.Encode(amount.BigInt().Bytes())),
+			sdk.NewAttribute(types.AttributeKeyValue, hexutil.Encode(amount.BigInt().Bytes())),
 		),
 	})
 	return nil
@@ -187,7 +190,7 @@ func (k *Keeper) BurnETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.In
 			types.EventTypeBurnETH,
 			sdk.NewAttribute(types.AttributeKeyL2WithdrawalTx, types.EventTypeWithdrawalInitiated),
 			sdk.NewAttribute(types.AttributeKeyFromCosmosAddress, addr.String()),
-			sdk.NewAttribute(types.AttributeKeyAmount, hexutil.Encode(amount.BigInt().Bytes())),
+			sdk.NewAttribute(types.AttributeKeyValue, hexutil.Encode(amount.BigInt().Bytes())),
 		),
 	})
 	return nil
