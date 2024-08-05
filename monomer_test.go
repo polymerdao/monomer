@@ -15,7 +15,6 @@ import (
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/require"
-	"github.com/test-go/testify/assert"
 )
 
 func TestChainID(t *testing.T) {
@@ -23,20 +22,20 @@ func TestChainID(t *testing.T) {
 	id := monomer.ChainID(n)
 
 	idStr := strconv.FormatInt(n, 10)
-	assert.Equal(t, idStr, id.String())
+	require.Equal(t, idStr, id.String())
 
 	bigInt := big.NewInt(n)
-	assert.Equal(t, bigInt, id.Big())
+	require.Equal(t, bigInt, id.Big())
 
 	hexID := (*hexutil.Big)(bigInt)
-	assert.Equal(t, hexID, id.HexBig())
+	require.Equal(t, hexID, id.HexBig())
 }
 
-func newTestHeader() *monomer.Header {
+func newTestHeader(timestamp uint64) *monomer.Header {
 	return &monomer.Header{
 		ChainID:    12345,
 		Height:     67890,
-		Time:       uint64(time.Now().Unix()),
+		Time:       timestamp,
 		StateRoot:  common.HexToHash("0x1"),
 		ParentHash: common.HexToHash("0x2"),
 		GasLimit:   3000000,
@@ -44,39 +43,32 @@ func newTestHeader() *monomer.Header {
 	}
 }
 
-func TestHeader(t *testing.T) {
+func TestToComet(t *testing.T) {
 	timestamp := time.Now()
-	header := newTestHeader()
+	header := newTestHeader(uint64(timestamp.Unix()))
+	cometHeader := header.ToComet()
 
-	t.Run("ToComet", func(t *testing.T) {
-		cometHeader := header.ToComet()
-		assert.Equal(t, header.ChainID.String(), cometHeader.ChainID)
-		assert.Equal(t, header.Height, cometHeader.Height)
-		assert.Equal(t, timestamp.Unix(), cometHeader.Time.Unix())
-		assert.Equal(t, header.StateRoot.Bytes(), cometHeader.AppHash.Bytes())
-	})
-
-	t.Run("ToEth", func(t *testing.T) {
-		ethHeader := header.ToEth()
-		assert.Equal(t, header.Height, ethHeader.Number.Int64())
-		assert.Equal(t, uint64(timestamp.Unix()), ethHeader.Time)
-		assert.Equal(t, header.ParentHash, ethHeader.ParentHash)
-		assert.Equal(t, header.StateRoot, ethHeader.Root)
-		assert.Equal(t, header.GasLimit, ethHeader.GasLimit)
-	})
+	require.Equal(t, header.ChainID.String(), cometHeader.ChainID)
+	require.Equal(t, header.Height, cometHeader.Height)
+	require.Equal(t, timestamp.Unix(), cometHeader.Time.Unix())
+	require.Equal(t, header.StateRoot.Bytes(), cometHeader.AppHash.Bytes())
 }
 
-func assertPanic(t *testing.T, f func()) {
-	defer func() {
-		if r := recover(); r == nil {
-			t.Errorf("The code did not panic")
-		}
-	}()
-	f()
+func TestToEth(t *testing.T) {
+	timestamp := time.Now()
+	header := newTestHeader(uint64(timestamp.Unix()))
+	ethHeader := header.ToEth()
+
+	require.Equal(t, header.Height, ethHeader.Number.Int64())
+	require.Equal(t, uint64(timestamp.Unix()), ethHeader.Time)
+	require.Equal(t, header.ParentHash, ethHeader.ParentHash)
+	require.Equal(t, header.StateRoot, ethHeader.Root)
+	require.Equal(t, header.GasLimit, ethHeader.GasLimit)
 }
 
 func TestBlock(t *testing.T) {
-	header := newTestHeader()
+	timestamp := time.Now()
+	header := newTestHeader(uint64(timestamp.Unix()))
 
 	l1InfoTx, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
 	txs := ethtypes.Transactions{l1InfoTx, depositTx, cosmosEthTx}
@@ -91,33 +83,27 @@ func TestBlock(t *testing.T) {
 	t.Run("NewBlock", func(t *testing.T) {
 		newBlock := monomer.NewBlock(header, emptyTxs)
 
-		assert.Equal(t, header, newBlock.Header)
-		assert.Equal(t, emptyTxs, newBlock.Txs)
+		require.Equal(t, header, newBlock.Header)
+		require.Equal(t, emptyTxs, newBlock.Txs)
 
-		t.Run("Panic on nil header", func(t *testing.T) {
-			assertPanic(t, func() { monomer.NewBlock(nil, emptyTxs) })
-		})
-		t.Run("Panic on nil txs", func(t *testing.T) {
-			assertPanic(t, func() { monomer.NewBlock(header, nil) })
-		})
-		t.Run("Panic on nil header and txs", func(t *testing.T) {
-			assertPanic(t, func() { monomer.NewBlock(nil, nil) })
-		})
+		require.Panics(t, func() { monomer.NewBlock(nil, emptyTxs) })
+		require.Panics(t, func() { monomer.NewBlock(header, nil) })
+		require.Panics(t, func() { monomer.NewBlock(nil, nil) })
 	})
 
 	t.Run("SetHeader", func(t *testing.T) {
 		newBlock, err := monomer.SetHeader(monomer.NewBlock(header, emptyTxs))
-		assert.NoError(t, err)
-		assert.NotEqual(t, common.Hash{}, newBlock.Header.Hash)
+		require.NoError(t, err)
+		require.NotEqual(t, common.Hash{}, newBlock.Header.Hash)
 
 		_, err = monomer.SetHeader(nil)
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("MakeBlock", func(t *testing.T) {
 		block, err := monomer.MakeBlock(header, emptyTxs)
-		assert.NoError(t, err)
-		assert.NotEqual(t, common.Hash{}, block.Header.Hash)
+		require.NoError(t, err)
+		require.NotEqual(t, common.Hash{}, block.Header.Hash)
 	})
 
 	t.Run("ToEth", func(t *testing.T) {
@@ -129,18 +115,18 @@ func TestBlock(t *testing.T) {
 
 		newBlock := monomer.NewBlock(header, types.Txs{[]byte("transaction1"), []byte("transaction2")})
 		_, err = newBlock.ToEth()
-		assert.Error(t, err)
+		require.Error(t, err)
 
 		newBlock = nil
 		_, err = newBlock.ToEth()
-		assert.Error(t, err)
+		require.Error(t, err)
 	})
 
 	t.Run("ToCometLikeBlock", func(t *testing.T) {
 		cometLikeBlock := block.ToCometLikeBlock()
-		assert.Equal(t, "0", cometLikeBlock.Header.ChainID)
-		assert.Equal(t, int64(0), cometLikeBlock.Header.Height)
-		assert.Equal(t, "0000000000000000000000000000000000000000000000000000000000000000", cometLikeBlock.Header.AppHash.String())
+		require.Equal(t, "0", cometLikeBlock.Header.ChainID)
+		require.Equal(t, int64(0), cometLikeBlock.Header.Height)
+		require.Equal(t, "0000000000000000000000000000000000000000000000000000000000000000", cometLikeBlock.Header.AppHash.String())
 	})
 }
 
@@ -157,10 +143,10 @@ func TestPayloadAttributes(t *testing.T) {
 		}
 
 		id := pa.ID()
-		assert.NotNil(t, id)
+		require.NotNil(t, id)
 
 		newID := pa.ID()
-		assert.Equal(t, id, newID)
+		require.Equal(t, id, newID)
 	})
 
 	t.Run("ID NoTxPool=true", func(t *testing.T) {
@@ -175,7 +161,7 @@ func TestPayloadAttributes(t *testing.T) {
 		}
 
 		id := pa.ID()
-		assert.NotNil(t, id)
+		require.NotNil(t, id)
 	})
 
 	t.Run("ValidForkchoiceUpdateResult", func(t *testing.T) {
@@ -183,8 +169,8 @@ func TestPayloadAttributes(t *testing.T) {
 		payloadID := &engine.PayloadID{}
 
 		result := monomer.ValidForkchoiceUpdateResult(&headBlockHash, payloadID)
-		assert.Equal(t, opeth.ExecutionValid, result.PayloadStatus.Status)
-		assert.Equal(t, headBlockHash.Bytes(), result.PayloadStatus.LatestValidHash.Bytes())
-		assert.Equal(t, payloadID, result.PayloadID)
+		require.Equal(t, opeth.ExecutionValid, result.PayloadStatus.Status)
+		require.Equal(t, headBlockHash.Bytes(), result.PayloadStatus.LatestValidHash.Bytes())
+		require.Equal(t, payloadID, result.PayloadID)
 	})
 }
