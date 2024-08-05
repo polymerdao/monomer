@@ -1,8 +1,10 @@
 package store
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -215,13 +217,13 @@ func (b *blockStore) get(key []byte) []byte {
 }
 
 func hashKey(hash common.Hash) []byte {
-	return []byte(fmt.Sprintf("bh:%x", hash))
+	return append([]byte("bh:"), hex.EncodeToString(hash[:])...)
 }
 
 func heightKey(height int64) []byte {
-	return []byte(fmt.Sprintf("h:%x", height))
+	return append([]byte("h:"), strconv.FormatInt(height, 16)...)
 }
 
 func labelKey(label eth.BlockLabel) []byte {
-	return []byte(fmt.Sprintf("l:%s", label))
+	return append([]byte("l:"), label...)
 }
