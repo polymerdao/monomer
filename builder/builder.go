@@ -179,37 +179,10 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	for i, execTxResult := range execTxResults {
 		tx := txs[i]
 
-		// Check for withdrawal messages if the tx was successful.
-		if execTxResult.IsOK() {
-			cosmosTx := new(sdktx.Tx)
-			if err = cosmosTx.Unmarshal(tx); err != nil {
-				return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
-			}
-			for _, msg := range cosmosTx.GetBody().GetMessages() {
-				withdrawalMsg := new(rollupv1.InitiateWithdrawalRequest)
-				if msg.TypeUrl == cdctypes.MsgTypeURL(withdrawalMsg) {
-					if err = withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
-						return nil, fmt.Errorf("unmarshal InitiateWithdrawalRequest: %v", err)
-					}
-
-					// Store the withdrawal message hash in the monomer EVM state db.
-					var nonce *big.Int
-					nonce, err = b.storeWithdrawalMsgInEVM(withdrawalMsg, ethState, header)
-					if err != nil {
-						return nil, fmt.Errorf("store withdrawal msg in EVM: %v", err)
-					}
-
-					// Populate the nonce in the tx event attributes.
-					for _, event := range execTxResult.GetEvents() {
-						if event.GetType() == rolluptypes.EventTypeWithdrawalInitiated {
-							event.Attributes = append(event.Attributes, abcitypes.EventAttribute{
-								Key:   rolluptypes.AttributeKeyNonce,
-								Value: hexutil.Encode(nonce.Bytes()),
-							})
-						}
-					}
-				}
-			}
+		// Check for withdrawal messages in the tx.
+		execTxResult, err = b.parseWithdrawalMessages(tx, execTxResult, ethState, header)
+		if err != nil {
+			return nil, fmt.Errorf("parse withdrawal messages: %v", err)
 		}
 
 		txResults = append(txResults, &abcitypes.TxResult{
@@ -271,7 +244,49 @@ func (b *Builder) storeAppHashInEVM(appHash []byte, ethState *state.StateDB, hea
 	return nil
 }
 
-// storeWithdrawalMsgInEVM stores the withdrawal message hash in the monomer evm state db. This is used for proving withdrawals.
+// parseWithdrawalMessages checks for withdrawal messages if the tx was successful. If a withdrawal message is found, the
+// message nonce is appended to the withdrawal message event attributes and the updated execTxResult is returned.
+func (b *Builder) parseWithdrawalMessages(
+	tx bfttypes.Tx,
+	execTxResult *abcitypes.ExecTxResult,
+	ethState *state.StateDB,
+	header *monomer.Header,
+) (*abcitypes.ExecTxResult, error) {
+	if execTxResult.IsOK() {
+		cosmosTx := new(sdktx.Tx)
+		if err := cosmosTx.Unmarshal(tx); err != nil {
+			return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
+		}
+		for _, msg := range cosmosTx.GetBody().GetMessages() {
+			withdrawalMsg := new(rollupv1.InitiateWithdrawalRequest)
+			if msg.TypeUrl == cdctypes.MsgTypeURL(withdrawalMsg) {
+				if err := withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
+					return nil, fmt.Errorf("unmarshal InitiateWithdrawalRequest: %v", err)
+				}
+
+				// Store the withdrawal message hash in the monomer EVM state db.
+				nonce, err := b.storeWithdrawalMsgInEVM(withdrawalMsg, ethState, header)
+				if err != nil {
+					return nil, fmt.Errorf("store withdrawal msg in EVM: %v", err)
+				}
+
+				// Populate the nonce in the tx event attributes.
+				for _, event := range execTxResult.GetEvents() {
+					if event.GetType() == rolluptypes.EventTypeWithdrawalInitiated {
+						event.Attributes = append(event.Attributes, abcitypes.EventAttribute{
+							Key:   rolluptypes.AttributeKeyNonce,
+							Value: hexutil.Encode(nonce.Bytes()),
+						})
+					}
+				}
+			}
+		}
+	}
+	return execTxResult, nil
+}
+
+// storeWithdrawalMsgInEVM stores the withdrawal message hash in the monomer evm state db and returns the L2ToL1MessagePasser
+// message nonce used for the withdrawal. This is used for proving withdrawals.
 func (b *Builder) storeWithdrawalMsgInEVM(
 	withdrawalMsg *rollupv1.InitiateWithdrawalRequest,
 	ethState *state.StateDB,
