@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
@@ -237,10 +238,9 @@ func validateBasic(m *rollupv1.InitiateWithdrawalRequest) error {
 		return fmt.Errorf("invalid Ethereum address: %s", m.Target)
 	}
 	// Ensure gas_limit is within a reasonable range
-	// https://insights.deribit.com/industry/ethereums-gas-mechanics/
 	gasLimit := binary.BigEndian.Uint64(m.GasLimit) // size=24 (0x18), offset=64 (0x40)
-	if gasLimit < 21000 || gasLimit > 15000000 {
-		return fmt.Errorf("gas limit must be between 21,000 and 15,000,000: %d", gasLimit)
+	if gasLimit < params.MinGasLimit || gasLimit > params.MaxGasLimit {
+		return fmt.Errorf("gas limit must be between 5,000 and 9,223,372,036,854,775,807: %d", gasLimit)
 	}
 	// The data field should be in valid hex format
 	_, err := hex.Decode([]byte{}, m.Data)
