@@ -242,5 +242,6 @@ func validateBasic(m *rollupv1.InitiateWithdrawalRequest) error { //nolint:unuse
 		return fmt.Errorf("gas limit must be between 5,000 and 9,223,372,036,854,775,807: %d", gasLimit)
 	}
 	// The Data field should be formatted according to the ABI of the target address.
+	// https://docs.optimism.io/stack/protocol/rollup/withdrawal-flow
 	return nil
 }
