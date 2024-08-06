@@ -3,6 +3,7 @@ package keeper
 import (
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -243,5 +244,9 @@ func validateBasic(m *rollupv1.InitiateWithdrawalRequest) error { //nolint:unuse
 	}
 	// The Data field should be formatted according to the ABI of the target address.
 	// https://docs.optimism.io/stack/protocol/rollup/withdrawal-flow
+	_, err := hex.Decode([]byte{}, m.Data)
+	if err != nil {
+		return fmt.Errorf("invalid data field: %s", m.Data)
+	}
 	return nil
 }
