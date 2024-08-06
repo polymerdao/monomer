@@ -231,12 +231,13 @@ func evmToCosmos(addr common.Address) sdk.AccAddress {
 }
 
 // TODO: This is a temporary change while the rollup module refactor is being done. Change when possible
+// validateBasic validates the given InitiateWithdrawalRequest
 func validateBasic(m *rollupv1.InitiateWithdrawalRequest) error { //nolint:unused
-	// We should ensure that the target field is a valid Ethereum address and that the gas_limit and data field are valid.
+	// Check if the Ethereum address is valid
 	if !common.IsHexAddress(m.Target) {
 		return fmt.Errorf("invalid Ethereum address: %s", m.Target)
 	}
-	// Ensure gas_limit is within a reasonable range
+	// Check if the gas limit is within the allowed range.
 	gasLimit := binary.BigEndian.Uint64(m.GasLimit) // size=24 (0x18), offset=64 (0x40)
 	if gasLimit < params.MinGasLimit || gasLimit > params.MaxGasLimit {
 		return fmt.Errorf("gas limit must be between 5,000 and 9,223,372,036,854,775,807: %d", gasLimit)
