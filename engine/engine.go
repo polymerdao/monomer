@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"sync"
 	"time"
 
@@ -251,7 +250,7 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 		NoTxPool:             e.currentPayloadAttributes.NoTxPool,
 	})
 	if err != nil {
-		log.Panicf("failed to commit block: %v", err) // TODO error handling. An error here is potentially a big problem.
+		panic(fmt.Errorf("build block: %v", err))
 	}
 
 	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
