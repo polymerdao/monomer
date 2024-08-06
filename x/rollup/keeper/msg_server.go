@@ -2,6 +2,8 @@ package keeper
 
 import (
 	"context"
+	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 
@@ -11,7 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/polymerdao/monomer/gen/rollup/v1"
+	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
 )
@@ -226,4 +228,25 @@ func (k *Keeper) SetL1BlockHistory(ctx context.Context, info *derive.L1BlockInfo
 // evmToCosmos converts an EVM address to a sdk.AccAddress
 func evmToCosmos(addr common.Address) sdk.AccAddress {
 	return addr.Bytes()
+}
+
+// TODO: This is a temporary change while the rollup module refactor is being done. Change when possible
+func ValidateBasic(m *rollupv1.InitiateWithdrawalRequest) error {
+	// We should ensure that the target field is a valid Ethereum address and that the gas_limit and data field are valid.
+	if common.IsHexAddress(m.Target) {
+		return fmt.Errorf("invalid Ethereum address: %s", m.Target)
+	}
+	// Ensure gas_limit is within a reasonable range
+	// https://insights.deribit.com/industry/ethereums-gas-mechanics/
+	gasLimit := binary.BigEndian.Uint64(m.GasLimit) // size=24 (0x18), offset=64 (0x40)
+	if gasLimit < 21000 || gasLimit > 15000000 {
+		return fmt.Errorf("gas limit must be between 21,000 and 15,000,000: %d", gasLimit)
+	}
+	// The data field should be in valid hex format
+	_, err := hex.Decode([]byte{}, m.Data)
+	if err != nil {
+		return fmt.Errorf("data field must be valid hex: %s", m.Data)
+	}
+
+	return nil
 }
