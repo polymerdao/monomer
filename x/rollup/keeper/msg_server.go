@@ -3,9 +3,9 @@ package keeper
 import (
 	"context"
 	"encoding/binary"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"unicode/utf8"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -242,10 +242,10 @@ func validateBasic(m *rollupv1.InitiateWithdrawalRequest) error { //nolint:unuse
 	if gasLimit < params.MinGasLimit || gasLimit > params.MaxGasLimit {
 		return fmt.Errorf("gas limit must be between 5,000 and 9,223,372,036,854,775,807: %d", gasLimit)
 	}
-	// The data field should be in valid hex format
-	_, err := hex.Decode([]byte{}, m.Data)
-	if err != nil {
-		return fmt.Errorf("data field must be valid hex: %s", m.Data)
+	// The data field should be in valid UTF8 format
+	// https://info.etherscan.com/understanding-transaction-input-data/
+	if !utf8.Valid(m.Data) {
+		return fmt.Errorf("data field must be valid utf8: %s", m.Data)
 	}
 
 	return nil
