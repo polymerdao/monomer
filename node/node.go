@@ -16,6 +16,7 @@ import (
 	jsonrpctypes "github.com/cometbft/cometbft/rpc/jsonrpc/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/cosmos-sdk/client"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -57,6 +58,7 @@ type DB interface {
 
 type Node struct {
 	app            monomer.Application
+	client         *client.Context
 	genesis        *genesis.Genesis
 	engineWS       net.Listener
 	cometHTTPAndWS net.Listener
@@ -70,6 +72,7 @@ type Node struct {
 
 func New(
 	app monomer.Application,
+	client *client.Context,
 	g *genesis.Genesis,
 	engineWS net.Listener,
 	cometHTTPAndWS net.Listener,
@@ -82,6 +85,7 @@ func New(
 ) *Node {
 	return &Node{
 		app:            app,
+		client:         client,
 		genesis:        g,
 		engineWS:       engineWS,
 		cometHTTPAndWS: cometHTTPAndWS,

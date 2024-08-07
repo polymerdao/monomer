@@ -247,6 +247,7 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	env.DeferErr("close eth state db", ethstatedb.Close)
 	n := node.New(
 		app,
+		nil,
 		&genesis.Genesis{
 			AppState: app.DefaultGenesis(),
 			ChainID:  chainID,

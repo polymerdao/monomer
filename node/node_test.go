@@ -40,6 +40,7 @@ func TestRun(t *testing.T) {
 	}()
 	n := node.New(
 		app,
+		nil,
 		&genesis.Genesis{
 			ChainID:  chainID,
 			AppState: testapp.MakeGenesisAppState(t, app),
