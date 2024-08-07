@@ -240,7 +240,7 @@ func validateBasic(m *rollupv1.InitiateWithdrawalRequest) error {
 	// Check if the gas limit is within the allowed range.
 	gasLimit := new(big.Int).SetBytes(m.GasLimit).Uint64() // size=24 (0x18), offset=64 (0x40)
 	if gasLimit < params.TxGas || gasLimit > params.MaxGasLimit {
-		return fmt.Errorf("gas limit must be between 5,000 and 9,223,372,036,854,775,807: %d", gasLimit)
+		return fmt.Errorf("gas limit must be between %d and %d: %d", params.TxGas, params.MaxGasLimit, gasLimit)
 	}
 
 	return nil
