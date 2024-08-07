@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cometbft/cometbft/types"
+	bfttypes "github.com/cometbft/cometbft/types"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -30,11 +30,11 @@ func TestChainID(t *testing.T) {
 	require.Equal(t, hexID, id.HexBig())
 }
 
-func newTestHeader(timestamp uint64) *monomer.Header {
+func newTestHeader() *monomer.Header {
 	return &monomer.Header{
 		ChainID:    12345,
 		Height:     67890,
-		Time:       timestamp,
+		Time:       uint64(time.Now().Unix()),
 		StateRoot:  common.HexToHash("0x1"),
 		ParentHash: common.HexToHash("0x2"),
 		GasLimit:   3000000,
@@ -43,31 +43,38 @@ func newTestHeader(timestamp uint64) *monomer.Header {
 }
 
 func TestToComet(t *testing.T) {
-	timestamp := time.Now()
-	header := newTestHeader(uint64(timestamp.Unix()))
+	header := newTestHeader()
 	cometHeader := header.ToComet()
 
-	require.Equal(t, header.ChainID.String(), cometHeader.ChainID)
-	require.Equal(t, header.Height, cometHeader.Height)
-	require.Equal(t, timestamp.Unix(), cometHeader.Time.Unix())
-	require.Equal(t, header.StateRoot.Bytes(), cometHeader.AppHash.Bytes())
+	require.Equal(t, &bfttypes.Header{
+		ChainID: header.ChainID.String(),
+		Height:  header.Height,
+		Time:    time.Unix(int64(header.Time), 0),
+		AppHash: header.StateRoot.Bytes(),
+	}, cometHeader)
 }
 
 func TestToEth(t *testing.T) {
-	timestamp := time.Now()
-	header := newTestHeader(uint64(timestamp.Unix()))
+	header := newTestHeader()
 	ethHeader := header.ToEth()
 
-	require.Equal(t, header.Height, ethHeader.Number.Int64())
-	require.Equal(t, uint64(timestamp.Unix()), ethHeader.Time)
-	require.Equal(t, header.ParentHash, ethHeader.ParentHash)
-	require.Equal(t, header.StateRoot, ethHeader.Root)
-	require.Equal(t, header.GasLimit, ethHeader.GasLimit)
+	require.Equal(t, &ethtypes.Header{
+		ParentHash:      header.ParentHash,
+		Root:            header.StateRoot,
+		Number:          big.NewInt(header.Height),
+		GasLimit:        header.GasLimit,
+		MixDigest:       common.Hash{},
+		Time:            header.Time,
+		UncleHash:       ethtypes.EmptyUncleHash,
+		ReceiptHash:     ethtypes.EmptyReceiptsHash,
+		BaseFee:         common.Big0,
+		WithdrawalsHash: &ethtypes.EmptyWithdrawalsHash,
+		Difficulty:      common.Big0,
+	}, ethHeader)
 }
 
 func TestBlock(t *testing.T) {
-	timestamp := time.Now()
-	header := newTestHeader(uint64(timestamp.Unix()))
+	header := newTestHeader()
 
 	l1InfoTx, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
 	txs := ethtypes.Transactions{l1InfoTx, depositTx, cosmosEthTx}
@@ -77,13 +84,15 @@ func TestBlock(t *testing.T) {
 		[]*ethtypes.Transaction{cosmosEthTx},
 	)
 
-	emptyTxs := types.Txs{}
+	emptyTxs := bfttypes.Txs{}
 
 	t.Run("NewBlock", func(t *testing.T) {
 		newBlock := monomer.NewBlock(header, emptyTxs)
 
-		require.Equal(t, header, newBlock.Header)
-		require.Equal(t, emptyTxs, newBlock.Txs)
+		require.Equal(t, &monomer.Block{
+			Header: header,
+			Txs:    emptyTxs,
+		}, newBlock)
 
 		require.Panics(t, func() { monomer.NewBlock(nil, emptyTxs) })
 		require.Panics(t, func() { monomer.NewBlock(header, nil) })
@@ -91,18 +100,27 @@ func TestBlock(t *testing.T) {
 	})
 
 	t.Run("SetHeader", func(t *testing.T) {
-		newBlock, err := monomer.SetHeader(monomer.NewBlock(header, emptyTxs))
+		block := monomer.NewBlock(header, emptyTxs)
+		ethBlock, err := block.ToEth()
 		require.NoError(t, err)
-		require.NotEqual(t, common.Hash{}, newBlock.Header.Hash)
+
+		newBlock, err := monomer.SetHeader(block)
+		require.NoError(t, err)
+		require.Equal(t, ethBlock.Hash(), newBlock.Header.Hash)
 
 		_, err = monomer.SetHeader(nil)
 		require.Error(t, err)
 	})
 
 	t.Run("MakeBlock", func(t *testing.T) {
-		block, err := monomer.MakeBlock(header, emptyTxs)
+		block := monomer.NewBlock(header, emptyTxs)
+		ethBlock, err := block.ToEth()
 		require.NoError(t, err)
-		require.NotEqual(t, common.Hash{}, block.Header.Hash)
+
+		newBlock, err := monomer.MakeBlock(header, emptyTxs)
+		require.NoError(t, err)
+
+		require.Equal(t, ethBlock.Hash(), newBlock.Header.Hash)
 	})
 
 	t.Run("ToEth", func(t *testing.T) {
@@ -112,7 +130,7 @@ func TestBlock(t *testing.T) {
 			require.EqualExportedValues(t, ethTx, ethBlock.Body().Transactions[i])
 		}
 
-		newBlock := monomer.NewBlock(header, types.Txs{[]byte("transaction1"), []byte("transaction2")})
+		newBlock := monomer.NewBlock(header, bfttypes.Txs{[]byte("transaction1"), []byte("transaction2")})
 		_, err = newBlock.ToEth()
 		require.Error(t, err)
 
@@ -123,23 +141,32 @@ func TestBlock(t *testing.T) {
 
 	t.Run("ToCometLikeBlock", func(t *testing.T) {
 		cometLikeBlock := block.ToCometLikeBlock()
-		require.Equal(t, "0", cometLikeBlock.Header.ChainID)
-		require.Equal(t, int64(0), cometLikeBlock.Header.Height)
-		require.Equal(t, "0000000000000000000000000000000000000000000000000000000000000000", cometLikeBlock.Header.AppHash.String())
+		require.Equal(t, &bfttypes.Block{
+			Header: bfttypes.Header{
+				ChainID: block.Header.ChainID.String(),
+				Time:    time.Unix(int64(block.Header.Time), 0),
+				Height:  block.Header.Height,
+				AppHash: block.Header.StateRoot.Bytes(),
+			},
+		}, cometLikeBlock)
 	})
+}
+
+func newPayloadAttributes() *monomer.PayloadAttributes {
+	return &monomer.PayloadAttributes{
+		Timestamp:             uint64(time.Now().Unix()),
+		PrevRandao:            [32]byte{1, 2, 3, 4},
+		SuggestedFeeRecipient: common.HexToAddress("0x5"),
+		NoTxPool:              false,
+		GasLimit:              3000000,
+		ParentHash:            common.HexToHash("0x2"),
+		CosmosTxs:             bfttypes.Txs{[]byte("transaction1"), []byte("transaction2")},
+	}
 }
 
 func TestPayloadAttributes(t *testing.T) {
 	t.Run("ID NoTxPool=false", func(t *testing.T) {
-		pa := &monomer.PayloadAttributes{
-			Timestamp:             uint64(time.Now().Unix()),
-			PrevRandao:            [32]byte{1, 2, 3, 4},
-			SuggestedFeeRecipient: common.HexToAddress("0x5"),
-			NoTxPool:              false,
-			GasLimit:              3000000,
-			ParentHash:            common.HexToHash("0x2"),
-			CosmosTxs:             types.Txs{[]byte("transaction1"), []byte("transaction2")},
-		}
+		pa := newPayloadAttributes()
 
 		id := pa.ID()
 		require.NotNil(t, id)
@@ -149,15 +176,7 @@ func TestPayloadAttributes(t *testing.T) {
 	})
 
 	t.Run("ID NoTxPool=true", func(t *testing.T) {
-		pa := &monomer.PayloadAttributes{
-			Timestamp:             uint64(time.Now().Unix()),
-			PrevRandao:            [32]byte{1, 2, 3, 4},
-			SuggestedFeeRecipient: common.HexToAddress("0x5"),
-			NoTxPool:              true,
-			GasLimit:              3000000,
-			ParentHash:            common.HexToHash("0x2"),
-			CosmosTxs:             types.Txs{[]byte("transaction1"), []byte("transaction2")},
-		}
+		pa := newPayloadAttributes()
 
 		id := pa.ID()
 		require.NotNil(t, id)
@@ -171,5 +190,12 @@ func TestPayloadAttributes(t *testing.T) {
 		require.Equal(t, opeth.ExecutionValid, result.PayloadStatus.Status)
 		require.Equal(t, headBlockHash.Bytes(), result.PayloadStatus.LatestValidHash.Bytes())
 		require.Equal(t, payloadID, result.PayloadID)
+		require.Equal(t, &opeth.ForkchoiceUpdatedResult{
+			PayloadStatus: opeth.PayloadStatusV1{
+				Status:          opeth.ExecutionValid,
+				LatestValidHash: &headBlockHash,
+			},
+			PayloadID: payloadID,
+		}, result)
 	})
 }
