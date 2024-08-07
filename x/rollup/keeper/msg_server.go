@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -11,9 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/polymerdao/monomer/gen/rollup/v1"
+	"github.com/ethereum/go-ethereum/params"
+	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
+)
+
+const (
+	MinTxGasLimit = params.TxGas
+	MaxTxGasLimit = params.MaxGasLimit
 )
 
 type msgServer struct {
@@ -226,4 +233,20 @@ func (k *Keeper) SetL1BlockHistory(ctx context.Context, info *derive.L1BlockInfo
 // evmToCosmos converts an EVM address to a sdk.AccAddress
 func evmToCosmos(addr common.Address) sdk.AccAddress {
 	return addr.Bytes()
+}
+
+// TODO: This is a temporary change while the rollup module refactor is being done. Change when possible
+// ValidateBasic validates the given InitiateWithdrawalRequest
+func ValidateBasic(m *rollupv1.InitiateWithdrawalRequest) error {
+	// Check if the Ethereum address is valid
+	if !common.IsHexAddress(m.Target) {
+		return fmt.Errorf("invalid Ethereum address: %s", m.Target)
+	}
+	// Check if the gas limit is within the allowed range.
+	gasLimit := new(big.Int).SetBytes(m.GasLimit).Uint64()
+	if gasLimit < MinTxGasLimit || gasLimit > MaxTxGasLimit {
+		return fmt.Errorf("gas limit must be between %d and %d: %d", MinTxGasLimit, MaxTxGasLimit, gasLimit)
+	}
+
+	return nil
 }
