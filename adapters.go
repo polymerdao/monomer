@@ -90,7 +90,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	// Unpack deposits from the MsgL1Txs msg.
 	txs, err := AdaptCosmosDepositTxToEthTx(txsBytes[0])
 	if err != nil {
-		return nil, fmt.Errorf("adapt cosmos deposit tx: %v", err)
+		return nil, fmt.Errorf("cosmos deposit: %v", err)
 	}
 
 	// Pack Cosmos txs into Ethereum txs.
