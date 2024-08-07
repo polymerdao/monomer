@@ -34,6 +34,8 @@ require (
 	tailscale.com v1.64.2
 )
 
+require google.golang.org/genproto/googleapis/api v0.0.0-20240227224415-6ceb2ff114de // indirect
+
 require (
 	cosmossdk.io/collections v0.4.0 // indirect
 	cosmossdk.io/x/tx v0.13.2 // indirect
@@ -282,7 +284,6 @@ require (
 	github.com/tdewolff/minify/v2 v2.20.14 // indirect
 	github.com/tdewolff/parse/v2 v2.7.8 // indirect
 	github.com/tendermint/go-amino v0.16.0 // indirect
-	github.com/test-go/testify v1.1.4
 	github.com/tidwall/btree v1.7.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
