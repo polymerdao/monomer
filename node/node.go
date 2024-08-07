@@ -125,6 +125,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 				builder.New(mpool, n.app, n.blockdb, txStore, eventBus, n.genesis.ChainID, n.ethstatedb),
 				n.app,
 				n.blockdb,
+				n.client,
 				engineMetrics,
 			),
 		},

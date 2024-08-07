@@ -8,6 +8,7 @@ import (
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -31,6 +32,7 @@ type EngineAPI struct {
 	builder                  *builder.Builder
 	txValidator              TxValidator
 	blockStore               DB
+	appChainClient           *client.Context
 	currentPayloadAttributes *monomer.PayloadAttributes
 	metrics                  Metrics
 	lock                     sync.RWMutex
@@ -44,13 +46,15 @@ func NewEngineAPI(
 	b *builder.Builder,
 	txValidator TxValidator,
 	blockStore DB,
+	appChainClient *client.Context,
 	metrics Metrics,
 ) *EngineAPI {
 	return &EngineAPI{
-		txValidator: txValidator,
-		blockStore:  blockStore,
-		builder:     b,
-		metrics:     metrics,
+		txValidator:    txValidator,
+		appChainClient: appChainClient,
+		blockStore:     blockStore,
+		builder:        b,
+		metrics:        metrics,
 	}
 }
 
