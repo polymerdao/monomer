@@ -1,8 +1,8 @@
 package keeper_test
 
 import (
-	"encoding/binary"
 	"fmt"
+	"math/big"
 	"testing"
 
 	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
@@ -16,14 +16,9 @@ func TestValidateBasic(t *testing.T) {
 	invalidAddress := "invalid address"
 	invalidAddressErrorMsg := "invalid Ethereum address"
 
-	validGasLimit := make([]byte, 8)
-	binary.BigEndian.PutUint64(validGasLimit, keeper.MinGasLimit/2+keeper.MaxGasLimit/2) // avoid overflow
-
-	belowRangeGasLimit := make([]byte, 8)
-	binary.BigEndian.PutUint64(belowRangeGasLimit, keeper.MinGasLimit-1)
-
-	aboveRangeGasLimit := make([]byte, 8)
-	binary.BigEndian.PutUint64(aboveRangeGasLimit, keeper.MaxGasLimit+1)
+	validGasLimit := new(big.Int).SetUint64(keeper.MinGasLimit/2 + keeper.MaxGasLimit/2).Bytes() // avoid overflow
+	belowRangeGasLimit := new(big.Int).SetUint64(keeper.MinGasLimit - 1).Bytes()
+	aboveRangeGasLimit := new(big.Int).SetUint64(keeper.MaxGasLimit + 1).Bytes()
 
 	outOfRangeGasLimitErrorMsg := fmt.Sprintf("gas limit must be between %d and %d:", keeper.MinGasLimit, keeper.MaxGasLimit)
 
