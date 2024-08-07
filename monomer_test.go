@@ -177,6 +177,7 @@ func TestPayloadAttributes(t *testing.T) {
 
 	t.Run("ID NoTxPool=true", func(t *testing.T) {
 		pa := newPayloadAttributes()
+		pa.NoTxPool = true
 
 		id := pa.ID()
 		require.NotNil(t, id)
