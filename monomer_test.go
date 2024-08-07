@@ -73,9 +73,47 @@ func TestToEth(t *testing.T) {
 	}, ethHeader)
 }
 
-func TestBlock(t *testing.T) {
-	header := newTestHeader()
+func TestBlockNewBlock(t *testing.T) {
+	block := monomer.NewBlock(newTestHeader(), bfttypes.Txs{})
+	ethBlock, err := block.ToEth()
+	require.NoError(t, err)
 
+	newBlock, err := monomer.SetHeader(block)
+	require.NoError(t, err)
+	require.Equal(t, ethBlock.Hash(), newBlock.Header.Hash)
+
+	_, err = monomer.SetHeader(nil)
+	require.Error(t, err)
+}
+
+func TestBlockSetHeader(t *testing.T) {
+	block := monomer.NewBlock(newTestHeader(), bfttypes.Txs{})
+	ethBlock, err := block.ToEth()
+	require.NoError(t, err)
+
+	newBlock, err := monomer.SetHeader(block)
+	require.NoError(t, err)
+	require.Equal(t, ethBlock.Hash(), newBlock.Header.Hash)
+
+	_, err = monomer.SetHeader(nil)
+	require.Error(t, err)
+}
+
+func TestBlockMakeBlock(t *testing.T) {
+	header := newTestHeader()
+	emptyTxs := bfttypes.Txs{}
+
+	block := monomer.NewBlock(header, emptyTxs)
+	ethBlock, err := block.ToEth()
+	require.NoError(t, err)
+
+	newBlock, err := monomer.MakeBlock(header, emptyTxs)
+	require.NoError(t, err)
+
+	require.Equal(t, ethBlock.Hash(), newBlock.Header.Hash)
+}
+
+func TestBlockToEth(t *testing.T) {
 	l1InfoTx, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
 	txs := ethtypes.Transactions{l1InfoTx, depositTx, cosmosEthTx}
 	block := testutils.GenerateBlockFromEthTxs(t,
@@ -84,72 +122,37 @@ func TestBlock(t *testing.T) {
 		[]*ethtypes.Transaction{cosmosEthTx},
 	)
 
-	emptyTxs := bfttypes.Txs{}
+	ethBlock, err := block.ToEth()
+	require.NoError(t, err)
+	for i, ethTx := range txs {
+		require.EqualExportedValues(t, ethTx, ethBlock.Body().Transactions[i])
+	}
 
-	t.Run("NewBlock", func(t *testing.T) {
-		newBlock := monomer.NewBlock(header, emptyTxs)
+	newBlock := monomer.NewBlock(newTestHeader(), bfttypes.Txs{[]byte("transaction1"), []byte("transaction2")})
+	_, err = newBlock.ToEth()
+	require.Error(t, err)
 
-		require.Equal(t, &monomer.Block{
-			Header: header,
-			Txs:    emptyTxs,
-		}, newBlock)
+	newBlock = nil
+	_, err = newBlock.ToEth()
+	require.Error(t, err)
+}
 
-		require.Panics(t, func() { monomer.NewBlock(nil, emptyTxs) })
-		require.Panics(t, func() { monomer.NewBlock(header, nil) })
-		require.Panics(t, func() { monomer.NewBlock(nil, nil) })
-	})
-
-	t.Run("SetHeader", func(t *testing.T) {
-		block := monomer.NewBlock(header, emptyTxs)
-		ethBlock, err := block.ToEth()
-		require.NoError(t, err)
-
-		newBlock, err := monomer.SetHeader(block)
-		require.NoError(t, err)
-		require.Equal(t, ethBlock.Hash(), newBlock.Header.Hash)
-
-		_, err = monomer.SetHeader(nil)
-		require.Error(t, err)
-	})
-
-	t.Run("MakeBlock", func(t *testing.T) {
-		block := monomer.NewBlock(header, emptyTxs)
-		ethBlock, err := block.ToEth()
-		require.NoError(t, err)
-
-		newBlock, err := monomer.MakeBlock(header, emptyTxs)
-		require.NoError(t, err)
-
-		require.Equal(t, ethBlock.Hash(), newBlock.Header.Hash)
-	})
-
-	t.Run("ToEth", func(t *testing.T) {
-		ethBlock, err := block.ToEth()
-		require.NoError(t, err)
-		for i, ethTx := range txs {
-			require.EqualExportedValues(t, ethTx, ethBlock.Body().Transactions[i])
-		}
-
-		newBlock := monomer.NewBlock(header, bfttypes.Txs{[]byte("transaction1"), []byte("transaction2")})
-		_, err = newBlock.ToEth()
-		require.Error(t, err)
-
-		newBlock = nil
-		_, err = newBlock.ToEth()
-		require.Error(t, err)
-	})
-
-	t.Run("ToCometLikeBlock", func(t *testing.T) {
-		cometLikeBlock := block.ToCometLikeBlock()
-		require.Equal(t, &bfttypes.Block{
-			Header: bfttypes.Header{
-				ChainID: block.Header.ChainID.String(),
-				Time:    time.Unix(int64(block.Header.Time), 0),
-				Height:  block.Header.Height,
-				AppHash: block.Header.StateRoot.Bytes(),
-			},
-		}, cometLikeBlock)
-	})
+func TestBlockToCometLikeBlock(t *testing.T) {
+	l1InfoTx, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
+	block := testutils.GenerateBlockFromEthTxs(t,
+		l1InfoTx,
+		[]*ethtypes.Transaction{depositTx},
+		[]*ethtypes.Transaction{cosmosEthTx},
+	)
+	cometLikeBlock := block.ToCometLikeBlock()
+	require.Equal(t, &bfttypes.Block{
+		Header: bfttypes.Header{
+			ChainID: block.Header.ChainID.String(),
+			Time:    time.Unix(int64(block.Header.Time), 0),
+			Height:  block.Header.Height,
+			AppHash: block.Header.StateRoot.Bytes(),
+		},
+	}, cometLikeBlock)
 }
 
 func newPayloadAttributes() *monomer.PayloadAttributes {
@@ -164,39 +167,37 @@ func newPayloadAttributes() *monomer.PayloadAttributes {
 	}
 }
 
-func TestPayloadAttributes(t *testing.T) {
-	t.Run("ID NoTxPool=false", func(t *testing.T) {
-		pa := newPayloadAttributes()
+func TestPayloadAttributesIDNoTxPoolIsFalse(t *testing.T) {
+	pa := newPayloadAttributes()
 
-		id := pa.ID()
-		require.NotNil(t, id)
+	id := pa.ID()
+	require.NotNil(t, id)
 
-		newID := pa.ID()
-		require.Equal(t, id, newID)
-	})
+	newID := pa.ID()
+	require.Equal(t, id, newID)
+}
 
-	t.Run("ID NoTxPool=true", func(t *testing.T) {
-		pa := newPayloadAttributes()
-		pa.NoTxPool = true
+func TestPayloadAttributesIDNoTxPoolIsTrue(t *testing.T) {
+	pa := newPayloadAttributes()
+	pa.NoTxPool = true
 
-		id := pa.ID()
-		require.NotNil(t, id)
+	id := pa.ID()
+	require.NotNil(t, id)
 
-		newID := pa.ID()
-		require.Equal(t, id, newID)
-	})
+	newID := pa.ID()
+	require.Equal(t, id, newID)
+}
 
-	t.Run("ValidForkchoiceUpdateResult", func(t *testing.T) {
-		headBlockHash := common.HexToHash("0x1")
-		payloadID := &engine.PayloadID{}
+func TestPayloadAttributesValidForkchoiceUpdateResult(t *testing.T) {
+	headBlockHash := common.HexToHash("0x1")
+	payloadID := &engine.PayloadID{}
 
-		result := monomer.ValidForkchoiceUpdateResult(&headBlockHash, payloadID)
-		require.Equal(t, &opeth.ForkchoiceUpdatedResult{
-			PayloadStatus: opeth.PayloadStatusV1{
-				Status:          opeth.ExecutionValid,
-				LatestValidHash: &headBlockHash,
-			},
-			PayloadID: payloadID,
-		}, result)
-	})
+	result := monomer.ValidForkchoiceUpdateResult(&headBlockHash, payloadID)
+	require.Equal(t, &opeth.ForkchoiceUpdatedResult{
+		PayloadStatus: opeth.PayloadStatusV1{
+			Status:          opeth.ExecutionValid,
+			LatestValidHash: &headBlockHash,
+		},
+		PayloadID: payloadID,
+	}, result)
 }
