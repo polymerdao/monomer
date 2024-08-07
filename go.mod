@@ -34,8 +34,6 @@ require (
 	tailscale.com v1.64.2
 )
 
-require google.golang.org/genproto/googleapis/api v0.0.0-20240227224415-6ceb2ff114de // indirect
-
 require (
 	cosmossdk.io/collections v0.4.0 // indirect
 	cosmossdk.io/x/tx v0.13.2 // indirect
