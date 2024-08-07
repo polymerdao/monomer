@@ -28,8 +28,7 @@ func TestChainID(t *testing.T) {
 	bigInt := big.NewInt(n)
 	require.Equal(t, bigInt, id.Big())
 
-	hexID := (*hexutil.Big)(bigInt)
-	require.Equal(t, hexID, id.HexBig())
+	require.Equal(t, (*hexutil.Big)(bigInt), id.HexBig())
 }
 
 func newTestHeader() *monomer.Header {
