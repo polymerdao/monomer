@@ -21,8 +21,7 @@ func TestChainID(t *testing.T) {
 	n := int64(12345)
 	id := monomer.ChainID(n)
 
-	idStr := strconv.FormatInt(n, 10)
-	require.Equal(t, idStr, id.String())
+	require.Equal(t, strconv.FormatInt(n, 10), id.String())
 
 	bigInt := big.NewInt(n)
 	require.Equal(t, bigInt, id.Big())
