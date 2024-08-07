@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"hash"
 	"math/big"
@@ -11,7 +12,6 @@ import (
 	"time"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	bftbytes "github.com/cometbft/cometbft/libs/bytes"
 	bfttypes "github.com/cometbft/cometbft/types"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
@@ -42,7 +42,11 @@ func (id ChainID) String() string {
 }
 
 func (id ChainID) HexBig() *hexutil.Big {
-	return (*hexutil.Big)(new(big.Int).SetUint64(uint64(id)))
+	return (*hexutil.Big)(id.Big())
+}
+
+func (id ChainID) Big() *big.Int {
+	return new(big.Int).SetUint64(uint64(id))
 }
 
 type Header struct {
@@ -50,10 +54,9 @@ type Header struct {
 	Height     int64       `json:"height"`
 	Time       uint64      `json:"time"`
 	ParentHash common.Hash `json:"parentHash"`
-	// state after txs from the *previous* block
-	AppHash  []byte      `json:"app_hash"`
-	GasLimit uint64      `json:"gasLimit"`
-	Hash     common.Hash `json:"hash"`
+	StateRoot  common.Hash `json:"stateRoot"`
+	GasLimit   uint64      `json:"gasLimit"`
+	Hash       common.Hash `json:"hash"`
 }
 
 func (h *Header) ToComet() *bfttypes.Header {
@@ -61,7 +64,7 @@ func (h *Header) ToComet() *bfttypes.Header {
 		ChainID: h.ChainID.String(),
 		Height:  h.Height,
 		Time:    time.Unix(int64(h.Time), 0),
-		AppHash: h.AppHash,
+		AppHash: h.StateRoot.Bytes(),
 	}
 }
 
@@ -97,27 +100,41 @@ func MakeBlock(h *Header, txs bfttypes.Txs) (*Block, error) {
 	return SetHeader(NewBlock(h, txs))
 }
 
+// ToEth converts a partial Monomer Header to an Ethereum Header.
+// Extrinsic properties on the header (like the block hash) need to be set separately by SetHeader.
+func (h *Header) ToEth() *ethtypes.Header {
+	return &ethtypes.Header{
+		ParentHash:      h.ParentHash,
+		Root:            h.StateRoot,
+		Number:          big.NewInt(h.Height),
+		GasLimit:        h.GasLimit,
+		MixDigest:       common.Hash{},
+		Time:            h.Time,
+		UncleHash:       ethtypes.EmptyUncleHash,
+		ReceiptHash:     ethtypes.EmptyReceiptsHash,
+		BaseFee:         common.Big0,
+		WithdrawalsHash: &ethtypes.EmptyWithdrawalsHash,
+		Difficulty:      common.Big0,
+	}
+}
+
 func (b *Block) ToEth() (*ethtypes.Block, error) {
+	if b == nil {
+		return nil, errors.New("converted a nil block")
+	}
+
 	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(b.Txs)
 	if err != nil {
 		return nil, fmt.Errorf("adapt txs: %v", err)
 	}
-	return ethtypes.NewBlock(
-		&ethtypes.Header{
-			ParentHash:      b.Header.ParentHash,
-			Root:            common.BytesToHash(b.Header.AppHash), // TODO actually take the keccak
-			Number:          big.NewInt(b.Header.Height),
-			GasLimit:        b.Header.GasLimit,
-			MixDigest:       common.Hash{},
-			Time:            b.Header.Time,
-			UncleHash:       ethtypes.EmptyUncleHash,
-			ReceiptHash:     ethtypes.EmptyReceiptsHash,
-			BaseFee:         common.Big0,
-			WithdrawalsHash: &ethtypes.EmptyWithdrawalsHash,
-		},
+	return ethtypes.NewBlockWithWithdrawals(
+		b.Header.ToEth(),
 		txs,
 		nil,
 		[]*ethtypes.Receipt{},
+		// op-node version requires non-nil withdrawals when it derives attributes from L1,
+		// so unsafe block consolidation will fail if we have nil withdrawals here.
+		[]*ethtypes.Withdrawal{},
 		trie.NewStackTrie(nil),
 	), nil
 }
@@ -128,7 +145,7 @@ func (b *Block) ToCometLikeBlock() *bfttypes.Block {
 			ChainID: b.Header.ChainID.String(),
 			Time:    time.Unix(int64(b.Header.Time), 0),
 			Height:  b.Header.Height,
-			AppHash: bftbytes.HexBytes(b.Header.AppHash),
+			AppHash: b.Header.StateRoot.Bytes(),
 		},
 	}
 }

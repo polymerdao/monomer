@@ -5,7 +5,6 @@ import (
 	"crypto/ecdsa"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"time"
 
@@ -91,21 +90,21 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 	}
 
 	// Use the same tx manager config for the op-proposer and op-batcher.
-	defaults := txmgr.DefaultBatcherFlagValues
 	l1ChainID, err := l1.ChainID(ctx)
 	if err != nil {
 		return fmt.Errorf("get l1 chain id: %v", err)
 	}
 	txManagerConfig := &txmgr.Config{
-		Backend:                   l1,
-		ChainID:                   l1ChainID,
-		NumConfirmations:          defaults.NumConfirmations,
-		NetworkTimeout:            defaults.NetworkTimeout,
-		FeeLimitMultiplier:        defaults.FeeLimitMultiplier,
-		ResubmissionTimeout:       defaults.ResubmissionTimeout,
-		ReceiptQueryInterval:      defaults.ReceiptQueryInterval,
-		TxNotInMempoolTimeout:     defaults.TxNotInMempoolTimeout,
-		SafeAbortNonceTooLowCount: defaults.SafeAbortNonceTooLowCount,
+		Backend: l1,
+		ChainID: l1ChainID,
+		// https://github.com/ethereum-optimism/optimism/blob/5b13bad9883fa5737af67ba3ee700aaa8737f686/op-e2e/setup.go#L83-L93
+		NumConfirmations:          1,
+		SafeAbortNonceTooLowCount: 3,
+		FeeLimitMultiplier:        5,
+		ResubmissionTimeout:       3 * time.Second,
+		ReceiptQueryInterval:      50 * time.Millisecond,
+		NetworkTimeout:            2 * time.Second,
+		TxNotInMempoolTimeout:     2 * time.Minute,
 		Signer: func(ctx context.Context, address common.Address, tx *ethtypes.Transaction) (*ethtypes.Transaction, error) {
 			return opcrypto.PrivateKeySignerFn(op.privKey, l1ChainID)(address, tx)
 		},
@@ -221,19 +220,22 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 		Metr:         metrics,
 		RollupConfig: op.rollupConfig,
 		Config: batcher.BatcherConfig{
-			NetworkTimeout: 10 * time.Second,
-			PollInterval:   50 * time.Millisecond,
+			NetworkTimeout:         2 * time.Second,
+			PollInterval:           50 * time.Millisecond,
+			MaxPendingTransactions: 1,
 		},
 		Txmgr:            txManager,
 		L1Client:         l1Client,
 		EndpointProvider: endpointProvider,
 		ChannelConfig: batcher.ChannelConfig{
-			SeqWindowSize:  op.rollupConfig.SeqWindowSize,
-			ChannelTimeout: op.rollupConfig.ChannelTimeout,
-			// These values are taken from the op-e2e test configs.
+			SeqWindowSize:      op.rollupConfig.SeqWindowSize,
+			ChannelTimeout:     op.rollupConfig.ChannelTimeout,
 			MaxChannelDuration: 1,
 			SubSafetyMargin:    4,
-			MaxFrameSize:       math.MaxUint64,
+			// MaxFrameSize field value is copied from:
+			//nolint:lll
+			// https://github.com/ethereum-optimism/optimism/blob/5b13bad9883fa5737af67ba3ee700aaa8737f686/op-batcher/batcher/channel_config_test.go#L19
+			MaxFrameSize: 120_000,
 			CompressorConfig: compressor.Config{
 				TargetOutputSize: 100_000,
 				ApproxComprRatio: 0.4,
@@ -243,14 +245,12 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 	if err := batchSubmitter.StartBatchSubmitting(); err != nil {
 		return fmt.Errorf("start batch submitting: %v", err)
 	}
-
-	/*
-		There appears to be a deadlock in StopBatchSubmitting.
-		This was most likely fixed in a more recent OP-stack version, based on the significant diff.
-		env.DeferErr( "stop batch submitting", func() error {
-			return batchSubmitter.StopBatchSubmitting(ctx)
-		})
-	*/
+	env.DeferErr("stop batch submitting", func() error {
+		// If the environment is closed, the context should be canceled too.
+		// That will kill the batcher even if there are in-flight transactions.
+		// TODO: perhaps we shouldn't kill the batcher if txs are in-flight? Right now context.Background() lets the batcher hang the test.
+		return batchSubmitter.StopBatchSubmitting(ctx)
+	})
 	return nil
 }
 

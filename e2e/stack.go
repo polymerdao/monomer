@@ -8,12 +8,16 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"time"
 
 	cometdb "github.com/cometbft/cometbft-db"
 	"github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -30,6 +34,13 @@ type EventListener interface {
 	node.EventListener
 }
 
+type StackConfig struct {
+	L1URL *url.URL
+	*rollup.Config
+	Operator L1User
+	Users    []L1User
+}
+
 type Stack struct {
 	monomerEngineURL *url.URL
 	monomerCometURL  *url.URL
@@ -37,9 +48,7 @@ type Stack struct {
 	deployConfigDir  string
 	l1stateDumpDir   string
 	eventListener    EventListener
-	l1BlockTime      uint64
 	prometheusCfg    *config.InstrumentationConfig
-	L1Users          []L1User
 }
 
 type L1User struct {
@@ -55,7 +64,6 @@ func New(
 	opNodeURL *url.URL,
 	deployConfigDir string,
 	l1stateDumpDir string,
-	l1BlockTime uint64,
 	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
 ) *Stack {
@@ -66,25 +74,34 @@ func New(
 		deployConfigDir:  deployConfigDir,
 		l1stateDumpDir:   l1stateDumpDir,
 		eventListener:    eventListener,
-		l1BlockTime:      l1BlockTime,
 		prometheusCfg:    prometheusCfg,
 	}
 }
 
-func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
+func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, error) {
 	// configure & run L1
 
 	const networkName = "devnetL1"
 	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join(s.l1stateDumpDir, "addresses.json"))
 	if err != nil {
-		return fmt.Errorf("new l1 deployments: %v", err)
+		return nil, fmt.Errorf("new l1 deployments: %v", err)
 	}
 	deployConfig, err := opgenesis.NewDeployConfigWithNetwork(networkName, s.deployConfigDir)
 	if err != nil {
-		return fmt.Errorf("new deploy config: %v", err)
+		return nil, fmt.Errorf("new deploy config: %v", err)
 	}
 	deployConfig.SetDeployments(l1Deployments)
+	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	deployConfig.L1UseClique = false // Allows node to produce blocks without addition config. Clique is a PoA config.
+	// SequencerWindowSize is usually set to something in the hundreds or thousands.
+	// That means we don't ever perform unsafe block consolidation (i.e., the safe head never advances) before the test is complete.
+	// To force this edge case to occur in the test, we decrease the SWS.
+	deployConfig.SequencerWindowSize = 4
+	// Set low ChannelTimeout to ensure the batcher opens and closes a channel in the same block to avoid reorgs in
+	// unsafe block consolidation. Note that at the time of this writing, we're still seeing reorgs, so this likely isn't the silver bullet.
+	deployConfig.ChannelTimeout = 1
+	deployConfig.L1BlockTime = 2
+	deployConfig.L2BlockTime = 1
 
 	var auxState auxDump
 
@@ -92,26 +109,27 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 	if err != nil {
 		// check if not found
 		if os.IsNotExist(err) {
-			return fmt.Errorf("allocs-l1.json not found - run `make setup-e2e` from project root")
+			return nil, fmt.Errorf("allocs-l1.json not found - run `make setup-e2e` from project root")
 		} else {
-			return fmt.Errorf("read allocs-l1.json: %v", err)
+			return nil, fmt.Errorf("read allocs-l1.json: %v", err)
 		}
 	}
 	err = json.Unmarshal(l1StateJSON, &auxState)
 	if err != nil {
-		return fmt.Errorf("unmarshal l1 state: %v", err)
+		return nil, fmt.Errorf("unmarshal l1 state: %v", err)
 	}
 
 	l1state, err := auxState.ToStateDump()
 	if err != nil {
-		return fmt.Errorf("auxState to state dump: %v", err)
+		return nil, fmt.Errorf("auxState to state dump: %v", err)
 	}
 
 	// Fund test EOA accounts
-	for range 1 {
+	l1users := make([]L1User, 0)
+	for range 2 {
 		privateKey, err := crypto.GenerateKey()
 		if err != nil {
-			return fmt.Errorf("generate key: %v", err)
+			return nil, fmt.Errorf("generate key: %v", err)
 		}
 		userAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
 
@@ -121,7 +139,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 			Address: &userAddress,
 		}
 		l1state.OnAccount(user.Address, user)
-		s.L1Users = append(s.L1Users, L1User{
+		l1users = append(l1users, L1User{
 			Address:    userAddress,
 			PrivateKey: privateKey,
 		})
@@ -129,51 +147,51 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 
 	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, l1state, l1Deployments)
 	if err != nil {
-		return fmt.Errorf("build l1 developer genesis: %v", err)
+		return nil, fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client, l1HTTPendpoint, err := gethdevnet(s.l1BlockTime, l1genesis)
+	l1client, l1HTTPendpoint, err := gethdevnet(env, deployConfig.L1BlockTime, l1genesis)
 	if err != nil {
-		return fmt.Errorf("ethdevnet: %v", err)
+		return nil, fmt.Errorf("ethdevnet: %v", err)
 	}
 
 	l1url, err := url.ParseString(l1HTTPendpoint)
 	if err != nil {
-		return fmt.Errorf("new l1 url: %v", err)
+		return nil, fmt.Errorf("new l1 url: %v", err)
 	}
 
 	// NOTE: should we set a timeout on the context? Might not be worth the complexity.
 	if !l1url.IsReachable(ctx) {
-		return fmt.Errorf("l1 url not reachable: %s", l1url.String())
+		return nil, fmt.Errorf("l1 url not reachable: %s", l1url.String())
 	}
 
 	l1 := NewL1Client(l1client)
 
 	latestL1Block, err := l1.BlockByNumber(ctx, nil)
 	if err != nil {
-		return fmt.Errorf("get the latest l1 block: %v", err)
+		return nil, fmt.Errorf("get the latest l1 block: %v", err)
 	}
 
 	// Run Monomer.
 	if err := s.runMonomer(ctx, env, latestL1Block.Time(), deployConfig.L2ChainID); err != nil {
-		return err
+		return nil, err
 	}
 	if !s.monomerEngineURL.IsReachable(ctx) {
-		return nil
+		return nil, fmt.Errorf("reaching monomer url: %s", s.monomerEngineURL.String())
 	}
 	monomerRPCClient, err := rpc.DialContext(ctx, s.monomerEngineURL.String())
 	if err != nil {
-		return fmt.Errorf("dial monomer: %v", err)
+		return nil, fmt.Errorf("dial monomer: %v", err)
 	}
 	monomerClient := NewMonomerClient(monomerRPCClient)
 	l2GenesisBlockHash, err := monomerClient.GenesisHash(ctx)
 	if err != nil {
-		return fmt.Errorf("get Monomer genesis block hash: %v", err)
+		return nil, fmt.Errorf("get Monomer genesis block hash: %v", err)
 	}
 
 	rollupConfig, err := deployConfig.RollupConfig(latestL1Block, l2GenesisBlockHash, 1)
 	if err != nil {
-		return fmt.Errorf("new rollup config: %v", err)
+		return nil, fmt.Errorf("new rollup config: %v", err)
 	}
 
 	opStack := NewOPStack(
@@ -181,14 +199,20 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) error {
 		s.monomerEngineURL,
 		s.opNodeURL,
 		l1Deployments.L2OutputOracleProxy,
-		s.L1Users[0].PrivateKey,
+		l1users[0].PrivateKey,
 		rollupConfig,
 		s.eventListener,
 	)
 	if err := opStack.Run(ctx, env); err != nil {
-		return fmt.Errorf("run the op stack: %v", err)
+		return nil, fmt.Errorf("run the op stack: %v", err)
 	}
-	return nil
+
+	return &StackConfig{
+		L1URL:    l1url,
+		Config:   rollupConfig,
+		Operator: l1users[0],
+		Users:    l1users[1:],
+	}, nil
 }
 
 func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTime, chainIDU64 uint64) error {
@@ -211,6 +235,8 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	env.DeferErr("close tx db", txdb.Close)
 	mempooldb := dbm.NewMemDB()
 	env.DeferErr("close mempool db", mempooldb.Close)
+	ethstatedb := rawdb.NewMemoryDatabase()
+	env.DeferErr("close eth state db", ethstatedb.Close)
 	n := node.New(
 		app,
 		&genesis.Genesis{
@@ -223,6 +249,7 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		blockdb,
 		mempooldb,
 		txdb,
+		ethstatedb,
 		s.prometheusCfg,
 		s.eventListener,
 	)

@@ -13,7 +13,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/polymerdao/monomer"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
@@ -36,11 +38,19 @@ func NewMemDB(t *testing.T) dbm.DB {
 	return db
 }
 
+func NewEthStateDB(t *testing.T) state.Database {
+	rawstatedb := rawdb.NewMemoryDatabase()
+	t.Cleanup(func() {
+		require.NoError(t, rawstatedb.Close())
+	})
+	return state.NewDatabase(rawstatedb)
+}
+
 // GenerateEthTxs generates an L1 attributes tx, deposit tx, and cosmos tx packed in an Ethereum transaction.
 // The transactions are not meant to be executed.
-func GenerateEthTxs(t *testing.T) (*types.Transaction, *types.Transaction, *types.Transaction) {
+func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transaction, *gethtypes.Transaction) {
 	timestamp := uint64(0)
-	l1Block := types.NewBlock(&types.Header{
+	l1Block := gethtypes.NewBlock(&gethtypes.Header{
 		BaseFee:    big.NewInt(10),
 		Difficulty: common.Big0,
 		Number:     big.NewInt(0),
@@ -51,16 +61,16 @@ func GenerateEthTxs(t *testing.T) (*types.Transaction, *types.Transaction, *type
 		L2ChainID: big.NewInt(1234),
 	}, eth.SystemConfig{}, 0, eth.BlockToInfo(l1Block), timestamp)
 	require.NoError(t, err)
-	l1InfoTx := types.NewTx(l1InfoRawTx)
+	l1InfoTx := gethtypes.NewTx(l1InfoRawTx)
 
 	rng := rand.New(rand.NewSource(1234))
-	depositTx := types.NewTx(testutils.GenerateDeposit(testutils.RandomHash(rng), rng))
+	depositTx := gethtypes.NewTx(testutils.GenerateDeposit(testutils.RandomHash(rng), rng))
 
 	cosmosEthTx := rolluptypes.AdaptNonDepositCosmosTxToEthTx([]byte{1})
 	return l1InfoTx, depositTx, cosmosEthTx
 }
 
-func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *types.Transaction, depositTxs, cosmosEthTxs []*types.Transaction) *monomer.Block {
+func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depositTxs, cosmosEthTxs []*gethtypes.Transaction) *monomer.Block {
 	l1InfoTxBytes, err := l1InfoTx.MarshalBinary()
 	require.NoError(t, err)
 	ethTxBytes := []hexutil.Bytes{l1InfoTxBytes}
@@ -84,5 +94,5 @@ func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *types.Transaction, depositT
 // GenerateBlock generates a valid block (up to stateless validation). The block is not meant to be executed.
 func GenerateBlock(t *testing.T) *monomer.Block {
 	l1InfoTx, depositTx, cosmosEthTx := GenerateEthTxs(t)
-	return GenerateBlockFromEthTxs(t, l1InfoTx, []*types.Transaction{depositTx}, []*types.Transaction{cosmosEthTx})
+	return GenerateBlockFromEthTxs(t, l1InfoTx, []*gethtypes.Transaction{depositTx}, []*gethtypes.Transaction{cosmosEthTx})
 }

@@ -18,6 +18,7 @@ import (
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
@@ -28,6 +29,8 @@ import (
 
 const (
 	monomerEngineWSFlag = "monomer-engine-ws"
+	defaultCacheSize    = 16 // 16 MB
+	defaultHandlesSize  = 16
 )
 
 var sigCh = make(chan os.Signal, 1)
@@ -181,6 +184,19 @@ func startMonomerNode(
 	}
 	env.DeferErr("close mempool db", mempooldb.Close)
 
+	ethstatedb, err := rawdb.NewPebbleDBDatabase(
+		svrCtx.Config.RootDir+"/ethstate",
+		defaultCacheSize,
+		defaultHandlesSize,
+		"",
+		false,
+		false,
+	)
+	if err != nil {
+		return fmt.Errorf("create eth state db: %v", err)
+	}
+	env.DeferErr("close eth state db", ethstatedb.Close)
+
 	monomerGenesisPath := svrCtx.Config.GenesisFile()
 
 	appGenesis, err := genutiltypes.AppGenesisFromFile(monomerGenesisPath)
@@ -209,6 +225,7 @@ func startMonomerNode(
 		blockdb,
 		mempooldb,
 		txdb,
+		ethstatedb,
 		svrCtx.Config.Instrumentation,
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {

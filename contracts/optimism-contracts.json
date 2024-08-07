@@ -1,0 +1,13 @@
+{
+  "contracts": {
+    "L2ToL1MessagePasser": "L2/L2ToL1MessagePasser.sol"
+  },
+  "deps": {
+    "Types": "libraries/Types.sol",
+    "Burn": "libraries/Burn.sol",
+    "Hashing": "libraries/Hashing.sol",
+    "RLPWriter": "libraries/rlp/RLPWriter.sol",
+    "Encoding": "libraries/Encoding.sol",
+    "ISemver": "universal/ISemver.sol"
+  }
+}
