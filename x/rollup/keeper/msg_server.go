@@ -231,8 +231,8 @@ func evmToCosmos(addr common.Address) sdk.AccAddress {
 }
 
 // TODO: This is a temporary change while the rollup module refactor is being done. Change when possible
-// validateBasic validates the given InitiateWithdrawalRequest
-func validateBasic(m *rollupv1.InitiateWithdrawalRequest) error {
+// ValidateBasic validates the given InitiateWithdrawalRequest
+func ValidateBasic(m *rollupv1.InitiateWithdrawalRequest) error {
 	// Check if the Ethereum address is valid
 	if !common.IsHexAddress(m.Target) {
 		return fmt.Errorf("invalid Ethereum address: %s", m.Target)

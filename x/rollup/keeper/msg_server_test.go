@@ -1,10 +1,11 @@
-package keeper
+package keeper_test
 
 import (
 	"encoding/binary"
 	"testing"
 
 	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
+	"github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/stretchr/testify/require"
 )
 
@@ -62,7 +63,7 @@ func TestValidateBasic(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateBasic(tc.request)
+			err := keeper.ValidateBasic(tc.request)
 			if tc.errMsg == "" {
 				require.NoError(t, err)
 			} else {
