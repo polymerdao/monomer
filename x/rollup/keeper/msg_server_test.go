@@ -16,11 +16,11 @@ func TestValidateBasic(t *testing.T) {
 	invalidAddress := "invalid address"
 	invalidAddressErrorMsg := "invalid Ethereum address"
 
-	validGasLimit := new(big.Int).SetUint64(keeper.MinGasLimit/2 + keeper.MaxGasLimit/2).Bytes() // avoid overflow
-	belowRangeGasLimit := new(big.Int).SetUint64(keeper.MinGasLimit - 1).Bytes()
-	aboveRangeGasLimit := new(big.Int).SetUint64(keeper.MaxGasLimit + 1).Bytes()
+	validGasLimit := new(big.Int).SetUint64(keeper.MinTxGasLimit/2 + keeper.MaxTxGasLimit/2).Bytes() // avoid overflow
+	belowRangeGasLimit := new(big.Int).SetUint64(keeper.MinTxGasLimit - 1).Bytes()
+	aboveRangeGasLimit := new(big.Int).SetUint64(keeper.MaxTxGasLimit + 1).Bytes()
 
-	outOfRangeGasLimitErrorMsg := fmt.Sprintf("gas limit must be between %d and %d:", keeper.MinGasLimit, keeper.MaxGasLimit)
+	outOfRangeGasLimitErrorMsg := fmt.Sprintf("gas limit must be between %d and %d:", keeper.MinTxGasLimit, keeper.MaxTxGasLimit)
 
 	testCases := []struct {
 		name    string
