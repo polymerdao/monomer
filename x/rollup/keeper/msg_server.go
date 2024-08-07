@@ -243,7 +243,7 @@ func ValidateBasic(m *rollupv1.InitiateWithdrawalRequest) error {
 		return fmt.Errorf("invalid Ethereum address: %s", m.Target)
 	}
 	// Check if the gas limit is within the allowed range.
-	gasLimit := new(big.Int).SetBytes(m.GasLimit).Uint64() // size=24 (0x18), offset=64 (0x40)
+	gasLimit := new(big.Int).SetBytes(m.GasLimit).Uint64()
 	if gasLimit < MinTxGasLimit || gasLimit > MaxTxGasLimit {
 		return fmt.Errorf("gas limit must be between %d and %d: %d", params.TxGas, params.MaxGasLimit, gasLimit)
 	}
