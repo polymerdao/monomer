@@ -12,8 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/trie"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/testutils"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -115,18 +117,25 @@ func TestBlockMakeBlock(t *testing.T) {
 
 func TestBlockToEth(t *testing.T) {
 	l1InfoTx, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
-	txs := ethtypes.Transactions{l1InfoTx, depositTx, cosmosEthTx}
 	block := testutils.GenerateBlockFromEthTxs(t,
 		l1InfoTx,
 		[]*ethtypes.Transaction{depositTx},
 		[]*ethtypes.Transaction{cosmosEthTx},
 	)
 
+	ethTxs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
+	require.NoError(t, err)
+
 	ethBlock, err := block.ToEth()
 	require.NoError(t, err)
-	for i, ethTx := range txs {
-		require.EqualExportedValues(t, ethTx, ethBlock.Body().Transactions[i])
-	}
+	require.EqualExportedValues(t, ethtypes.NewBlockWithWithdrawals(
+		block.Header.ToEth(),
+		ethTxs,
+		nil,
+		[]*ethtypes.Receipt{},
+		[]*ethtypes.Withdrawal{},
+		trie.NewStackTrie(nil),
+	), ethBlock)
 
 	newBlock := monomer.NewBlock(newTestHeader(), bfttypes.Txs{[]byte("transaction1"), []byte("transaction2")})
 	_, err = newBlock.ToEth()
