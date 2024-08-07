@@ -191,9 +191,6 @@ func TestPayloadAttributes(t *testing.T) {
 		payloadID := &engine.PayloadID{}
 
 		result := monomer.ValidForkchoiceUpdateResult(&headBlockHash, payloadID)
-		require.Equal(t, opeth.ExecutionValid, result.PayloadStatus.Status)
-		require.Equal(t, headBlockHash.Bytes(), result.PayloadStatus.LatestValidHash.Bytes())
-		require.Equal(t, payloadID, result.PayloadID)
 		require.Equal(t, &opeth.ForkchoiceUpdatedResult{
 			PayloadStatus: opeth.PayloadStatusV1{
 				Status:          opeth.ExecutionValid,
