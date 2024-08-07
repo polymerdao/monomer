@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/params"
 	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/stretchr/testify/require"
@@ -18,15 +17,15 @@ func TestValidateBasic(t *testing.T) {
 	invalidAddressErrorMsg := "invalid Ethereum address"
 
 	validGasLimit := make([]byte, 8)
-	binary.BigEndian.PutUint64(validGasLimit, params.TxGas/2+params.MaxGasLimit/2) // avoid overflow
+	binary.BigEndian.PutUint64(validGasLimit, keeper.MinGasLimit/2+keeper.MaxGasLimit/2) // avoid overflow
 
 	belowRangeGasLimit := make([]byte, 8)
-	binary.BigEndian.PutUint64(belowRangeGasLimit, params.TxGas-1)
+	binary.BigEndian.PutUint64(belowRangeGasLimit, keeper.MinGasLimit-1)
 
 	aboveRangeGasLimit := make([]byte, 8)
-	binary.BigEndian.PutUint64(aboveRangeGasLimit, params.MaxGasLimit+1)
+	binary.BigEndian.PutUint64(aboveRangeGasLimit, keeper.MaxGasLimit+1)
 
-	outOfRangeGasLimitErrorMsg := fmt.Sprintf("gas limit must be between %d and %d:", params.TxGas, params.MaxGasLimit)
+	outOfRangeGasLimitErrorMsg := fmt.Sprintf("gas limit must be between %d and %d:", keeper.MinGasLimit, keeper.MaxGasLimit)
 
 	testCases := []struct {
 		name    string
