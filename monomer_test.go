@@ -181,6 +181,9 @@ func TestPayloadAttributes(t *testing.T) {
 
 		id := pa.ID()
 		require.NotNil(t, id)
+
+		newID := pa.ID()
+		require.Equal(t, id, newID)
 	})
 
 	t.Run("ValidForkchoiceUpdateResult", func(t *testing.T) {
