@@ -2,9 +2,9 @@ package keeper
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -238,7 +238,7 @@ func validateBasic(m *rollupv1.InitiateWithdrawalRequest) error {
 		return fmt.Errorf("invalid Ethereum address: %s", m.Target)
 	}
 	// Check if the gas limit is within the allowed range.
-	gasLimit := binary.BigEndian.Uint64(m.GasLimit) // size=24 (0x18), offset=64 (0x40)
+	gasLimit := new(big.Int).SetBytes(m.GasLimit).Uint64() // size=24 (0x18), offset=64 (0x40)
 	if gasLimit < params.MinGasLimit || gasLimit > params.MaxGasLimit {
 		return fmt.Errorf("gas limit must be between 5,000 and 9,223,372,036,854,775,807: %d", gasLimit)
 	}
