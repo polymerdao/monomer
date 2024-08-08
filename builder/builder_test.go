@@ -3,12 +3,15 @@ package builder_test
 import (
 	"context"
 	"fmt"
+	"math/big"
+	"math/rand"
 	"slices"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cmtpubsub "github.com/cometbft/cometbft/libs/pubsub"
 	bfttypes "github.com/cometbft/cometbft/types"
+	optestutils "github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
@@ -22,6 +25,7 @@ import (
 	"github.com/polymerdao/monomer/mempool"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testutils"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -65,16 +69,18 @@ func TestBuild(t *testing.T) {
 			inclusionListTxs := make([][]byte, test.inclusionNum)
 			mempoolTxs := make([][]byte, test.mempoolNum)
 
-			_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
-			depositTxBytes, err := depositTx.MarshalBinary()
-			require.NoError(t, err)
-			cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
-			require.NoError(t, err)
+			rng := rand.New(rand.NewSource(1234))
 
 			for i := range test.inclusionNum {
+				depositTx := gethtypes.NewTx(optestutils.GenerateDeposit(optestutils.RandomHash(rng), rng))
+				depositTxBytes, err := depositTx.MarshalBinary()
+				require.NoError(t, err)
 				inclusionListTxs[i] = slices.Clone(depositTxBytes)
 			}
 			for i := range test.mempoolNum {
+				cosmosEthTx := rolluptypes.AdaptNonDepositCosmosTxToEthTx(new(big.Int).SetUint64(rng.Uint64()).Bytes())
+				cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
+				require.NoError(t, err)
 				mempoolTxs[i] = slices.Clone(cosmosEthTxBytes)
 			}
 
