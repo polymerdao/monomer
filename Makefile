@@ -1,7 +1,6 @@
 GOBIN ?= $$(go env GOPATH)/bin
 COVER_OUT ?= cover.out
 COVER_HTML ?= cover.html
-PULSAR_PATHS ?= proto/rollup/module,testapp/proto/testapp/module
 SCRIPTS_PATH ?= scripts
 
 E2E_ARTIFACTS_PATH ?= e2e/artifacts
@@ -33,8 +32,7 @@ lint:
 
 .PHONY: gen-proto
 gen-proto:
-	${GOBIN}/buf generate --template buf.gen.gocosmos.yaml --exclude-path $(PULSAR_PATHS)
-	${GOBIN}/buf generate --template buf.gen.pulsar.yaml --path $(PULSAR_PATHS)
+	${GOBIN}/buf generate --template buf.gen.yaml
 
 .PHONY: install-gofumpt
 install-gofumpt:
@@ -44,7 +42,6 @@ install-gofumpt:
 install-buf:
 	go install github.com/bufbuild/buf/cmd/buf@v1.31.0
 	go install github.com/cosmos/gogoproto/protoc-gen-gocosmos@v1.5.0
-	go install github.com/cosmos/cosmos-proto/cmd/protoc-gen-go-pulsar@v1.0.0-beta.5
 
 .PHONY: install-go-test-coverage
 install-go-test-coverage:
