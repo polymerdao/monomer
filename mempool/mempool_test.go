@@ -29,7 +29,7 @@ func TestMempool(t *testing.T) {
 		depositTxBytes, err := depositTx.MarshalBinary()
 		require.NoError(t, err)
 
-		cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes})
+		cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes}, nil, "")
 		require.NoError(t, err)
 
 		require.Error(t, pool.Enqueue(cosmosTxs[0]))
