@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
+	"slices"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -12,6 +13,7 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	optestutils "github.com/ethereum-optimism/optimism/op-service/testutils"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
@@ -42,58 +44,93 @@ func (*queryAll) String() string {
 
 func TestBuild(t *testing.T) {
 	tests := []struct {
-		name                     string
-		inclusionNum, mempoolNum int
-		noTxPool                 bool
+		name                                           string
+		depositTxsNum, nonDepositTxsNum, mempoolTxsNum int
+		noTxPool                                       bool
 	}{
+		{
+			name: "no txs",
+		},
+		{
+			name:          "deposit txs only",
+			depositTxsNum: 2,
+		},
 		// {
-		// 	name: "no txs",
+		// 	name:             "deposit txs + non-deposit txs",
+		// 	depositTxsNum:    2,
+		// 	nonDepositTxsNum: 2,
+		// },
+		// {
+		// 	name:       "txs in mempool",
+		// 	mempoolNum: 2,
 		// },
 		{
-			name:         "txs in inclusion list",
-			inclusionNum: 2,
+			name:          "deposit txs + mempool txs",
+			depositTxsNum: 2,
+			mempoolTxsNum: 2,
 		},
 		{
-			name:       "txs in mempool",
-			mempoolNum: 2,
+			name:          "deposit txs + mempool txs with NoTxPool",
+			depositTxsNum: 2,
+			mempoolTxsNum: 2,
+			noTxPool:      true,
 		},
-		{
-			name:         "txs in mempool and inclusion list",
-			inclusionNum: 2,
-			mempoolNum:   2,
-		},
-		{
-			name:         "txs in mempool and inclusion list with NoTxPool",
-			inclusionNum: 2,
-			mempoolNum:   2,
-			noTxPool:     true,
-		},
+		// {
+		// 	name:             "deposit txs + non-deposit txs + mempool txs",
+		// 	depositTxsNum:    2,
+		// 	nonDepositTxsNum: 2,
+		// 	mempoolTxsNum:    2,
+		// },
+		// {
+		// 	name:             "deposit txs + non-deposit txs + mempool txs with NoTxPool",
+		// 	depositTxsNum:    2,
+		// 	nonDepositTxsNum: 2,
+		// 	mempoolTxsNum:    2,
+		// 	noTxPool:         true,
+		// },
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			inclusionListTxs := make([][]byte, test.inclusionNum)
-			mempoolTxs := make([][]byte, test.mempoolNum)
+			ethTxsBytes := make([]hexutil.Bytes, test.depositTxsNum, test.depositTxsNum+test.nonDepositTxsNum)
+			bftEthDepositTxsBytes := make(bfttypes.Txs, test.depositTxsNum)
+			mempoolTxsBytes := make([][]byte, test.mempoolTxsNum)
+			cosmosTxsBytes := make([]hexutil.Bytes, test.mempoolTxsNum)
 
 			rng := rand.New(rand.NewSource(1234))
 
-			for i := range test.inclusionNum {
-				// depositTx := gethtypes.NewTx(optestutils.GenerateDeposit(optestutils.RandomHash(rng), rng))
-				inner := optestutils.GenerateDeposit(optestutils.RandomHash(rng), rng)
-				depositTx := gethtypes.NewTx(inner)
-				depositTxBytes, err := depositTx.MarshalBinary()
+			// Generate marshaled Ethereum deposit transactions
+			for i := range test.depositTxsNum {
+				depositTxBytes, err := gethtypes.NewTx(
+					optestutils.GenerateDeposit(
+						optestutils.RandomHash(rng), rng)).
+					MarshalBinary()
 				require.NoError(t, err)
-				inclusionListTxs[i] = depositTxBytes
+				bftEthDepositTxsBytes[i] = depositTxBytes
+				ethTxsBytes[i] = hexutil.Bytes(depositTxBytes)
 			}
-			for i := range test.mempoolNum {
-				cosmosEthTx := rolluptypes.AdaptNonDepositCosmosTxToEthTx(new(big.Int).SetUint64(rng.Uint64()).Bytes())
-				cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
+
+			for range test.nonDepositTxsNum {
+				ethNonDepositTxBytes, err := gethtypes.NewTx(
+					&gethtypes.DynamicFeeTx{
+						Nonce: rng.Uint64(),
+						Gas:   rng.Uint64(),
+					}).MarshalBinary()
 				require.NoError(t, err)
-				mempoolTxs[i] = cosmosEthTxBytes
+				ethTxsBytes = append(ethTxsBytes, hexutil.Bytes(ethNonDepositTxBytes))
+			}
+
+			for i := range test.mempoolTxsNum {
+				cosmosEthTxBytes, err := rolluptypes.AdaptNonDepositCosmosTxToEthTx(
+					new(big.Int).SetUint64(rng.Uint64()).Bytes()).
+					MarshalBinary()
+				require.NoError(t, err)
+				cosmosTxsBytes[i] = hexutil.Bytes(cosmosEthTxBytes)
+				mempoolTxsBytes[i] = cosmosEthTxBytes
 			}
 
 			pool := mempool.New(testutils.NewMemDB(t))
-			for _, tx := range mempoolTxs {
+			for _, tx := range mempoolTxsBytes {
 				require.NoError(t, pool.Enqueue(tx))
 			}
 			blockStore := testutils.NewLocalMemDB(t)
@@ -113,7 +150,7 @@ func TestBuild(t *testing.T) {
 				require.NoError(t, eventBus.Stop())
 			})
 			// +1 because we want it to be buffered even when mempool and inclusion list are empty.
-			subChannelLen := test.inclusionNum + test.mempoolNum + 1
+			subChannelLen := test.depositTxsNum + test.mempoolTxsNum + 1
 			subscription, err := eventBus.Subscribe(context.Background(), "test", &queryAll{}, subChannelLen)
 			require.NoError(t, err)
 
@@ -129,8 +166,16 @@ func TestBuild(t *testing.T) {
 				ethstatedb,
 			)
 
+			adaptedPayloadTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxsBytes)
+			require.NoError(t, err)
+
+			allTxs := slices.Clone(adaptedPayloadTxs)
+			if !test.noTxPool {
+				allTxs = append(allTxs, bfttypes.ToTxs(mempoolTxsBytes)...)
+			}
+
 			payload := &builder.Payload{
-				InjectedTransactions: bfttypes.ToTxs(inclusionListTxs),
+				InjectedTransactions: adaptedPayloadTxs,
 				GasLimit:             0,
 				Timestamp:            g.Time + 1,
 				NoTxPool:             test.noTxPool,
@@ -158,10 +203,6 @@ func TestBuild(t *testing.T) {
 			require.NoError(t, err)
 			gotBlock, err := blockStore.HeadBlock()
 			require.NoError(t, err)
-			allTxs := append([][]byte{}, inclusionListTxs...)
-			if !test.noTxPool {
-				allTxs = append(allTxs, mempoolTxs...)
-			}
 
 			ethStateRoot := gotBlock.Header.StateRoot
 			header := &monomer.Header{
@@ -172,7 +213,7 @@ func TestBuild(t *testing.T) {
 				StateRoot:  ethStateRoot,
 				GasLimit:   payload.GasLimit,
 			}
-			wantBlock, err := monomer.MakeBlock(header, bfttypes.ToTxs(allTxs))
+			wantBlock, err := monomer.MakeBlock(header, allTxs)
 			require.NoError(t, err)
 			require.Equal(t, wantBlock, builtBlock)
 			require.Equal(t, wantBlock, gotBlock)
