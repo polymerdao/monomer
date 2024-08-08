@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"math/rand"
-	"slices"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -42,46 +41,55 @@ func (*queryAll) String() string {
 }
 
 func TestBuild(t *testing.T) {
-	tests := map[string]struct {
+	tests := []struct {
+		name                     string
 		inclusionNum, mempoolNum int
 		noTxPool                 bool
 	}{
-		"no txs": {},
-		"txs in inclusion list": {
+		// {
+		// 	name: "no txs",
+		// },
+		{
+			name:         "txs in inclusion list",
 			inclusionNum: 2,
 		},
-		"txs in mempool": {
+		{
+			name:       "txs in mempool",
 			mempoolNum: 2,
 		},
-		"txs in mempool and inclusion list": {
+		{
+			name:         "txs in mempool and inclusion list",
 			inclusionNum: 2,
 			mempoolNum:   2,
 		},
-		"txs in mempool and inclusion list with NoTxPool": {
+		{
+			name:         "txs in mempool and inclusion list with NoTxPool",
 			inclusionNum: 2,
 			mempoolNum:   2,
 			noTxPool:     true,
 		},
 	}
 
-	for description, test := range tests {
-		t.Run(description, func(t *testing.T) {
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
 			inclusionListTxs := make([][]byte, test.inclusionNum)
 			mempoolTxs := make([][]byte, test.mempoolNum)
 
 			rng := rand.New(rand.NewSource(1234))
 
 			for i := range test.inclusionNum {
-				depositTx := gethtypes.NewTx(optestutils.GenerateDeposit(optestutils.RandomHash(rng), rng))
+				// depositTx := gethtypes.NewTx(optestutils.GenerateDeposit(optestutils.RandomHash(rng), rng))
+				inner := optestutils.GenerateDeposit(optestutils.RandomHash(rng), rng)
+				depositTx := gethtypes.NewTx(inner)
 				depositTxBytes, err := depositTx.MarshalBinary()
 				require.NoError(t, err)
-				inclusionListTxs[i] = slices.Clone(depositTxBytes)
+				inclusionListTxs[i] = depositTxBytes
 			}
 			for i := range test.mempoolNum {
 				cosmosEthTx := rolluptypes.AdaptNonDepositCosmosTxToEthTx(new(big.Int).SetUint64(rng.Uint64()).Bytes())
 				cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
 				require.NoError(t, err)
-				mempoolTxs[i] = slices.Clone(cosmosEthTxBytes)
+				mempoolTxs[i] = cosmosEthTxBytes
 			}
 
 			pool := mempool.New(testutils.NewMemDB(t))
