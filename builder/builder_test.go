@@ -3,7 +3,6 @@ package builder_test
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"slices"
 	"testing"
 
