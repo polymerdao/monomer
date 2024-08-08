@@ -32,7 +32,7 @@ lint:
 
 .PHONY: gen-proto
 gen-proto:
-	${GOBIN}/buf generate --template buf.gen.yaml
+	${SCRIPTS_PATH}/gen-proto.sh
 
 .PHONY: install-gofumpt
 install-gofumpt:

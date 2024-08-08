@@ -9,12 +9,14 @@ var WrapError = sdkerrors.Wrapf
 
 var (
 	// error codes starting from 1
-	registerErr      = newErrRegistry(ModuleName, 1)
-	ErrInvalidL1Txs  = registerErr("invalid L1 txs")
-	ErrMintETH       = registerErr("failed to mint ETH")
-	ErrBurnETH       = registerErr("failed to burn ETH")
-	ErrInvalidSender = registerErr("invalid sender address")
-	ErrL1BlockInfo   = registerErr("L1 block info")
+	registerErr                 = newErrRegistry(ModuleName, 1)
+	ErrInvalidL1Txs             = registerErr("invalid L1 txs")
+	ErrMintETH                  = registerErr("failed to mint ETH")
+	ErrBurnETH                  = registerErr("failed to burn ETH")
+	ErrInvalidSender            = registerErr("invalid sender address")
+	ErrL1BlockInfo              = registerErr("L1 block info")
+	ErrProcessL1UserDepositTxs  = registerErr("failed to process L1 user deposit txs")
+	ErrProcessL1SystemDepositTx = registerErr("failed to process L1 system deposit tx")
 )
 
 // register new errors without hard-coding error codes

@@ -21,7 +21,6 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/monomerdb/localdb"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -82,7 +81,7 @@ func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transactio
 	rng := rand.New(rand.NewSource(1234))
 	depositTx := gethtypes.NewTx(testutils.GenerateDeposit(testutils.RandomHash(rng), rng))
 
-	cosmosEthTx := rolluptypes.AdaptNonDepositCosmosTxToEthTx([]byte{1})
+	cosmosEthTx := monomer.AdaptNonDepositCosmosTxToEthTx([]byte{1})
 	return l1InfoTx, depositTx, cosmosEthTx
 }
 
@@ -100,7 +99,7 @@ func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depo
 		require.NoError(t, err)
 		ethTxBytes = append(ethTxBytes, cosmosEthTxBytes)
 	}
-	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxBytes, nil, "")
+	cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(ethTxBytes, nil, "")
 	require.NoError(t, err)
 	block, err := monomer.MakeBlock(&monomer.Header{}, cosmosTxs)
 	require.NoError(t, err)
