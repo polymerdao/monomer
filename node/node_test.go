@@ -35,7 +35,6 @@ func TestRun(t *testing.T) {
 	app := testapp.NewTest(t, chainID.String())
 	ethstatedb := testutils.NewEthStateDB(t)
 	defer func() {
-		require.NoError(t, ethstatedb.DiskDB().Close())
 		require.NoError(t, ethstatedb.TrieDB().Close())
 	}()
 	n := node.New(
