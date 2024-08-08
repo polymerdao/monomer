@@ -19,7 +19,6 @@ import (
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
-	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
@@ -76,7 +75,7 @@ func New(
 	blockdb DB,
 	mempooldb dbm.DB,
 	txdb cometdb.DB,
-	ethstatedb ethdb.Database,
+	ethstatedb state.Database,
 	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
 ) *Node {
@@ -87,7 +86,7 @@ func New(
 		cometHTTPAndWS: cometHTTPAndWS,
 		blockdb:        blockdb,
 		txdb:           txdb,
-		ethstatedb:     state.NewDatabase(ethstatedb),
+		ethstatedb:     ethstatedb,
 		mempooldb:      mempooldb,
 		prometheusCfg:  prometheusCfg,
 		eventListener:  eventListener,

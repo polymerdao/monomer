@@ -9,6 +9,7 @@ import (
 
 	"github.com/cometbft/cometbft/config"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
@@ -34,9 +35,10 @@ func TestRun(t *testing.T) {
 	cometListener, err := net.Listen("tcp", cometHTTPAddress)
 	require.NoError(t, err)
 	app := testapp.NewTest(t, chainID.String())
-	ethstatedb := rawdb.NewMemoryDatabase()
+	ethstatedb := state.NewDatabase(rawdb.NewMemoryDatabase())
 	defer func() {
-		require.NoError(t, ethstatedb.Close())
+		require.NoError(t, ethstatedb.DiskDB().Close())
+		require.NoError(t, ethstatedb.TrieDB().Close())
 	}()
 	n := node.New(
 		app,
