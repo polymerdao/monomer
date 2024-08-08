@@ -58,7 +58,7 @@ type DB interface {
 
 type Node struct {
 	app            monomer.Application
-	client         *client.Context
+	appchainCtx    *client.Context
 	genesis        *genesis.Genesis
 	engineWS       net.Listener
 	cometHTTPAndWS net.Listener
@@ -72,7 +72,7 @@ type Node struct {
 
 func New(
 	app monomer.Application,
-	client *client.Context,
+	appchainCtx *client.Context,
 	g *genesis.Genesis,
 	engineWS net.Listener,
 	cometHTTPAndWS net.Listener,
@@ -85,7 +85,7 @@ func New(
 ) *Node {
 	return &Node{
 		app:            app,
-		client:         client,
+		appchainCtx:    appchainCtx,
 		genesis:        g,
 		engineWS:       engineWS,
 		cometHTTPAndWS: cometHTTPAndWS,
@@ -125,7 +125,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 				builder.New(mpool, n.app, n.blockdb, txStore, eventBus, n.genesis.ChainID, n.ethstatedb),
 				n.app,
 				n.blockdb,
-				n.client,
+				n.appchainCtx,
 				engineMetrics,
 			),
 		},
