@@ -8,8 +8,8 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/eth"
+	"github.com/polymerdao/monomer/monomerdb"
 	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/require"
 )
@@ -59,11 +59,11 @@ func TestBlockIDUnmarshalValidJSON(t *testing.T) {
 }
 
 func TestBlockIDGet(t *testing.T) {
-	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+	blockStore := testutils.NewLocalMemDB(t)
 	block, err := monomer.MakeBlock(&monomer.Header{}, bfttypes.Txs{})
 	require.NoError(t, err)
-	blockStore.AddBlock(block)
-	require.NoError(t, blockStore.UpdateLabel(opeth.Unsafe, block.Header.Hash))
+	require.NoError(t, blockStore.AppendBlock(block))
+	require.NoError(t, blockStore.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
 
 	tests := map[string]struct {
 		id   eth.BlockID
@@ -75,15 +75,17 @@ func TestBlockIDGet(t *testing.T) {
 			},
 			want: block,
 		},
-		"safe does not exist": {
+		"safe exists": {
 			id: eth.BlockID{
 				Label: opeth.Safe,
 			},
+			want: block,
 		},
-		"finalized does not exist": {
+		"finalized exists": {
 			id: eth.BlockID{
 				Label: opeth.Finalized,
 			},
+			want: block,
 		},
 		"height 0 exists": {
 			id: eth.BlockID{
@@ -100,7 +102,14 @@ func TestBlockIDGet(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			require.Equal(t, test.id.Get(blockStore), test.want)
+			got, err := test.id.Get(blockStore)
+			if test.want == nil {
+				require.Nil(t, got)
+				require.ErrorIs(t, err, monomerdb.ErrNotFound)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, got, test.want)
 		})
 	}
 }

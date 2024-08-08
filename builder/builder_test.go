@@ -10,12 +10,10 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cmtpubsub "github.com/cometbft/cometbft/libs/pubsub"
 	bfttypes "github.com/cometbft/cometbft/types"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/builder"
@@ -85,7 +83,7 @@ func TestBuild(t *testing.T) {
 			for _, tx := range mempoolTxs {
 				require.NoError(t, pool.Enqueue(tx))
 			}
-			blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+			blockStore := testutils.NewLocalMemDB(t)
 			txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
 			ethstatedb := testutils.NewEthStateDB(t)
 
@@ -143,9 +141,10 @@ func TestBuild(t *testing.T) {
 			// }
 
 			// Block store.
-			genesisBlock := blockStore.BlockByNumber(preBuildInfo.GetLastBlockHeight())
-			require.NotNil(t, genesisBlock)
-			gotBlock := blockStore.HeadBlock()
+			genesisHeader, err := blockStore.BlockByHeight(uint64(preBuildInfo.GetLastBlockHeight()))
+			require.NoError(t, err)
+			gotBlock, err := blockStore.HeadBlock()
+			require.NoError(t, err)
 			allTxs := append([][]byte{}, inclusionListTxs...)
 			if !test.noTxPool {
 				allTxs = append(allTxs, mempoolTxs...)
@@ -154,9 +153,9 @@ func TestBuild(t *testing.T) {
 			ethStateRoot := gotBlock.Header.StateRoot
 			header := &monomer.Header{
 				ChainID:    g.ChainID,
-				Height:     postBuildInfo.GetLastBlockHeight(),
+				Height:     uint64(postBuildInfo.GetLastBlockHeight()),
 				Time:       payload.Timestamp,
-				ParentHash: genesisBlock.Header.Hash,
+				ParentHash: genesisHeader.Header.Hash,
 				StateRoot:  ethStateRoot,
 				GasLimit:   payload.GasLimit,
 			}
@@ -168,7 +167,7 @@ func TestBuild(t *testing.T) {
 			// Eth state db.
 			ethState, err := state.New(ethStateRoot, ethstatedb, nil)
 			require.NoError(t, err)
-			appHash, err := getAppHashFromEVM(ethState, header, chainID.Big())
+			appHash, err := getAppHashFromEVM(ethState, header)
 			require.NoError(t, err)
 			require.Equal(t, appHash[:], postBuildInfo.GetLastBlockAppHash())
 
@@ -178,7 +177,7 @@ func TestBuild(t *testing.T) {
 					// We don't check the full result, which would be difficult and a bit overkill.
 					// We only verify that the main info is correct.
 					require.Equal(t, uint32(i), got.Index)
-					require.Equal(t, wantBlock.Header.Height, got.Height)
+					require.Equal(t, wantBlock.Header.Height, uint64(got.Height))
 					require.Equal(t, tx, bfttypes.Tx(got.Tx))
 				}
 
@@ -207,7 +206,7 @@ func TestBuild(t *testing.T) {
 
 func TestRollback(t *testing.T) {
 	pool := mempool.New(testutils.NewMemDB(t))
-	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+	blockStore := testutils.NewLocalMemDB(t)
 	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
 	ethstatedb := testutils.NewEthStateDB(t)
 
@@ -225,7 +224,8 @@ func TestRollback(t *testing.T) {
 	})
 
 	require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
-	genesisBlock := blockStore.HeadBlock()
+	genesisHeader, err := blockStore.HeadHeader()
+	require.NoError(t, err)
 
 	b := builder.New(
 		pool,
@@ -246,17 +246,15 @@ func TestRollback(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, block)
-	require.NoError(t, blockStore.UpdateLabel(eth.Unsafe, block.Header.Hash))
-	require.NoError(t, blockStore.UpdateLabel(eth.Safe, block.Header.Hash))
-	require.NoError(t, blockStore.UpdateLabel(eth.Finalized, block.Header.Hash))
+	require.NoError(t, blockStore.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
 
 	// Eth state db before rollback.
-	ethState, err := state.New(blockStore.HeadBlock().Header.StateRoot, ethstatedb, nil)
+	ethState, err := state.New(block.Header.StateRoot, ethstatedb, nil)
 	require.NoError(t, err)
 	require.NotEqual(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
 
 	// Rollback to genesis block.
-	require.NoError(t, b.Rollback(context.Background(), genesisBlock.Header.Hash, genesisBlock.Header.Hash, genesisBlock.Header.Hash))
+	require.NoError(t, b.Rollback(context.Background(), genesisHeader.Hash, genesisHeader.Hash, genesisHeader.Hash))
 
 	// Application.
 	for k := range kvs {
@@ -268,13 +266,13 @@ func TestRollback(t *testing.T) {
 	}
 
 	// Block store.
-	headBlock := blockStore.HeadBlock()
-	require.NotNil(t, headBlock)
-	require.Equal(t, uint64(genesisBlock.Header.Height), uint64(headBlock.Header.Height))
+	height, err := blockStore.Height()
+	require.NoError(t, err)
+	require.Equal(t, genesisHeader.Height, height)
 	// We trust that the other parts of a block store rollback were done as well.
 
 	// Eth state db after rollback.
-	ethState, err = state.New(headBlock.Header.StateRoot, ethstatedb, nil)
+	ethState, err = state.New(genesisHeader.StateRoot, ethstatedb, nil)
 	require.NoError(t, err)
 	require.Equal(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
 
@@ -288,8 +286,8 @@ func TestRollback(t *testing.T) {
 }
 
 // getAppHashFromEVM retrieves the updated cosmos app hash from the monomer EVM state db.
-func getAppHashFromEVM(ethState *state.StateDB, header *monomer.Header, chainID *big.Int) (common.Hash, error) {
-	monomerEVM, err := evm.NewEVM(ethState, header, chainID)
+func getAppHashFromEVM(ethState *state.StateDB, header *monomer.Header) (common.Hash, error) {
+	monomerEVM, err := evm.NewEVM(ethState, header)
 	if err != nil {
 		return common.Hash{}, fmt.Errorf("new EVM: %v", err)
 	}

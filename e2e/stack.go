@@ -10,6 +10,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
 	"github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
@@ -25,6 +27,7 @@ import (
 	"github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
+	"github.com/polymerdao/monomer/monomerdb/localdb"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
 )
@@ -150,7 +153,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client, l1HTTPendpoint, err := gethdevnet(deployConfig.L1BlockTime, l1genesis)
+	l1client, l1HTTPendpoint, err := gethdevnet(env, deployConfig.L1BlockTime, l1genesis)
 	if err != nil {
 		return nil, fmt.Errorf("ethdevnet: %v", err)
 	}
@@ -229,8 +232,13 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	if err != nil {
 		return fmt.Errorf("new test app: %v", err)
 	}
-	blockdb := dbm.NewMemDB()
-	env.DeferErr("close block db", blockdb.Close)
+	blockPebbleDB, err := pebble.Open("", &pebble.Options{
+		FS: vfs.NewMem(),
+	})
+	if err != nil {
+		return fmt.Errorf("open block db: %v", err)
+	}
+	env.DeferErr("close block db", blockPebbleDB.Close)
 	txdb := cometdb.NewMemDB()
 	env.DeferErr("close tx db", txdb.Close)
 	mempooldb := dbm.NewMemDB()
@@ -246,7 +254,7 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		},
 		engineWS,
 		cometListener,
-		blockdb,
+		localdb.New(blockPebbleDB),
 		mempooldb,
 		txdb,
 		ethstatedb,
