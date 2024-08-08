@@ -88,7 +88,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	txsBytes := cosmosTxs.ToSliceOfBytes()
 
 	// Unpack deposits from the MsgL1Txs msg.
-	txs, err := AdaptCosmosDepositTxToEthTx(txsBytes[0])
+	txs, err := AdaptCosmosDepositTxToEthTxs(txsBytes[0])
 	if err != nil {
 		return nil, fmt.Errorf("cosmos deposit: %v", err)
 	}
@@ -101,7 +101,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	return txs, nil
 }
 
-func AdaptCosmosDepositTxToEthTx(cosmosEthTxBytes []byte) (ethtypes.Transactions, error) {
+func AdaptCosmosDepositTxToEthTxs(cosmosEthTxBytes []byte) (ethtypes.Transactions, error) {
 	cosmosEthTx := new(sdktx.Tx)
 	if err := cosmosEthTx.Unmarshal(cosmosEthTxBytes); err != nil {
 		return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
