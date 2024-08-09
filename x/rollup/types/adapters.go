@@ -3,7 +3,6 @@ package types
 import (
 	"errors"
 	"fmt"
-	"runtime"
 
 	bfttypes "github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -19,22 +18,6 @@ type txSigner func(tx *sdktx.Tx) error
 
 // AdaptPayloadTxsToCosmosTxs assumes the deposit transactions come first.
 func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx txSigner) (bfttypes.Txs, error) {
-	defer func() {
-		if r := recover(); r != nil {
-			// Get the stack trace
-			stackTrace := make([]byte, 4096)
-			stackSize := runtime.Stack(stackTrace, false)
-
-			// Extract file and line information
-			_, file, line, ok := runtime.Caller(2)
-			if ok {
-				fmt.Printf("Panic occurred in file %s at line %d\n", file, line)
-			}
-
-			fmt.Printf("Stack Trace:\n%s\n", stackTrace[:stackSize])
-		}
-	}()
-
 	if len(ethTxs) == 0 {
 		return bfttypes.Txs{}, nil
 	}
