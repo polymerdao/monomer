@@ -178,7 +178,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("gas limit not provided"))
 	}
 
-	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(pa.Transactions, *e.appChainClient)
+	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(pa.Transactions, e.signer)
 	if err != nil {
 		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
 	}

@@ -1,20 +1,13 @@
 package types
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"runtime"
 
 	bfttypes "github.com/cometbft/cometbft/types"
-	cosmosclient "github.com/cosmos/cosmos-sdk/client"
-	cosmostx "github.com/cosmos/cosmos-sdk/client/tx"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
@@ -22,8 +15,26 @@ import (
 
 var errL1AttributesNotFound = errors.New("L1 attributes tx not found")
 
+type txSigner func(tx *sdktx.Tx) error
+
 // AdaptPayloadTxsToCosmosTxs assumes the deposit transactions come first.
-func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, appchainCtx cosmosclient.Context) (bfttypes.Txs, error) {
+func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx txSigner) (bfttypes.Txs, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			// Get the stack trace
+			stackTrace := make([]byte, 4096)
+			stackSize := runtime.Stack(stackTrace, false)
+
+			// Extract file and line information
+			_, file, line, ok := runtime.Caller(2)
+			if ok {
+				fmt.Printf("Panic occurred in file %s at line %d\n", file, line)
+			}
+
+			fmt.Printf("Stack Trace:\n%s\n", stackTrace[:stackSize])
+		}
+	}()
+
 	if len(ethTxs) == 0 {
 		return bfttypes.Txs{}, nil
 	}
@@ -62,85 +73,13 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, appchainCtx cosmosclient
 		},
 	}
 
-	privKey := ed25519.GenPrivKeyFromSecret([]byte("monomer"))
-	pubKey := privKey.PubKey()
-	address := pubKey.Address()
+	if signTx != nil {
+		err := signTx(&depositTx)
 
-	txConfig := appchainCtx.TxConfig
-	txBuilder := txConfig.NewTxBuilder()
-
-	acc, err := appchainCtx.AccountRetriever.GetAccount(appchainCtx, sdktypes.AccAddress(address.Bytes()))
-
-	if err != nil {
-		return nil, fmt.Errorf("get account: %v", err)
+		if err != nil {
+			return nil, fmt.Errorf("sign tx: %v", err)
+		}
 	}
-
-	signerData := authsigning.SignerData{
-		ChainID:       appchainCtx.ChainID,
-		AccountNumber: acc.GetAccountNumber(),
-		Sequence:      acc.GetSequence(),
-		PubKey:        pubKey,
-		Address:       acc.GetAddress().String(),
-	}
-
-	blankSig := signing.SignatureV2{
-		PubKey:   pubKey,
-		Sequence: acc.GetSequence(),
-		Data: &signing.SingleSignatureData{
-			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
-			Signature: nil,
-		},
-	}
-
-	err = txBuilder.SetMsgs(msgAny)
-	if err != nil {
-		return nil, fmt.Errorf("set msgs: %v", err)
-	}
-	err = txBuilder.SetSignatures(blankSig)
-	if err != nil {
-		return nil, fmt.Errorf("set signatures: %v", err)
-	}
-
-	sig, err := cosmostx.SignWithPrivKey(
-		context.Background(),
-		signing.SignMode_SIGN_MODE_DIRECT,
-		signerData,
-		txBuilder,
-		privKey,
-		txConfig,
-		acc.GetSequence(),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("sign with priv key: %v", err)
-	}
-	err = txBuilder.SetSignatures(sig)
-	if err != nil {
-		return nil, fmt.Errorf("set signatures: %v", err)
-	}
-	// tx := txBuilder.GetTx()
-
-	pubKeyAny, err := codectypes.NewAnyWithValue(pubKey)
-	if err != nil {
-		return nil, fmt.Errorf("new any with value: %v", err)
-	}
-
-	depositTx.AuthInfo = &sdktx.AuthInfo{
-		SignerInfos: []*sdktx.SignerInfo{
-			{
-				PublicKey: pubKeyAny,
-				ModeInfo: &sdktx.ModeInfo{
-					// Assuming you want single signer mode
-					Sum: &sdktx.ModeInfo_Single_{
-						Single: &sdktx.ModeInfo_Single{
-							Mode: signing.SignMode_SIGN_MODE_DIRECT,
-						},
-					},
-				},
-				Sequence: acc.GetSequence(),
-			},
-		},
-	}
-	depositTx.Signatures = [][]byte{sig.Data.(*signing.SingleSignatureData).Signature}
 
 	depositSDKMsgBytes, err := depositTx.Marshal()
 	if err != nil {
