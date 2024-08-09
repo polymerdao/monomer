@@ -98,7 +98,7 @@ func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depo
 		require.NoError(t, err)
 		ethTxBytes = append(ethTxBytes, cosmosEthTxBytes)
 	}
-	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxBytes)
+	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxBytes, nil)
 	require.NoError(t, err)
 	block, err := monomer.MakeBlock(&monomer.Header{}, cosmosTxs)
 	require.NoError(t, err)
