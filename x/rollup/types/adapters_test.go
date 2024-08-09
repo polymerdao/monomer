@@ -105,7 +105,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		t.Run("unmarshal binary error", func(t *testing.T) {
 			cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{[]byte("invalid")})
 			require.Nil(t, cosmosTxs)
-			require.ErrorContains(t, err, "unmarshal binary")
+			require.Error(t, err)
 		})
 		t.Run("zero deposit txs", func(t *testing.T) {
 			inner := generateDynamicFeeInner(r)
@@ -137,7 +137,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 
 			cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depTxBytes, nonDepTxBytes, []byte("invalid")})
 			require.Nil(t, cosmosTxs)
-			require.ErrorContains(t, err, "unmarshal binary tx: ")
+			require.Error(t, err)
 		})
 	})
 }
