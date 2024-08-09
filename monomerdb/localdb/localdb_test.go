@@ -4,14 +4,14 @@ import (
 	"fmt"
 	"testing"
 
-	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/monomerdb"
 	"github.com/polymerdao/monomer/monomerdb/localdb"
-	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testutils"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -19,7 +19,18 @@ var labels = []eth.BlockLabel{eth.Unsafe, eth.Safe, eth.Finalized}
 
 func TestBlockAndHeader(t *testing.T) {
 	db := testutils.NewLocalMemDB(t)
-	block, err := monomer.MakeBlock(&monomer.Header{}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{"k": "v"})))
+
+	_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
+
+	depositTxBytes, err := depositTx.MarshalBinary()
+	require.NoError(t, err)
+	cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
+	require.NoError(t, err)
+
+	adaptedTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes, cosmosEthTxBytes})
+	require.NoError(t, err)
+
+	block, err := monomer.MakeBlock(&monomer.Header{}, adaptedTxs)
 	require.NoError(t, err)
 	require.NoError(t, db.AppendBlock(block))
 
@@ -103,28 +114,31 @@ func testHeadBlock(t *testing.T, db *localdb.DB, block *monomer.Block) {
 
 func TestRollback(t *testing.T) {
 	db := testutils.NewLocalMemDB(t)
-	block, err := monomer.MakeBlock(&monomer.Header{
-		Height: 1,
-	}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{
-		"k": "v",
-	})))
+
+	_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
+
+	depositTxBytes, err := depositTx.MarshalBinary()
+	require.NoError(t, err)
+	cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
+	require.NoError(t, err)
+
+	adaptedTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes, cosmosEthTxBytes})
+	require.NoError(t, err)
+
+	block, err := monomer.MakeBlock(&monomer.Header{Height: 1}, adaptedTxs)
 	require.NoError(t, err)
 	require.NoError(t, db.AppendBlock(block))
 	require.NoError(t, db.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
 
 	block2, err := monomer.MakeBlock(&monomer.Header{
 		Height: 2,
-	}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{
-		"k2": "v2",
-	})))
+	}, adaptedTxs)
 	require.NoError(t, err)
 	require.NoError(t, db.AppendBlock(block2))
 
 	block3, err := monomer.MakeBlock(&monomer.Header{
 		Height: 3,
-	}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{
-		"k3": "v3",
-	})))
+	}, adaptedTxs)
 	require.NoError(t, err)
 	require.NoError(t, db.AppendBlock(block3))
 
