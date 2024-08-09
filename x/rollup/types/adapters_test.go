@@ -15,7 +15,6 @@ import (
 	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/testutils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,7 +22,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	t.Run("Zero txs", func(t *testing.T) {
 		cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{})
 		require.NoError(t, err)
-		assert.Equal(t, 0, len(cosmosTxs))
+		require.Equal(t, 0, len(cosmosTxs))
 	})
 
 	src := rand.NewSource(0)
@@ -78,7 +77,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 				require.NoError(t, err)
 
 				if len(ethTxs) == 0 {
-					assert.Equal(t, 0, len(cosmosTxs))
+					require.Equal(t, 0, len(cosmosTxs))
 					return
 				}
 
@@ -91,16 +90,16 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 				require.NoError(t, err)
 
 				// Copy the original transaction because time fields are different if not copied.
-				assert.Equal(t, depositTxsNum, len(applyL1TxsRequest.TxBytes))
+				require.Equal(t, depositTxsNum, len(applyL1TxsRequest.TxBytes))
 				for i, txBytes := range applyL1TxsRequest.TxBytes {
 					newTransaction := transactions[i]
 					err = newTransaction.UnmarshalBinary(txBytes)
 					require.NoError(t, err)
-					assert.Equal(t, transactions[i], newTransaction)
+					require.Equal(t, transactions[i], newTransaction)
 				}
 
 				for i := 1; i < len(cosmosTxs); i++ {
-					assert.Equal(t, transactions[depositTxsNum-1+i].Data(), []byte(cosmosTxs[i]))
+					require.Equal(t, transactions[depositTxsNum-1+i].Data(), []byte(cosmosTxs[i]))
 				}
 			})
 		}
@@ -109,8 +108,8 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	t.Run("non-zero txs with error", func(t *testing.T) {
 		t.Run("unmarshal binary error", func(t *testing.T) {
 			cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{[]byte("invalid")})
-			assert.Nil(t, cosmosTxs)
-			assert.ErrorContains(t, err, "unmarshal binary")
+			require.Nil(t, cosmosTxs)
+			require.ErrorContains(t, err, "unmarshal binary")
 		})
 		t.Run("zero deposit txs", func(t *testing.T) {
 			inner := generateDynamicFeeInner(r)
@@ -118,8 +117,8 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			txBytes, err := transaction.MarshalBinary()
 			require.NoError(t, err)
 			cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{txBytes})
-			assert.Nil(t, cosmosTxs)
-			assert.Error(t, err)
+			require.Nil(t, cosmosTxs)
+			require.Error(t, err)
 		})
 		t.Run("NewAnyWithValue error", func(t *testing.T) {
 			t.Skip()
@@ -141,8 +140,8 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			require.NoError(t, err)
 
 			cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depTxBytes, nonDepTxBytes, []byte("invalid")})
-			assert.Nil(t, cosmosTxs)
-			assert.ErrorContains(t, err, "unmarshal binary tx: ")
+			require.Nil(t, cosmosTxs)
+			require.ErrorContains(t, err, "unmarshal binary tx: ")
 		})
 	})
 }
@@ -218,7 +217,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 	t.Run("Zero txs", func(t *testing.T) {
 		txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(bfttypes.Txs{})
 		require.NoError(t, err)
-		assert.Equal(t, 0, len(txs))
+		require.Equal(t, 0, len(txs))
 	})
 
 	t.Run("non-zero txs without error", func(t *testing.T) {
@@ -252,10 +251,10 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 				cosmosSDKTxs := generateCosmosSDKTx(tc.depNum, tc.nonDepNum, ethTxs)
 				adoptedTxs, err := rolluptypes.AdaptCosmosTxsToEthTxs(cosmosSDKTxs)
 				require.NoError(t, err)
-				assert.Equal(t, len(ethTxs), len(adoptedTxs))
+				require.Equal(t, len(ethTxs), len(adoptedTxs))
 				for i := range adoptedTxs {
 					ethTxs[0].SetTime(adoptedTxs[0].Time())
-					assert.Equal(t, ethTxs[i].Data(), adoptedTxs[i].Data())
+					require.Equal(t, ethTxs[i].Data(), adoptedTxs[i].Data())
 					// TODO: Incorrect adaptation of other fields
 				}
 			})
