@@ -8,11 +8,10 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/contracts"
 )
 
@@ -22,10 +21,15 @@ type Genesis struct {
 	AppState map[string]json.RawMessage `json:"app_state"`
 }
 
+type DB interface {
+	AppendBlock(*monomer.Block) error
+	UpdateLabels(unsafe, safe, finalized common.Hash) error
+}
+
 const defaultGasLimit = 30_000_000
 
 // Commit assumes the application has not been initialized and that the block store is empty.
-func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStore store.BlockStoreWriter, ethstatedb state.Database) error {
+func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStore DB, ethstatedb state.Database) error {
 	appStateBytes, err := json.Marshal(g.AppState)
 	if err != nil {
 		return fmt.Errorf("marshal app state: %v", err)
@@ -87,11 +91,11 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 		return fmt.Errorf("make block: %v", err)
 	}
 
-	blockStore.AddBlock(block)
-	for _, label := range []eth.BlockLabel{eth.Unsafe, eth.Safe, eth.Finalized} {
-		if err := blockStore.UpdateLabel(label, block.Header.Hash); err != nil {
-			panic(fmt.Errorf("update label: %v", err)) // TODO a big problem if this panics. DB would be corrupted.
-		}
+	if err := blockStore.AppendBlock(block); err != nil {
+		return fmt.Errorf("append block: %v", err)
+	}
+	if err := blockStore.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash); err != nil {
+		panic(fmt.Errorf("update labels: %v", err)) // TODO database is corrupted if this gets hit. Big problems.
 	}
 	return nil
 }

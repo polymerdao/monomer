@@ -41,15 +41,16 @@ func TestL2ToL1MessagePasserExecuter(t *testing.T) {
 	executer, err := bindings.NewL2ToL1MessagePasserExecuter(setupEVM(t))
 	require.NoError(t, err)
 
-	cosmosSenderAddr := "cosmosAddr"
+	cosmosSenderAddr := "abcdef12345"
 	ethSenderAddr := common.HexToAddress(cosmosSenderAddr)
 	amount := big.NewInt(500)
 	l1TargetAddress := common.HexToAddress("0x12345abcdef")
 	gasLimit := big.NewInt(100_000)
 	data := []byte("data")
+	nonce := encodeVersionedNonce(big.NewInt(0))
 
 	withdrawalHash, err := crossdomain.NewWithdrawal(
-		crossdomain.EncodeVersionedNonce(big.NewInt(0), big.NewInt(1)),
+		nonce,
 		&ethSenderAddr,
 		&l1TargetAddress,
 		amount,
@@ -63,6 +64,11 @@ func TestL2ToL1MessagePasserExecuter(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, sentMessagesMappingValue)
 
+	// Check that the initial message nonce is 0
+	initialMessageNonce, err := executer.GetMessageNonce()
+	require.NoError(t, err)
+	require.Equal(t, nonce, initialMessageNonce)
+
 	// Initiate a withdrawal
 	err = executer.InitiateWithdrawal(cosmosSenderAddr, amount, l1TargetAddress, gasLimit, data)
 	require.NoError(t, err)
@@ -71,6 +77,11 @@ func TestL2ToL1MessagePasserExecuter(t *testing.T) {
 	sentMessagesMappingValue, err = executer.GetSentMessagesMappingValue(withdrawalHash)
 	require.NoError(t, err)
 	require.True(t, sentMessagesMappingValue)
+
+	// Check that the message nonce is incremented
+	messageNonce, err := executer.GetMessageNonce()
+	require.NoError(t, err)
+	require.Equal(t, encodeVersionedNonce(big.NewInt(1)), messageNonce)
 }
 
 func setupEVM(t *testing.T) *vm.EVM {
@@ -85,4 +96,8 @@ func setupEVM(t *testing.T) *vm.EVM {
 	)
 	require.NoError(t, err)
 	return monomerEVM
+}
+
+func encodeVersionedNonce(nonce *big.Int) *big.Int {
+	return crossdomain.EncodeVersionedNonce(nonce, big.NewInt(1))
 }
