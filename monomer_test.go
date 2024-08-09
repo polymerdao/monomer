@@ -49,7 +49,7 @@ func TestToComet(t *testing.T) {
 
 	require.Equal(t, &bfttypes.Header{
 		ChainID: header.ChainID.String(),
-		Height:  header.Height,
+		Height:  int64(header.Height),
 		Time:    time.Unix(int64(header.Time), 0),
 		AppHash: header.StateRoot.Bytes(),
 	}, cometHeader)
@@ -62,7 +62,7 @@ func TestToEth(t *testing.T) {
 	require.Equal(t, &ethtypes.Header{
 		ParentHash:      header.ParentHash,
 		Root:            header.StateRoot,
-		Number:          big.NewInt(header.Height),
+		Number:          big.NewInt(int64(header.Height)),
 		GasLimit:        header.GasLimit,
 		MixDigest:       common.Hash{},
 		Time:            header.Time,
@@ -157,8 +157,11 @@ func TestBlockToCometLikeBlock(t *testing.T) {
 		Header: bfttypes.Header{
 			ChainID: block.Header.ChainID.String(),
 			Time:    time.Unix(int64(block.Header.Time), 0),
-			Height:  block.Header.Height,
+			Height:  int64(block.Header.Height),
 			AppHash: block.Header.StateRoot.Bytes(),
+		},
+		Data: bfttypes.Data{
+			Txs: block.Txs,
 		},
 	}, block.ToCometLikeBlock())
 }
