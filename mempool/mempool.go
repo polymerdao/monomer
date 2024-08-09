@@ -39,7 +39,9 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) (err error) {
 
 	batch := p.db.NewBatch()
 	defer func() {
-		err = batch.Close()
+		if closeErr := batch.Close(); closeErr != nil {
+			err = fmt.Errorf("failed to close batch: %w", closeErr)
+		}
 	}()
 
 	tail, err := p.db.Get([]byte(tailKey))
