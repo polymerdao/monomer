@@ -50,7 +50,7 @@ func NewProofProvider(db state.Database, blockStore ProofBlockDB) *ProofProvider
 
 // getState returns the state.StateBD and Header of block at the given number.
 // If the passed number is nil, it returns the the db and header of the latest block.
-func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.Header, error) {
+func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, *types.Header, error) {
 	var block *monomer.Block
 	var err error
 
@@ -60,11 +60,11 @@ func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.He
 		block, err = p.blockStore.BlockByHeight(blockNumber.Uint64())
 	}
 	if err != nil {
-		return nil, types.Header{}, fmt.Errorf("get eth block %d: %w", blockNumber, err)
+		return nil, nil, fmt.Errorf("get eth block %d: %w", blockNumber, err)
 	}
 	ethBlock, err := block.ToEth()
 	if err != nil {
-		return nil, types.Header{}, fmt.Errorf("convert block to Ethereum representation: %v", err)
+		return nil, nil, fmt.Errorf("convert block to Ethereum representation: %v", err)
 	}
 
 	header := ethBlock.Header()
@@ -72,10 +72,10 @@ func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, types.He
 
 	sdb, err := state.New(hash, p.database, nil)
 	if err != nil {
-		return nil, *header, fmt.Errorf("opening state.StateDB: %w", err)
+		return nil, nil, fmt.Errorf("opening state.StateDB: %w", err)
 	}
 
-	return sdb, *header, nil
+	return sdb, header, nil
 }
 
 // decodeHash parses a hex-encoded 32-byte hash. The input may optionally

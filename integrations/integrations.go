@@ -22,6 +22,7 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/ethereum/go-ethereum/core/rawdb"
+	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
@@ -239,7 +240,7 @@ func startMonomerNode(
 		localdb.New(blockPebbleDB),
 		mempooldb,
 		txdb,
-		ethstatedb,
+		state.NewDatabase(ethstatedb),
 		svrCtx.Config.Instrumentation,
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
