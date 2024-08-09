@@ -13,7 +13,13 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
-func (e *EngineAPI) signer(tx *sdktx.Tx) error {
+func (e *EngineAPI) sign(tx *sdktx.Tx) (err error) {
+	defer func() {
+		if r := recover(); r != nil {
+			err = fmt.Errorf("panic during tx signing: %v", r)
+		}
+	}()
+
 	privKey := ed25519.GenPrivKeyFromSecret([]byte("monomer"))
 	pubKey := privKey.PubKey()
 	address := pubKey.Address()
@@ -93,5 +99,4 @@ func (e *EngineAPI) signer(tx *sdktx.Tx) error {
 	tx.Signatures = [][]byte{sig.Data.(*signing.SingleSignatureData).Signature}
 
 	return nil
-	// }
 }
