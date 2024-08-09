@@ -7,9 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	cometdb "github.com/cometbft/cometbft-db"
 	"github.com/cometbft/cometbft/config"
-	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
@@ -18,6 +16,7 @@ import (
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
+	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -35,18 +34,6 @@ func TestRun(t *testing.T) {
 	cometListener, err := net.Listen("tcp", cometHTTPAddress)
 	require.NoError(t, err)
 	app := testapp.NewTest(t, chainID.String())
-	blockdb := dbm.NewMemDB()
-	defer func() {
-		require.NoError(t, blockdb.Close())
-	}()
-	txdb := cometdb.NewMemDB()
-	defer func() {
-		require.NoError(t, txdb.Close())
-	}()
-	mempooldb := dbm.NewMemDB()
-	defer func() {
-		require.NoError(t, mempooldb.Close())
-	}()
 	ethstatedb := rawdb.NewMemoryDatabase()
 	defer func() {
 		require.NoError(t, ethstatedb.Close())
@@ -59,9 +46,9 @@ func TestRun(t *testing.T) {
 		},
 		engineWS,
 		cometListener,
-		blockdb,
-		mempooldb,
-		txdb,
+		testutils.NewLocalMemDB(t),
+		testutils.NewMemDB(t),
+		testutils.NewCometMemDB(t),
 		ethstatedb,
 		&config.InstrumentationConfig{
 			Prometheus:           true,

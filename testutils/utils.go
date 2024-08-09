@@ -5,6 +5,8 @@ import (
 	"math/rand"
 	"testing"
 
+	"github.com/cockroachdb/pebble"
+	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -18,6 +20,7 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/polymerdao/monomer"
+	"github.com/polymerdao/monomer/monomerdb/localdb"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
@@ -44,6 +47,17 @@ func NewEthStateDB(t *testing.T) state.Database {
 		require.NoError(t, rawstatedb.Close())
 	})
 	return state.NewDatabase(rawstatedb)
+}
+
+func NewLocalMemDB(t *testing.T) *localdb.DB {
+	db, err := pebble.Open("", &pebble.Options{
+		FS: vfs.NewMem(),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		require.NoError(t, db.Close())
+	})
+	return localdb.New(db)
 }
 
 // GenerateEthTxs generates an L1 attributes tx, deposit tx, and cosmos tx packed in an Ethereum transaction.

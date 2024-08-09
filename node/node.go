@@ -2,6 +2,7 @@ package node
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -15,11 +16,12 @@ import (
 	jsonrpctypes "github.com/cometbft/cometbft/rpc/jsonrpc/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/ethdb"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/builder"
 	"github.com/polymerdao/monomer/comet"
@@ -28,6 +30,7 @@ import (
 	"github.com/polymerdao/monomer/eth"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/mempool"
+	"github.com/polymerdao/monomer/monomerdb"
 	"github.com/sourcegraph/conc"
 )
 
@@ -38,12 +41,26 @@ type EventListener interface {
 	OnPrometheusServeErr(error)
 }
 
+type DB interface {
+	UpdateLabels(unsafe, safe, finalized common.Hash) error
+	Height() (uint64, error)
+	HeaderByHash(hash common.Hash) (*monomer.Header, error)
+	Rollback(unsafe, safe, finalized common.Hash) error
+	HeaderByHeight(height uint64) (*monomer.Header, error)
+	AppendBlock(*monomer.Block) error
+	HeadHeader() (*monomer.Header, error)
+	BlockByLabel(opeth.BlockLabel) (*monomer.Block, error)
+	BlockByHeight(uint64) (*monomer.Block, error)
+	BlockByHash(hash common.Hash) (*monomer.Block, error)
+	HeadBlock() (*monomer.Block, error)
+}
+
 type Node struct {
 	app            monomer.Application
 	genesis        *genesis.Genesis
 	engineWS       net.Listener
 	cometHTTPAndWS net.Listener
-	blockdb        dbm.DB
+	blockdb        DB
 	txdb           cometdb.DB
 	mempooldb      dbm.DB
 	ethstatedb     state.Database
@@ -56,7 +73,7 @@ func New(
 	g *genesis.Genesis,
 	engineWS net.Listener,
 	cometHTTPAndWS net.Listener,
-	blockdb,
+	blockdb DB,
 	mempooldb dbm.DB,
 	txdb cometdb.DB,
 	ethstatedb ethdb.Database,
@@ -78,8 +95,7 @@ func New(
 }
 
 func (n *Node) Run(ctx context.Context, env *environment.Env) error {
-	blockStore := store.NewBlockStore(n.blockdb)
-	if err := prepareBlockStoreAndApp(ctx, n.genesis, blockStore, n.ethstatedb, n.app); err != nil {
+	if err := prepareBlockStoreAndApp(ctx, n.genesis, n.blockdb, n.ethstatedb, n.app); err != nil {
 		return err
 	}
 	txStore := txstore.NewTxStore(n.txdb)
@@ -102,9 +118,9 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		{
 			Namespace: "engine",
 			Service: engine.NewEngineAPI(
-				builder.New(mpool, n.app, blockStore, txStore, eventBus, n.genesis.ChainID, n.ethstatedb),
+				builder.New(mpool, n.app, n.blockdb, txStore, eventBus, n.genesis.ChainID, n.ethstatedb),
 				n.app,
-				blockStore,
+				n.blockdb,
 				engineMetrics,
 			),
 		},
@@ -116,8 +132,8 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 				*eth.ProofProvider
 			}{
 				ChainID:       eth.NewChainID(n.genesis.ChainID.HexBig(), ethMetrics),
-				Block:         eth.NewBlock(blockStore, n.genesis.ChainID.Big(), ethMetrics),
-				ProofProvider: eth.NewProofProvider(n.ethstatedb, blockStore),
+				Block:         eth.NewBlock(n.blockdb, n.genesis.ChainID.Big(), ethMetrics),
+				ProofProvider: eth.NewProofProvider(n.ethstatedb, n.blockdb),
 			},
 		},
 	} {
@@ -141,7 +157,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	subscribeWg := conc.NewWaitGroup()
 	env.Defer(subscribeWg.Wait)
 	subscribeAPI := comet.NewSubscriberAPI(eventBus, subscribeWg, &comet.SelectiveListener{})
-	blockAPI := comet.NewBlockAPI(blockStore)
+	blockAPI := comet.NewBlockAPI(n.blockdb)
 	// https://docs.cometbft.com/main/rpc/
 	routes := map[string]*cometserver.RPCFunc{
 		"echo": cometserver.NewRPCFunc(func(_ *jsonrpctypes.Context, msg string) (string, error) {
@@ -150,7 +166,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		"health": cometserver.NewRPCFunc(func(_ *jsonrpctypes.Context) (*rpctypes.ResultHealth, error) {
 			return &rpctypes.ResultHealth{}, nil
 		}, ""),
-		"status": cometserver.NewRPCFunc(comet.NewStatus(blockStore, nil).Status, ""), // TODO start block
+		"status": cometserver.NewRPCFunc(comet.NewStatus(n.blockdb, nil).Status, ""), // TODO start block
 
 		"abci_query": cometserver.NewRPCFunc(abci.Query, "path,data,height,prove"),
 		"abci_info":  cometserver.NewRPCFunc(abci.Info, "", cometserver.Cacheable()),
@@ -186,14 +202,14 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 func prepareBlockStoreAndApp(
 	ctx context.Context,
 	g *genesis.Genesis,
-	blockStore store.BlockStore,
+	db DB,
 	ethstatedb state.Database,
 	app monomer.Application,
 ) error {
 	// Get blockStoreHeight and appHeight.
-	var blockStoreHeight uint64
-	if headBlock := blockStore.HeadBlock(); headBlock != nil {
-		blockStoreHeight = uint64(headBlock.Header.Height)
+	blockStoreHeight, err := db.Height()
+	if err != nil && !errors.Is(err, monomerdb.ErrNotFound) {
+		return fmt.Errorf("get height: %v", err)
 	}
 	info, err := app.Info(ctx, &abcitypes.RequestInfo{})
 	if err != nil {
@@ -215,7 +231,7 @@ func prepareBlockStoreAndApp(
 
 	// Commit genesis.
 	if blockStoreHeight == 0 { // We know appHeight == blockStoreHeight at this point.
-		if err := g.Commit(ctx, app, blockStore, ethstatedb); err != nil {
+		if err := g.Commit(ctx, app, db, ethstatedb); err != nil {
 			return fmt.Errorf("commit genesis: %v", err)
 		}
 	}

@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func dummyTxs(height int64, count int) []*abcitypes.TxResult {
+func dummyTxs(height uint64, count int) []*abcitypes.TxResult {
 	result := make([]*abcitypes.TxResult, count)
 	for i := 0; i < count; i++ {
 		result[i] = &abcitypes.TxResult{
-			Height: height,
+			Height: int64(height),
 			Tx:     []byte(fmt.Sprintf("h:%v|i:%v", height, i)),
 			Result: abcitypes.ExecTxResult{},
 		}
@@ -27,8 +27,8 @@ func dummyTxs(height int64, count int) []*abcitypes.TxResult {
 func TestRollback(t *testing.T) {
 	for _, tc := range []struct {
 		desc  string
-		start int64
-		end   int64
+		start uint64
+		end   uint64
 	}{
 		{
 			desc:  "from zero to fifteen",
@@ -48,7 +48,7 @@ func TestRollback(t *testing.T) {
 	} {
 		t.Run(tc.desc, func(t *testing.T) {
 			txs := NewTxStore(dbm.NewMemDB())
-			hashes := make(map[int64][][]byte)
+			hashes := make(map[uint64][][]byte)
 			r := rand.New(rand.NewSource(time.Now().UnixNano()))
 
 			require.Less(t, tc.start, tc.end)
@@ -71,7 +71,7 @@ func TestRollback(t *testing.T) {
 				}
 			}
 
-			rollbackHeight := tc.start + int64((tc.end-tc.start)/2)
+			rollbackHeight := tc.start + (tc.end-tc.start)/2
 			require.NoError(t, txs.RollbackToHeight(rollbackHeight, tc.end))
 
 			for h := tc.start; h < tc.end; h++ {

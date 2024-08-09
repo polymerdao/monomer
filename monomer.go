@@ -50,27 +50,27 @@ func (id ChainID) Big() *big.Int {
 }
 
 type Header struct {
-	ChainID    ChainID     `json:"chain_id"`
-	Height     int64       `json:"height"`
-	Time       uint64      `json:"time"`
-	ParentHash common.Hash `json:"parentHash"`
-	StateRoot  common.Hash `json:"stateRoot"`
-	GasLimit   uint64      `json:"gasLimit"`
-	Hash       common.Hash `json:"hash"`
+	ChainID    ChainID
+	Height     uint64
+	Time       uint64
+	ParentHash common.Hash
+	StateRoot  common.Hash
+	GasLimit   uint64
+	Hash       common.Hash
 }
 
 func (h *Header) ToComet() *bfttypes.Header {
 	return &bfttypes.Header{
 		ChainID: h.ChainID.String(),
-		Height:  h.Height,
+		Height:  int64(h.Height),
 		Time:    time.Unix(int64(h.Time), 0),
 		AppHash: h.StateRoot.Bytes(),
 	}
 }
 
 type Block struct {
-	Header *Header      `json:"header"`
-	Txs    bfttypes.Txs `json:"txs"`
+	Header *Header
+	Txs    bfttypes.Txs
 }
 
 // NewBlock creates a new block. The header and txs must be non-nil. It performs no other validation.
@@ -106,7 +106,7 @@ func (h *Header) ToEth() *ethtypes.Header {
 	return &ethtypes.Header{
 		ParentHash:      h.ParentHash,
 		Root:            h.StateRoot,
-		Number:          big.NewInt(h.Height),
+		Number:          new(big.Int).SetUint64(h.Height),
 		GasLimit:        h.GasLimit,
 		MixDigest:       common.Hash{},
 		Time:            h.Time,
@@ -141,11 +141,9 @@ func (b *Block) ToEth() (*ethtypes.Block, error) {
 
 func (b *Block) ToCometLikeBlock() *bfttypes.Block {
 	return &bfttypes.Block{
-		Header: bfttypes.Header{
-			ChainID: b.Header.ChainID.String(),
-			Time:    time.Unix(int64(b.Header.Time), 0),
-			Height:  b.Header.Height,
-			AppHash: b.Header.StateRoot.Bytes(),
+		Header: *b.Header.ToComet(),
+		Data: bfttypes.Data{
+			Txs: b.Txs,
 		},
 	}
 }
