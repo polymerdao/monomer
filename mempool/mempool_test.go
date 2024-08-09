@@ -4,8 +4,10 @@ import (
 	"testing"
 
 	comettypes "github.com/cometbft/cometbft/types"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer/mempool"
 	"github.com/polymerdao/monomer/testutils"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,6 +22,17 @@ func TestMempool(t *testing.T) {
 
 		_, err = pool.Dequeue()
 		require.Error(t, err)
+	})
+
+	t.Run("deposit transaction", func(t *testing.T) {
+		_, depositTx, _ := testutils.GenerateEthTxs(t)
+		depositTxBytes, err := depositTx.MarshalBinary()
+		require.NoError(t, err)
+
+		cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes})
+		require.NoError(t, err)
+
+		require.Error(t, pool.Enqueue(cosmosTxs[0]))
 	})
 
 	// enqueue multiple to empty

@@ -17,7 +17,7 @@ import (
 	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/evm"
-	"github.com/polymerdao/monomer/gen/rollup/v1"
+	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/mempool"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )

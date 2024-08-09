@@ -8,6 +8,7 @@ import (
 
 	comettypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 const (
@@ -36,6 +37,13 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) error {
 	// NOTE: we should do reads and writes on the same view. Right now they occur on separate views.
 	// Unfortunately, comet's DB interface doesn't support it.
 	// Moving to a different DB interface is left for future work.
+
+	// Attempt to adapt the Cosmos transaction to an Ethereum deposit transaction.
+	// If the adaptation results in one or more transactions, it indicates that the
+	// user transaction is a deposit transaction, which is not allowed in the pool.
+	if _, err := rolluptypes.AdaptCosmosDepositTxToEthTxs(userTxn); err == nil {
+		return errors.New("deposit txs are not allowed in the pool")
+	}
 
 	batch := p.db.NewBatch()
 	defer batch.Close() // TODO: catch error.
