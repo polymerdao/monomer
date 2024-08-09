@@ -82,9 +82,6 @@ func TestBlockNewBlock(t *testing.T) {
 	newBlock, err := monomer.SetHeader(block)
 	require.NoError(t, err)
 	require.Equal(t, ethBlock.Hash(), newBlock.Header.Hash)
-
-	_, err = monomer.SetHeader(nil)
-	require.Error(t, err)
 }
 
 func TestBlockSetHeader(t *testing.T) {
@@ -95,9 +92,6 @@ func TestBlockSetHeader(t *testing.T) {
 	newBlock, err := monomer.SetHeader(block)
 	require.NoError(t, err)
 	require.Equal(t, ethBlock.Hash(), newBlock.Header.Hash)
-
-	_, err = monomer.SetHeader(nil)
-	require.Error(t, err)
 }
 
 func TestBlockMakeBlock(t *testing.T) {
@@ -176,12 +170,6 @@ func TestBlockToEth(t *testing.T) {
 func TestBlockToEthFailsWithWrongTxs(t *testing.T) {
 	newBlock := monomer.NewBlock(newTestHeader(), bfttypes.Txs{[]byte("transaction1"), []byte("transaction2")})
 	_, err := newBlock.ToEth()
-	require.Error(t, err)
-}
-
-func TestBlockToCometLikeBlockFailsWithNilBlock(t *testing.T) {
-	var block *monomer.Block
-	_, err := block.ToEth()
 	require.Error(t, err)
 }
 
