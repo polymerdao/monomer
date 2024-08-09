@@ -125,16 +125,47 @@ func TestBlockToEth(t *testing.T) {
 	ethTxs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
 	require.NoError(t, err)
 
-	ethBlock, err := block.ToEth()
+	actualEthBlock, err := block.ToEth()
 	require.NoError(t, err)
-	require.EqualExportedValues(t, ethtypes.NewBlockWithWithdrawals(
+
+	expectedEthBlock := ethtypes.NewBlockWithWithdrawals(
 		block.Header.ToEth(),
 		ethTxs,
 		nil,
 		[]*ethtypes.Receipt{},
 		[]*ethtypes.Withdrawal{},
 		trie.NewStackTrie(nil),
-	), ethBlock)
+	)
+
+	// It is impossible to change the time in private fields of the block,
+	// so we can't compare it in the form of struct
+	require.Equal(t, expectedEthBlock.BaseFee(), actualEthBlock.BaseFee())
+	require.Equal(t, expectedEthBlock.BeaconRoot(), actualEthBlock.BeaconRoot())
+	require.Equal(t, expectedEthBlock.BlobGasUsed(), actualEthBlock.BlobGasUsed())
+	require.Equal(t, expectedEthBlock.Bloom(), actualEthBlock.Bloom())
+	require.Equal(t, expectedEthBlock.Coinbase(), actualEthBlock.Coinbase())
+	require.Equal(t, expectedEthBlock.Difficulty(), actualEthBlock.Difficulty())
+	require.Equal(t, expectedEthBlock.ExcessBlobGas(), actualEthBlock.ExcessBlobGas())
+	require.Equal(t, expectedEthBlock.Extra(), actualEthBlock.Extra())
+	require.Equal(t, expectedEthBlock.GasLimit(), actualEthBlock.GasLimit())
+	require.Equal(t, expectedEthBlock.GasUsed(), actualEthBlock.GasUsed())
+	require.Equal(t, expectedEthBlock.Hash(), actualEthBlock.Hash())
+	require.Equal(t, expectedEthBlock.Header(), actualEthBlock.Header())
+	require.Equal(t, expectedEthBlock.MixDigest(), actualEthBlock.MixDigest())
+	require.Equal(t, expectedEthBlock.Nonce(), actualEthBlock.Nonce())
+	require.Equal(t, expectedEthBlock.Number(), actualEthBlock.Number())
+	require.Equal(t, expectedEthBlock.NumberU64(), actualEthBlock.NumberU64())
+	require.Equal(t, expectedEthBlock.ParentHash(), actualEthBlock.ParentHash())
+	require.Equal(t, expectedEthBlock.ReceiptHash(), actualEthBlock.ReceiptHash())
+	require.Equal(t, expectedEthBlock.Root(), actualEthBlock.Root())
+	require.Equal(t, expectedEthBlock.SanityCheck(), actualEthBlock.SanityCheck())
+	require.Equal(t, expectedEthBlock.Size(), actualEthBlock.Size())
+	require.Equal(t, expectedEthBlock.Time(), actualEthBlock.Time())
+	require.Equal(t, expectedEthBlock.Transactions().Len(), actualEthBlock.Transactions().Len())
+	require.Equal(t, expectedEthBlock.TxHash(), actualEthBlock.TxHash())
+	require.Equal(t, expectedEthBlock.UncleHash(), actualEthBlock.UncleHash())
+	require.Equal(t, expectedEthBlock.Uncles(), actualEthBlock.Uncles())
+	require.Equal(t, expectedEthBlock.Withdrawals(), actualEthBlock.Withdrawals())
 
 	newBlock := monomer.NewBlock(newTestHeader(), bfttypes.Txs{[]byte("transaction1"), []byte("transaction2")})
 	_, err = newBlock.ToEth()
