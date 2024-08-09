@@ -55,15 +55,6 @@ func TestBuild(t *testing.T) {
 			name:          "deposit txs only",
 			depositTxsNum: 2,
 		},
-		// {
-		// 	name:             "deposit txs + non-deposit txs",
-		// 	depositTxsNum:    2,
-		// 	nonDepositTxsNum: 2,
-		// },
-		// {
-		// 	name:       "txs in mempool",
-		// 	mempoolNum: 2,
-		// },
 		{
 			name:          "deposit txs + mempool txs",
 			depositTxsNum: 2,
@@ -75,19 +66,7 @@ func TestBuild(t *testing.T) {
 			mempoolTxsNum: 2,
 			noTxPool:      true,
 		},
-		// {
-		// 	name:             "deposit txs + non-deposit txs + mempool txs",
-		// 	depositTxsNum:    2,
-		// 	nonDepositTxsNum: 2,
-		// 	mempoolTxsNum:    2,
-		// },
-		// {
-		// 	name:             "deposit txs + non-deposit txs + mempool txs with NoTxPool",
-		// 	depositTxsNum:    2,
-		// 	nonDepositTxsNum: 2,
-		// 	mempoolTxsNum:    2,
-		// 	noTxPool:         true,
-		// },
+		// TODO add test cases for non-deposit txs
 	}
 
 	for _, test := range tests {
