@@ -22,7 +22,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	t.Run("Zero txs", func(t *testing.T) {
 		cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{})
 		require.NoError(t, err)
-		require.Equal(t, 0, len(cosmosTxs))
+		require.Empty(t, cosmosTxs)
 	})
 
 	src := rand.NewSource(0)
