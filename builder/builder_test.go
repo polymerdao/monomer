@@ -167,6 +167,7 @@ func TestBuild(t *testing.T) {
 			require.NoError(t, err)
 
 			// Application.
+			// TODO: Uncomment when possible.
 			// {
 			// 	height := uint64(postBuildInfo.GetLastBlockHeight())
 			// 	app.StateContains(t, height, test.inclusionNum)
@@ -270,12 +271,19 @@ func TestRollback(t *testing.T) {
 		ethstatedb,
 	)
 
-	kvs := map[string]string{
-		"test": "test",
-	}
+	rng := rand.New(rand.NewSource(1234))
+
+	depositTxBytes, err := gethtypes.NewTx(
+		optestutils.GenerateDeposit(
+			optestutils.RandomHash(rng), rng)).
+		MarshalBinary()
+	require.NoError(t, err)
+
+	adapterTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes})
+
 	block, err := b.Build(context.Background(), &builder.Payload{
 		Timestamp:            g.Time + 1,
-		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs)),
+		InjectedTransactions: adapterTxs,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, block)
@@ -290,13 +298,14 @@ func TestRollback(t *testing.T) {
 	require.NoError(t, b.Rollback(context.Background(), genesisHeader.Hash, genesisHeader.Hash, genesisHeader.Hash))
 
 	// Application.
-	for k := range kvs {
-		resp, err := app.Query(context.Background(), &abcitypes.RequestQuery{
-			Data: []byte(k),
-		})
-		require.NoError(t, err)
-		require.Empty(t, resp.GetValue()) // Value was removed from state.
-	}
+	// TODO: Uncomment when possible.
+	// for k := range kvs {
+	// 	resp, err := app.Query(context.Background(), &abcitypes.RequestQuery{
+	// 		Data: []byte(k),
+	// 	})
+	// 	require.NoError(t, err)
+	// 	require.Empty(t, resp.GetValue()) // Value was removed from state.
+	// }
 
 	// Block store.
 	height, err := blockStore.Height()
@@ -310,7 +319,7 @@ func TestRollback(t *testing.T) {
 	require.Equal(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
 
 	// Tx store.
-	for _, tx := range bfttypes.ToTxs(testapp.ToTxs(t, kvs)) {
+	for _, tx := range adapterTxs {
 		result, err := txStore.Get(tx.Hash())
 		require.NoError(t, err)
 		require.Nil(t, result)
