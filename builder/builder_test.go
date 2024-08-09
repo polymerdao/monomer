@@ -271,15 +271,14 @@ func TestRollback(t *testing.T) {
 		ethstatedb,
 	)
 
-	rng := rand.New(rand.NewSource(1234))
+	_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
 
-	depositTxBytes, err := gethtypes.NewTx(
-		optestutils.GenerateDeposit(
-			optestutils.RandomHash(rng), rng)).
-		MarshalBinary()
+	depositTxBytes, err := depositTx.MarshalBinary()
+	require.NoError(t, err)
+	cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
 	require.NoError(t, err)
 
-	adaptedTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes})
+	adaptedTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes, cosmosEthTxBytes})
 	require.NoError(t, err)
 
 	block, err := b.Build(context.Background(), &builder.Payload{
