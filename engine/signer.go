@@ -14,9 +14,6 @@ import (
 )
 
 func (e *EngineAPI) signer(tx *sdktx.Tx) error {
-
-	// return func(tx *sdktx.Tx) error {
-
 	privKey := ed25519.GenPrivKeyFromSecret([]byte("monomer"))
 	pubKey := privKey.PubKey()
 	address := pubKey.Address()
@@ -25,7 +22,6 @@ func (e *EngineAPI) signer(tx *sdktx.Tx) error {
 	txBuilder := txConfig.NewTxBuilder()
 
 	acc, err := e.appChainClient.AccountRetriever.GetAccount(*e.appChainClient, sdktypes.AccAddress(address.Bytes()))
-
 	if err != nil {
 		return fmt.Errorf("get account: %v", err)
 	}
@@ -48,7 +44,6 @@ func (e *EngineAPI) signer(tx *sdktx.Tx) error {
 	}
 
 	err = txBuilder.SetMsgs(tx.Body.Messages[0])
-
 	if err != nil {
 		return fmt.Errorf("set msgs: %v", err)
 	}
