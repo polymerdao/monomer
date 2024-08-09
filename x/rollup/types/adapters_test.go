@@ -62,14 +62,10 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 				ethTxs := make([]hexutil.Bytes, tc.depNum+tc.nonDepNum)
 				transactions := generateEthTransactions(t, tc.depNum, tc.nonDepNum)
 
-				depositTxsNum := 0
 				for i := range transactions {
 					txBinary, err := transactions[i].MarshalBinary()
 					require.NoError(t, err)
 					ethTxs[i] = txBinary
-					if transactions[i].IsDepositTx() {
-						depositTxsNum++
-					}
 				}
 
 				// Convert the binary format to a Cosmos transaction.
@@ -90,7 +86,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 				require.NoError(t, err)
 
 				// Copy the original transaction because time fields are different if not copied.
-				require.Equal(t, depositTxsNum, len(applyL1TxsRequest.TxBytes))
+				require.Equal(t, tc.depNum, len(applyL1TxsRequest.TxBytes))
 				for i, txBytes := range applyL1TxsRequest.TxBytes {
 					newTransaction := transactions[i]
 					err = newTransaction.UnmarshalBinary(txBytes)
@@ -99,7 +95,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 				}
 
 				for i := 1; i < len(cosmosTxs); i++ {
-					require.Equal(t, transactions[depositTxsNum-1+i].Data(), []byte(cosmosTxs[i]))
+					require.Equal(t, transactions[tc.depNum-1+i].Data(), []byte(cosmosTxs[i]))
 				}
 			})
 		}
