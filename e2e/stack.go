@@ -312,12 +312,15 @@ type mockAccount struct {
 func (mar mockAccount) GetAddress() sdktypes.AccAddress {
 	return mar.address
 }
+
 func (mar mockAccount) GetPubKey() cryptotypes.PubKey {
 	return nil
 }
+
 func (mar mockAccount) GetAccountNumber() uint64 {
 	return 1
 }
+
 func (mar mockAccount) GetSequence() uint64 {
 	mar.seqNumber++
 	return mar.seqNumber
