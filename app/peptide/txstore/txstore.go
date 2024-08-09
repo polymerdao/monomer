@@ -23,7 +23,7 @@ type TxStore interface {
 	Add(txs []*abcitypes.TxResult) error
 
 	// Removes all transactions from the indexer that belong to blocks after height.
-	RollbackToHeight(rollbackHeight, currentHeight int64) error
+	RollbackToHeight(rollbackHeight, currentHeight uint64) error
 }
 
 type txstore struct {
@@ -64,7 +64,7 @@ func (t *txstore) Add(txs []*abcitypes.TxResult) error {
 	return nil
 }
 
-func (t *txstore) rollbackOneBlock(batch dbm.Batch, height int64) error {
+func (t *txstore) rollbackOneBlock(batch dbm.Batch, height uint64) error {
 	// This is a bit hacky but it's the only way we have to remove txs from the indexer.
 	// The indexer stores txs in its underlying DB by constructing a key that uses a combination
 	// of height, indexes and hardcoded labels. For more details, see how the keys are constructed here:
@@ -100,7 +100,7 @@ func (t *txstore) rollbackOneBlock(batch dbm.Batch, height int64) error {
 // Access the underlying db used by the txindexer and removes all transactions. It needs
 // both the starting point (rollbackHeight) as well as the latest height since there's no other
 // way of knowing what's the last tx in the indexer otherwise.
-func (t *txstore) RollbackToHeight(rollbackHeight, currentHeight int64) error {
+func (t *txstore) RollbackToHeight(rollbackHeight, currentHeight uint64) error {
 	batch := t.db.NewBatch()
 	defer batch.Close()
 

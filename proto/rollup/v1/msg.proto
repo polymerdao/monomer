@@ -22,15 +22,16 @@ message ApplyL1TxsRequest {
 
 message ApplyL1TxsResponse {}
 
-// MsgInitiateWithdrawal defines a message for all L2 withdrawal txs
+// TODO: add validations in the x/rollup module to ensure that the target address and gas limit are valid before burning the users ETH
+// InitiateWithdrawalRequest defines a message for all L2 withdrawal txs
 message InitiateWithdrawalRequest {
   option (cosmos.msg.v1.signer) = "sender";
   // The cosmos address of the user who wants to withdraw from L2.
   string sender = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   // The ethereum address on L1 that the user wants to withdraw to.
   string target = 2;
-  // The amount of ETH that the user wants to withdraw.
-  string amount = 3 [
+  // The amount of ETH (in wei) that the user wants to withdraw.
+  string value = 3 [
     (cosmos_proto.scalar) = "cosmos.Int",
     (gogoproto.customtype) = "cosmossdk.io/math.Int",
     (gogoproto.nullable) = false,

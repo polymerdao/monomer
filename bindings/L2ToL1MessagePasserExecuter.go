@@ -12,8 +12,9 @@ import (
 )
 
 const (
-	InitiateWithdrawalMethodName = "initiateWithdrawal"
-	SentMessagesMappingName      = "sentMessages"
+	initiateWithdrawalMethodName = "initiateWithdrawal"
+	messageNonceMethodName       = "messageNonce"
+	sentMessagesMappingName      = "sentMessages"
 )
 
 type L2ToL1MessagePasserExecuter struct {
@@ -39,7 +40,7 @@ func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(
 	gasLimit *big.Int,
 	data []byte,
 ) error {
-	data, err := e.ABI.Pack(InitiateWithdrawalMethodName, l1Address, gasLimit, data)
+	data, err := e.ABI.Pack(initiateWithdrawalMethodName, l1Address, gasLimit, data)
 	if err != nil {
 		return fmt.Errorf("create initiateWithdrawal data: %v", err)
 	}
@@ -59,7 +60,7 @@ func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(
 }
 
 func (e *L2ToL1MessagePasserExecuter) GetSentMessagesMappingValue(withdrawalHash common.Hash) (bool, error) {
-	data, err := e.ABI.Pack(SentMessagesMappingName, withdrawalHash)
+	data, err := e.ABI.Pack(sentMessagesMappingName, withdrawalHash)
 	if err != nil {
 		return false, fmt.Errorf("create sentMessages data: %v", err)
 	}
@@ -70,10 +71,30 @@ func (e *L2ToL1MessagePasserExecuter) GetSentMessagesMappingValue(withdrawalHash
 	}
 
 	var withdrawalHashIncluded bool
-	err = e.ABI.UnpackIntoInterface(&withdrawalHashIncluded, SentMessagesMappingName, res)
+	err = e.ABI.UnpackIntoInterface(&withdrawalHashIncluded, sentMessagesMappingName, res)
 	if err != nil {
 		return false, fmt.Errorf("unpack sentMessages: %v", err)
 	}
 
 	return withdrawalHashIncluded, nil
+}
+
+func (e *L2ToL1MessagePasserExecuter) GetMessageNonce() (*big.Int, error) {
+	data, err := e.ABI.Pack(messageNonceMethodName)
+	if err != nil {
+		return nil, fmt.Errorf("create messageNonce data: %v", err)
+	}
+
+	res, err := e.Call(&monomerevm.CallParams{Data: data})
+	if err != nil {
+		return nil, fmt.Errorf("call messageNonce: %v", err)
+	}
+
+	var nonce *big.Int
+	err = e.ABI.UnpackIntoInterface(&nonce, messageNonceMethodName, res)
+	if err != nil {
+		return nil, fmt.Errorf("unpack messageNonce: %v", err)
+	}
+
+	return nonce, nil
 }
