@@ -279,12 +279,12 @@ func TestRollback(t *testing.T) {
 		MarshalBinary()
 	require.NoError(t, err)
 
-	adapterTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes})
+	adaptedTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes})
 	require.NoError(t, err)
 
 	block, err := b.Build(context.Background(), &builder.Payload{
 		Timestamp:            g.Time + 1,
-		InjectedTransactions: adapterTxs,
+		InjectedTransactions: adaptedTxs,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, block)
@@ -320,7 +320,7 @@ func TestRollback(t *testing.T) {
 	require.Equal(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
 
 	// Tx store.
-	for _, tx := range adapterTxs {
+	for _, tx := range adaptedTxs {
 		result, err := txStore.Get(tx.Hash())
 		require.NoError(t, err)
 		require.Nil(t, result)
