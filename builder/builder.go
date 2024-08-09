@@ -103,7 +103,7 @@ type Payload struct {
 }
 
 func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, error) {
-	cosmosTxs := slices.Clone(payload.InjectedTransactions) // Shallow clone is ok, we just don't want to modify the slice itself.
+	txs := slices.Clone(payload.InjectedTransactions) // Shallow clone is ok, we just don't want to modify the slice itself.
 	if !payload.NoTxPool {
 		for {
 			// TODO there is risk of losing txs if mempool db fails.
@@ -116,11 +116,11 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 				break
 			}
 
-			mempoolTx, err := b.mempool.Dequeue()
+			tx, err := b.mempool.Dequeue()
 			if err != nil {
 				panic(fmt.Errorf("dequeue: %v", err))
 			}
-			cosmosTxs = append(cosmosTxs, mempoolTx)
+			txs = append(txs, tx)
 		}
 	}
 
@@ -144,7 +144,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	}
 	cometHeader.AppHash = info.GetLastBlockAppHash() // TODO maybe best to get this from the ethstatedb?
 	resp, err := b.app.FinalizeBlock(ctx, &abcitypes.RequestFinalizeBlock{
-		Txs:                cosmosTxs.ToSliceOfBytes(),
+		Txs:                txs.ToSliceOfBytes(),
 		Hash:               cometHeader.Hash(),
 		Height:             cometHeader.Height,
 		Time:               cometHeader.Time,
@@ -171,7 +171,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	execTxResults := resp.GetTxResults()
 	txResults := make([]*abcitypes.TxResult, 0, len(execTxResults))
 	for i, execTxResult := range execTxResults {
-		tx := cosmosTxs[i]
+		tx := txs[i]
 
 		// Check for withdrawal messages in the tx.
 		execTxResult, err = b.parseWithdrawalMessages(tx, execTxResult, ethState, header)
@@ -195,7 +195,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	}
 	header.StateRoot = ethStateRoot
 
-	block, err := monomer.MakeBlock(header, cosmosTxs)
+	block, err := monomer.MakeBlock(header, txs)
 	if err != nil {
 		return nil, fmt.Errorf("make block: %v", err)
 	}
