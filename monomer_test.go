@@ -181,8 +181,7 @@ func TestPayloadAttributesIDNoTxPoolIsFalse(t *testing.T) {
 	id := pa.ID()
 	require.NotNil(t, id)
 
-	newID := pa.ID()
-	require.Equal(t, id, newID)
+	require.Equal(t, id, pa.ID())
 }
 
 func TestPayloadAttributesIDNoTxPoolIsTrue(t *testing.T) {
