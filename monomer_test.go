@@ -166,13 +166,22 @@ func TestBlockToEth(t *testing.T) {
 	require.Equal(t, expectedEthBlock.UncleHash(), actualEthBlock.UncleHash())
 	require.Equal(t, expectedEthBlock.Uncles(), actualEthBlock.Uncles())
 	require.Equal(t, expectedEthBlock.Withdrawals(), actualEthBlock.Withdrawals())
+}
 
+// TestBlockToEthFailsWithWrongTxs tests the behavior of the Block.ToEth() method when provided with incorrect transactions.
+// It creates a new block with a test header and a list of transactions containing two byte slices.
+// The ToEth() method is then called on the new block, and the returned value and error are captured.
+// The test asserts that an error is returned, indicating that the conversion to Ethereum format failed.
+// This test is used to ensure the correct handling of invalid transactions in the Block.ToEth() method.
+func TestBlockToEthFailsWithWrongTxs(t *testing.T) {
 	newBlock := monomer.NewBlock(newTestHeader(), bfttypes.Txs{[]byte("transaction1"), []byte("transaction2")})
-	_, err = newBlock.ToEth()
+	_, err := newBlock.ToEth()
 	require.Error(t, err)
+}
 
-	newBlock = nil
-	_, err = newBlock.ToEth()
+func TestBlockToCometLikeBlockFailsWithNilBlock(t *testing.T) {
+	var block *monomer.Block
+	_, err := block.ToEth()
 	require.Error(t, err)
 }
 
@@ -209,24 +218,31 @@ func newPayloadAttributes() *monomer.PayloadAttributes {
 	}
 }
 
-func TestPayloadAttributesIDNoTxPoolIsFalse(t *testing.T) {
-	pa := newPayloadAttributes()
+func TestPayloadAttributesID(t *testing.T) {
+	tests := []struct {
+		name     string
+		noTxPool bool
+		expected *engine.PayloadID
+	}{
+		{
+			name: "NoTxPool is false",
+		},
+		{
+			name:     "NoTxPool is true",
+			noTxPool: true,
+		},
+	}
 
-	id := pa.ID()
-	require.NotNil(t, id)
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			pa := newPayloadAttributes()
+			pa.NoTxPool = test.noTxPool
 
-	require.Equal(t, id, pa.ID())
-}
-
-func TestPayloadAttributesIDNoTxPoolIsTrue(t *testing.T) {
-	pa := newPayloadAttributes()
-	pa.NoTxPool = true
-
-	id := pa.ID()
-	require.NotNil(t, id)
-
-	newID := pa.ID()
-	require.Equal(t, id, newID)
+			id := pa.ID()
+			require.NotNil(t, id)
+			require.Equal(t, id, pa.ID())
+		})
+	}
 }
 
 func TestPayloadAttributesValidForkchoiceUpdateResult(t *testing.T) {
