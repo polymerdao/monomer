@@ -8,6 +8,7 @@ import (
 
 	comettypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/polymerdao/monomer/utils"
 )
 
 const (
@@ -39,9 +40,7 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) (err error) {
 
 	batch := p.db.NewBatch()
 	defer func() {
-		if closeErr := batch.Close(); closeErr != nil {
-			err = fmt.Errorf("failed to close batch: %w", closeErr)
-		}
+		err = utils.WrapCloseErr(err, batch)
 	}()
 
 	tail, err := p.db.Get([]byte(tailKey))
@@ -113,7 +112,7 @@ func (p *Pool) Dequeue() (txn comettypes.Tx, err error) {
 
 	batch := p.db.NewBatch()
 	defer func() {
-		err = batch.Close()
+		err = utils.WrapCloseErr(err, batch)
 	}()
 
 	if err = batch.Delete(headHash); err != nil {
