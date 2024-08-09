@@ -152,7 +152,7 @@ func TestBlockToCometLikeBlock(t *testing.T) {
 		[]*ethtypes.Transaction{depositTx},
 		[]*ethtypes.Transaction{cosmosEthTx},
 	)
-	cometLikeBlock := block.ToCometLikeBlock()
+
 	require.Equal(t, &bfttypes.Block{
 		Header: bfttypes.Header{
 			ChainID: block.Header.ChainID.String(),
@@ -160,7 +160,7 @@ func TestBlockToCometLikeBlock(t *testing.T) {
 			Height:  block.Header.Height,
 			AppHash: block.Header.StateRoot.Bytes(),
 		},
-	}, cometLikeBlock)
+	}, block.ToCometLikeBlock())
 }
 
 func newPayloadAttributes() *monomer.PayloadAttributes {
