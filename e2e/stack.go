@@ -15,6 +15,10 @@ import (
 	cometdb "github.com/cometbft/cometbft-db"
 	"github.com/cometbft/cometbft/config"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/cosmos/cosmos-sdk/client"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
@@ -232,6 +236,18 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	if err != nil {
 		return fmt.Errorf("new test app: %v", err)
 	}
+
+	sdkclient, err := client.NewClientFromNode(s.monomerCometURL.String())
+	if err != nil {
+		return fmt.Errorf("new client from node: %v", err)
+	}
+	appchainCtx := client.Context{}.
+		WithChainID(chainID.String()).
+		WithClient(sdkclient).
+		WithAccountRetriever(mockAccountRetriever{}).
+		WithTxConfig(testutil.MakeTestTxConfig()).
+		WithCodec(testutil.MakeTestEncodingConfig().Codec)
+
 	blockPebbleDB, err := pebble.Open("", &pebble.Options{
 		FS: vfs.NewMem(),
 	})
@@ -247,7 +263,7 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	env.DeferErr("close eth state db", ethstatedb.Close)
 	n := node.New(
 		app,
-		nil,
+		&appchainCtx,
 		&genesis.Genesis{
 			AppState: app.DefaultGenesis(),
 			ChainID:  chainID,
@@ -266,4 +282,43 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		return fmt.Errorf("run monomer: %v", err)
 	}
 	return nil
+}
+
+type mockAccountRetriever struct {
+	ReturnAccNum, ReturnAccSeq uint64
+}
+
+func (mar mockAccountRetriever) GetAccount(_ client.Context, _ sdktypes.AccAddress) (client.Account, error) {
+	return mockAccount{}, nil
+}
+
+func (mar mockAccountRetriever) GetAccountWithHeight(_ client.Context, _ sdktypes.AccAddress) (client.Account, int64, error) {
+	return mockAccount{}, 0, nil
+}
+
+func (mar mockAccountRetriever) EnsureExists(_ client.Context, _ sdktypes.AccAddress) error {
+	return nil
+}
+
+func (mar mockAccountRetriever) GetAccountNumberSequence(_ client.Context, _ sdktypes.AccAddress) (uint64, uint64, error) {
+	return mar.ReturnAccNum, mar.ReturnAccSeq, nil
+}
+
+type mockAccount struct {
+	address   sdktypes.AccAddress
+	seqNumber uint64
+}
+
+func (mar mockAccount) GetAddress() sdktypes.AccAddress {
+	return mar.address
+}
+func (mar mockAccount) GetPubKey() cryptotypes.PubKey {
+	return nil
+}
+func (mar mockAccount) GetAccountNumber() uint64 {
+	return 1
+}
+func (mar mockAccount) GetSequence() uint64 {
+	mar.seqNumber++
+	return mar.seqNumber
 }
