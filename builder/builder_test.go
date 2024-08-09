@@ -280,6 +280,7 @@ func TestRollback(t *testing.T) {
 	require.NoError(t, err)
 
 	adapterTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes})
+	require.NoError(t, err)
 
 	block, err := b.Build(context.Background(), &builder.Payload{
 		Timestamp:            g.Time + 1,
