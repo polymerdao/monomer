@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+defaults:
+  run:
+    working-directory: ./doc
+
 jobs:
   build:
     name: build
@@ -24,9 +28,7 @@ jobs:
           corepack prepare yarn@stable --activate
 
       - name: Install dependencies
-        working-directory: ./doc
         run: yarn install --frozen-lockfile
 
       - name: Build website
-        working-directory: ./doc
         run: yarn build
