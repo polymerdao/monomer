@@ -1,0 +1,31 @@
+name: docusaurus
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "16.x"
+
+      - name: Install dependencies
+        working-directory: ./doc
+        run: yarn install
+
+      - name: Build Docusaurus
+        working-directory: ./doc
+        run: yarn build
+
+      - name: Verify Build Output
+        working-directory: ./doc
+        run: test -d build && echo "Build successful!" || echo "Build failed!"
