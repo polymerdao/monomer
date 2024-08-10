@@ -18,6 +18,11 @@ jobs:
         with:
           node-version: "16.x"
 
+      - name: Set up Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@stable --activate
+
       - name: Install dependencies
         working-directory: ./doc
         run: yarn install
