@@ -16,12 +16,15 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 18
+          cache: "yarn"
+          cache-dependency-path: "app"
 
       - name: Set up Yarn
         working-directory: ./doc
         run: |
           corepack enable
           corepack prepare yarn@stable --activate
+          yarn set version stable
 
       - name: Install dependencies
         working-directory: ./doc
