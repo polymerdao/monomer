@@ -24,6 +24,11 @@ jobs:
           corepack enable
           corepack prepare yarn@stable --activate
 
+      - name: Set up Yarn
+        run: |
+          corepack enable
+          corepack prepare yarn@stable --activate
+
       - name: Install dependencies
         run: yarn install --frozen-lockfile
 
