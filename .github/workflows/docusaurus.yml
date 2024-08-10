@@ -35,4 +35,10 @@ jobs:
 
       - name: Verify Build Output
         working-directory: ./doc
-        run: test -d build && echo "Build successful!" || echo "Build failed!"
+        run: |
+          if [ -d build ] && [ -f build/index.html ]; then  
+              echo "Build successful!"  
+          else  
+              echo "Build failed!"  
+              exit 1  
+          fi
