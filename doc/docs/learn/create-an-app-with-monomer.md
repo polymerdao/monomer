@@ -47,7 +47,6 @@ Let's move into the `rollchain` directory and add Monomer to our application.
 
 ```bash
 cd rollchain
-go get github.com/polymerdao/monomer
 ```
 
 ### Import `x/rollup` and `x/testmodule`
