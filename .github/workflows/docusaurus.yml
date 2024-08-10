@@ -15,6 +15,12 @@ jobs:
         with:
           node-version: 18
 
+      - name: Set up Yarn
+        working-directory: ./doc
+        run: |
+          corepack enable
+          corepack prepare yarn@stable --activate
+
       - name: Install dependencies
         working-directory: ./doc
         run: yarn install --frozen-lockfile
