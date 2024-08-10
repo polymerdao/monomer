@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+defaults:
+  run:
+    working-directory: ./doc
+
 jobs:
   build:
     name: Build Docusaurus
@@ -19,13 +23,10 @@ jobs:
           cache: yarn
 
       - name: Install dependencies
-        working-directory: ./doc
         run: yarn install --frozen-lockfile
 
       - name: Build website
-        working-directory: ./doc
         run: yarn build
 
       - name: Verify Build Output
-        working-directory: ./doc
         run: test -d build && echo "Build successful!" || echo "Build failed!"
