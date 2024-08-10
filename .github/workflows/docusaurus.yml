@@ -23,8 +23,7 @@ jobs:
         working-directory: ./doc
         run: |
           corepack enable
-          corepack prepare yarn@stable --activate
-          yarn set version stable
+          corepack prepare yarn@4.3.1 --activate
 
       - name: Install dependencies
         working-directory: ./doc
