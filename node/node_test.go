@@ -34,9 +34,6 @@ func TestRun(t *testing.T) {
 	require.NoError(t, err)
 	app := testapp.NewTest(t, chainID.String())
 	ethstatedb := testutils.NewEthStateDB(t)
-	t.Cleanup(func() {
-		require.NoError(t, ethstatedb.TrieDB().Close())
-	})
 	n := node.New(
 		app,
 		&genesis.Genesis{

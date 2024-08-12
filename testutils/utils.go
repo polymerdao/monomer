@@ -46,7 +46,11 @@ func NewEthStateDB(t *testing.T) state.Database {
 	t.Cleanup(func() {
 		require.NoError(t, rawstatedb.Close())
 	})
-	return state.NewDatabase(rawstatedb)
+	ethstatedb := state.NewDatabase(rawstatedb)
+	t.Cleanup(func() {
+		require.NoError(t, ethstatedb.TrieDB().Close())
+	})
+	return ethstatedb
 }
 
 func NewLocalMemDB(t *testing.T) *localdb.DB {
