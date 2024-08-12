@@ -30,9 +30,9 @@ func NewSigner(appchainClient *appchainClient.Context, privKey *ed25519.PrivKey)
 	}
 }
 
-func (s *signer) PubKey() *cryptotypes.PubKey {
+func (s *signer) PubKey() cryptotypes.PubKey {
 	if s.pubKey != nil {
-		return s.pubKey
+		return *s.pubKey
 	} else {
 		pubKey := s.privKey.PubKey()
 		s.pubKey = &pubKey
@@ -50,13 +50,13 @@ func (s *signer) Address() cryptotypes.Address {
 	}
 }
 
-func (s *signer) Bech32Addr() sdktypes.AccAddress {
+func (s *signer) AccAddress() sdktypes.AccAddress {
 	if s.bech32Address != nil {
 		return *s.bech32Address
 	} else {
 		bech32Addr := sdktypes.AccAddress(s.Address())
 		s.bech32Address = &bech32Addr
-		return s.Bech32Addr()
+		return s.AccAddress()
 	}
 }
 
@@ -70,7 +70,7 @@ func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 	txConfig := s.appchainCtx.TxConfig
 	txBuilder := txConfig.NewTxBuilder()
 
-	acc, err := s.appchainCtx.AccountRetriever.GetAccount(*s.appchainCtx, s.Bech32Addr())
+	acc, err := s.appchainCtx.AccountRetriever.GetAccount(*s.appchainCtx, s.AccAddress())
 	if err != nil {
 		return fmt.Errorf("get account: %v", err)
 	}

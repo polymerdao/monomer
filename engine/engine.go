@@ -186,7 +186,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(
 		pa.Transactions,
 		e.signer.Sign,
-		e.signer.Bech32Addr().String(),
+		e.signer.AccAddress().String(),
 	)
 	if err != nil {
 		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
