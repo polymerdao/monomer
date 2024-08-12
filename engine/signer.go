@@ -16,17 +16,17 @@ import (
 )
 
 type signer struct {
-	appchainClient *appchainClient.Context
-	privKey        *ed25519.PrivKey
-	pubKey         *cryptotypes.PubKey
-	address        *cryptotypes.Address
-	bech32Address  *sdktypes.AccAddress
+	appchainCtx   *appchainClient.Context
+	privKey       *ed25519.PrivKey
+	pubKey        *cryptotypes.PubKey
+	address       *cryptotypes.Address
+	bech32Address *sdktypes.AccAddress
 }
 
 func NewSigner(appchainClient *appchainClient.Context, privKey *ed25519.PrivKey) *signer {
 	return &signer{
-		appchainClient: appchainClient,
-		privKey:        privKey,
+		appchainCtx: appchainClient,
+		privKey:     privKey,
 	}
 }
 
@@ -67,16 +67,16 @@ func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 		}
 	}()
 
-	txConfig := s.appchainClient.TxConfig
+	txConfig := s.appchainCtx.TxConfig
 	txBuilder := txConfig.NewTxBuilder()
 
-	acc, err := s.appchainClient.AccountRetriever.GetAccount(*s.appchainClient, s.Bech32Addr())
+	acc, err := s.appchainCtx.AccountRetriever.GetAccount(*s.appchainCtx, s.Bech32Addr())
 	if err != nil {
 		return fmt.Errorf("get account: %v", err)
 	}
 
 	signerData := authsigning.SignerData{
-		ChainID:       s.appchainClient.ChainID,
+		ChainID:       s.appchainCtx.ChainID,
 		AccountNumber: acc.GetAccountNumber(),
 		Sequence:      acc.GetSequence(),
 		PubKey:        *s.PubKey(),
