@@ -10,7 +10,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/app/peptide/store"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testutils"
@@ -24,12 +23,13 @@ const (
 func TestRollbackToHeight(t *testing.T) {
 	app := testapp.NewTest(t, chainID.String())
 
-	blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+	blockStore := testutils.NewLocalMemDB(t)
+	ethstatedb := testutils.NewEthStateDB(t)
 	g := &genesis.Genesis{
 		ChainID:  chainID,
 		AppState: testapp.MakeGenesisAppState(t, app),
 	}
-	require.NoError(t, g.Commit(context.Background(), app, blockStore))
+	require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
 
 	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
 		ChainId: chainID.String(),

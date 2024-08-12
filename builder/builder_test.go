@@ -86,15 +86,16 @@ func TestBuild(t *testing.T) {
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
 			app := testapp.NewTest(t, chainID.String())
-
-			blockStore := store.NewBlockStore(testutils.NewMemDB(t))
+			blockStore := testutils.NewLocalMemDB(t)
 			txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
+			ethstatedb := testutils.NewEthStateDB(t)
 
 			g := &genesis.Genesis{
 				ChainID:  chainID,
 				AppState: testapp.MakeGenesisAppState(t, app),
 			}
-			require.NoError(t, g.Commit(context.Background(), app, blockStore))
+
+			require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
 
 			eventBus := bfttypes.NewEventBus()
 			require.NoError(t, eventBus.Start())
@@ -128,26 +129,6 @@ func TestBuild(t *testing.T) {
 			for _, tx := range mempoolTxs {
 				require.NoError(t, pool.Enqueue(tx))
 			}
-			blockStore := testutils.NewLocalMemDB(t)
-			txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
-			ethstatedb := testutils.NewEthStateDB(t)
-
-			g := &genesis.Genesis{
-				ChainID:  chainID,
-				AppState: testapp.MakeGenesisAppState(t, app),
-			}
-
-			eventBus := bfttypes.NewEventBus()
-			require.NoError(t, eventBus.Start())
-			t.Cleanup(func() {
-				require.NoError(t, eventBus.Stop())
-			})
-			// +1 because we want it to be buffered even when mempool and inclusion list are empty.
-			subChannelLen := len(test.mempool) + len(test.inclusionList) + 1
-			subscription, err := eventBus.Subscribe(ctx, "test", &queryAll{}, subChannelLen)
-			require.NoError(t, err)
-
-			require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
 
 			b := builder.New(
 				pool,
