@@ -79,12 +79,12 @@ func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 		ChainID:       s.appchainCtx.ChainID,
 		AccountNumber: acc.GetAccountNumber(),
 		Sequence:      acc.GetSequence(),
-		PubKey:        *s.PubKey(),
+		PubKey:        s.PubKey(),
 		Address:       acc.GetAddress().String(),
 	}
 
 	blankSig := signing.SignatureV2{
-		PubKey:   *s.PubKey(),
+		PubKey:   s.PubKey(),
 		Sequence: acc.GetSequence(),
 		Data: &signing.SingleSignatureData{
 			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
@@ -118,7 +118,7 @@ func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 		return fmt.Errorf("set signatures: %v", err)
 	}
 
-	pubKeyAny, err := codectypes.NewAnyWithValue(*s.PubKey())
+	pubKeyAny, err := codectypes.NewAnyWithValue(s.PubKey())
 	if err != nil {
 		return fmt.Errorf("new any with value: %v", err)
 	}
