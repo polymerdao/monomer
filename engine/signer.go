@@ -95,6 +95,7 @@ func (e *EngineAPI) sign(tx *sdktx.Tx) (err error) {
 				Sequence: acc.GetSequence(),
 			},
 		},
+		Fee: &sdktx.Fee{},
 	}
 	tx.Signatures = [][]byte{sig.Data.(*signing.SingleSignatureData).Signature}
 
