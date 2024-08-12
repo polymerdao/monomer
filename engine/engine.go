@@ -201,6 +201,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 				PayloadStatus: eth.PayloadStatusV1{
 					Status:          eth.ExecutionInvalid,
 					LatestValidHash: &fcs.HeadBlockHash,
+					ValidationError: &checkTxResult.Log,
 				},
 			}, nil
 		}
