@@ -288,19 +288,19 @@ type mockAccountRetriever struct {
 	ReturnAccNum, ReturnAccSeq uint64
 }
 
-func (mar mockAccountRetriever) GetAccount(_ client.Context, _ sdktypes.AccAddress) (client.Account, error) {
+func (mar mockAccountRetriever) GetAccount(_ client.Context, _ sdktypes.AccAddress) (client.Account, error) { //nolint:gocritic // hugeParam
 	return mockAccount{}, nil
 }
 
-func (mar mockAccountRetriever) GetAccountWithHeight(_ client.Context, _ sdktypes.AccAddress) (client.Account, int64, error) {
+func (mar mockAccountRetriever) GetAccountWithHeight(_ client.Context, _ sdktypes.AccAddress) (client.Account, int64, error) { //nolint:gocritic // hugeParam
 	return mockAccount{}, 0, nil
 }
 
-func (mar mockAccountRetriever) EnsureExists(_ client.Context, _ sdktypes.AccAddress) error {
+func (mar mockAccountRetriever) EnsureExists(_ client.Context, _ sdktypes.AccAddress) error { //nolint:gocritic // hugeParam
 	return nil
 }
 
-func (mar mockAccountRetriever) GetAccountNumberSequence(_ client.Context, _ sdktypes.AccAddress) (uint64, uint64, error) {
+func (mar mockAccountRetriever) GetAccountNumberSequence(_ client.Context, _ sdktypes.AccAddress) (uint64, uint64, error) { //nolint:gocritic // hugeParam
 	return mar.ReturnAccNum, mar.ReturnAccSeq, nil
 }
 
