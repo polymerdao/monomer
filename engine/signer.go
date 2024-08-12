@@ -8,7 +8,6 @@ import (
 	cosmostx "github.com/cosmos/cosmos-sdk/client/tx"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
-	cosmoscrypto "github.com/cosmos/cosmos-sdk/crypto/types"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
@@ -20,7 +19,7 @@ type signer struct {
 	appchainClient *appchainClient.Context
 	privKey        *ed25519.PrivKey
 	pubKey         *cryptotypes.PubKey
-	address        *cosmoscrypto.Address
+	address        *cryptotypes.Address
 	bech32Address  *sdktypes.AccAddress
 }
 
@@ -41,7 +40,7 @@ func (s *signer) PubKey() *cryptotypes.PubKey {
 	}
 }
 
-func (s *signer) Address() cosmoscrypto.Address {
+func (s *signer) Address() cryptotypes.Address {
 	if s.address != nil {
 		return *s.address
 	} else {
