@@ -8,14 +8,31 @@
           "sig_verify_cost_ed25519": "590",
           "sig_verify_cost_secp256k1": "1000"
         },
-        "accounts": []
+        "accounts": [
+          {
+            "@type": "/cosmos.auth.v1beta1.BaseAccount",
+            "address": "cosmos1njy4en7rm7d8d23u3hut4cts4c89zft5dx0k8l",
+            "sequence": "0",
+            "account_number": "0"
+          }
+        ]
       },
       "bank": {
         "params": {
           "send_enabled": [],
           "default_send_enabled": true
         },
-        "balances": [],
+        "balances": [
+          {
+            "address": "cosmos1njy4en7rm7d8d23u3hut4cts4c89zft5dx0k8l",
+            "coins": [
+              {
+                "denom": "ustake",
+                "amount": "10000000000000000"
+              }
+            ]
+          }
+        ],
         "supply": [],
         "denom_metadata": [],
         "send_enabled": []
@@ -55,6 +72,6 @@
       },
       "testmodule": {}
     },
-    "chain_id": "1",
+    "chain_id": "901",
     "genesis_time": "2020-11-09T17:00:00Z"
 }
