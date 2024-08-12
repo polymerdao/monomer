@@ -244,11 +244,11 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	env.DeferErr("close tx db", txdb.Close)
 	mempooldb := dbm.NewMemDB()
 	env.DeferErr("close mempool db", mempooldb.Close)
-	rawDB := rawdb.NewMemoryDatabase()
-	env.DeferErr("close raw db", rawDB.Close)
-	trieDB := triedb.NewDatabase(rawDB, nil)
+	rawdb := rawdb.NewMemoryDatabase()
+	env.DeferErr("close raw db", rawdb.Close)
+	trieDB := triedb.NewDatabase(rawdb, nil)
 	env.DeferErr("close trieDB", trieDB.Close)
-	ethstatedb := state.NewDatabaseWithNodeDB(rawDB, trieDB)
+	ethstatedb := state.NewDatabaseWithNodeDB(rawdb, trieDB)
 	n := node.New(
 		app,
 		&genesis.Genesis{
