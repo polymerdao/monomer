@@ -23,9 +23,9 @@ type signer struct {
 	bech32Address *sdktypes.AccAddress
 }
 
-func NewSigner(appchainClient *appchainClient.Context, privKey *ed25519.PrivKey) *signer {
+func NewSigner(appchainCtx *appchainClient.Context, privKey *ed25519.PrivKey) *signer {
 	return &signer{
-		appchainCtx: appchainClient,
+		appchainCtx: appchainCtx,
 		privKey:     privKey,
 	}
 }
