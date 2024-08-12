@@ -4,44 +4,88 @@ import (
 	"context"
 	"fmt"
 
+	appchainClient "github.com/cosmos/cosmos-sdk/client"
 	cosmostx "github.com/cosmos/cosmos-sdk/client/tx"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	cosmoscrypto "github.com/cosmos/cosmos-sdk/crypto/types"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
-func (e *EngineAPI) sign(tx *sdktx.Tx) (err error) {
+type signer struct {
+	appchainClient *appchainClient.Context
+	privKey        *ed25519.PrivKey
+	pubKey         *cryptotypes.PubKey
+	address        *cosmoscrypto.Address
+	bech32Address  *sdktypes.AccAddress
+}
+
+func NewSigner(appchainClient *appchainClient.Context, privKey *ed25519.PrivKey) *signer {
+	return &signer{
+		appchainClient: appchainClient,
+		privKey:        privKey,
+	}
+}
+
+func (s *signer) PubKey() *cryptotypes.PubKey {
+	if s.pubKey != nil {
+		return s.pubKey
+	} else {
+		pubKey := s.privKey.PubKey()
+		s.pubKey = &pubKey
+		return s.PubKey()
+	}
+}
+
+func (s *signer) Address() cosmoscrypto.Address {
+	if s.address != nil {
+		return *s.address
+	} else {
+		address := s.privKey.PubKey().Address()
+		s.address = &address
+		return s.Address()
+	}
+}
+
+func (s *signer) Bech32Addr() sdktypes.AccAddress {
+	if s.bech32Address != nil {
+		return *s.bech32Address
+	} else {
+		bech32Addr := sdktypes.AccAddress(s.Address())
+		s.bech32Address = &bech32Addr
+		return s.Bech32Addr()
+	}
+}
+
+func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic during tx signing: %v", r)
 		}
 	}()
 
-	privKey := ed25519.GenPrivKeyFromSecret([]byte("monomer"))
-	pubKey := privKey.PubKey()
-	address := pubKey.Address()
-
-	txConfig := e.appChainClient.TxConfig
+	txConfig := s.appchainClient.TxConfig
 	txBuilder := txConfig.NewTxBuilder()
 
-	acc, err := e.appChainClient.AccountRetriever.GetAccount(*e.appChainClient, sdktypes.AccAddress(address.Bytes()))
+	acc, err := s.appchainClient.AccountRetriever.GetAccount(*s.appchainClient, s.Bech32Addr())
 	if err != nil {
 		return fmt.Errorf("get account: %v", err)
 	}
 
 	signerData := authsigning.SignerData{
-		ChainID:       e.appChainClient.ChainID,
+		ChainID:       s.appchainClient.ChainID,
 		AccountNumber: acc.GetAccountNumber(),
 		Sequence:      acc.GetSequence(),
-		PubKey:        pubKey,
+		PubKey:        *s.PubKey(),
 		Address:       acc.GetAddress().String(),
 	}
 
 	blankSig := signing.SignatureV2{
-		PubKey:   pubKey,
+		PubKey:   *s.PubKey(),
 		Sequence: acc.GetSequence(),
 		Data: &signing.SingleSignatureData{
 			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
@@ -63,7 +107,7 @@ func (e *EngineAPI) sign(tx *sdktx.Tx) (err error) {
 		signing.SignMode_SIGN_MODE_DIRECT,
 		signerData,
 		txBuilder,
-		privKey,
+		s.privKey,
 		txConfig,
 		acc.GetSequence(),
 	)
@@ -75,7 +119,7 @@ func (e *EngineAPI) sign(tx *sdktx.Tx) (err error) {
 		return fmt.Errorf("set signatures: %v", err)
 	}
 
-	pubKeyAny, err := codectypes.NewAnyWithValue(pubKey)
+	pubKeyAny, err := codectypes.NewAnyWithValue(*s.PubKey())
 	if err != nil {
 		return fmt.Errorf("new any with value: %v", err)
 	}
