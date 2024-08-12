@@ -23,6 +23,7 @@ import (
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
@@ -199,7 +200,7 @@ func startMonomerNode(
 	}
 	env.DeferErr("close mempool db", mempooldb.Close)
 
-	ethstatedb, err := rawdb.NewPebbleDBDatabase(
+	rawDB, err := rawdb.NewPebbleDBDatabase(
 		svrCtx.Config.RootDir+"/ethstate",
 		defaultCacheSize,
 		defaultHandlesSize,
@@ -208,9 +209,12 @@ func startMonomerNode(
 		false,
 	)
 	if err != nil {
-		return fmt.Errorf("create eth state db: %v", err)
+		return fmt.Errorf("create raw db: %v", err)
 	}
-	env.DeferErr("close eth state db", ethstatedb.Close)
+	env.DeferErr("close rawDB db", rawDB.Close)
+	trieDB := triedb.NewDatabase(rawDB, nil)
+	env.DeferErr("close trieDB", trieDB.Close)
+	ethstatedb := state.NewDatabaseWithNodeDB(rawDB, trieDB)
 
 	monomerGenesisPath := svrCtx.Config.GenesisFile()
 
@@ -240,7 +244,7 @@ func startMonomerNode(
 		localdb.New(blockPebbleDB),
 		mempooldb,
 		txdb,
-		state.NewDatabase(ethstatedb),
+		ethstatedb,
 		svrCtx.Config.Instrumentation,
 		&node.SelectiveListener{
 			OnEngineHTTPServeErrCb: func(err error) {
