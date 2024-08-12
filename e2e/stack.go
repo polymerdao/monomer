@@ -292,7 +292,10 @@ func (mar mockAccountRetriever) GetAccount(_ client.Context, _ sdktypes.AccAddre
 	return mockAccount{}, nil
 }
 
-func (mar mockAccountRetriever) GetAccountWithHeight(_ client.Context, _ sdktypes.AccAddress) (client.Account, int64, error) { //nolint:gocritic // hugeParam
+func (mar mockAccountRetriever) GetAccountWithHeight(
+	_ client.Context, //nolint:gocritic // hugeParam
+	_ sdktypes.AccAddress,
+) (client.Account, int64, error) {
 	return mockAccount{}, 0, nil
 }
 
@@ -300,7 +303,10 @@ func (mar mockAccountRetriever) EnsureExists(_ client.Context, _ sdktypes.AccAdd
 	return nil
 }
 
-func (mar mockAccountRetriever) GetAccountNumberSequence(_ client.Context, _ sdktypes.AccAddress) (uint64, uint64, error) { //nolint:gocritic // hugeParam
+func (mar mockAccountRetriever) GetAccountNumberSequence(
+	_ client.Context, //nolint:gocritic // hugeParam
+	_ sdktypes.AccAddress,
+) (uint64, uint64, error) {
 	return mar.ReturnAccNum, mar.ReturnAccSeq, nil
 }
 
