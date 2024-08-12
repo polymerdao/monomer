@@ -60,6 +60,7 @@ func (s *signer) AccAddress() sdktypes.AccAddress {
 	}
 }
 
+// Applies a signiture and related metadata to the provided transaction using the signer's private key.
 func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
