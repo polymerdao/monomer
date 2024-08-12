@@ -211,7 +211,7 @@ func startMonomerNode(
 	if err != nil {
 		return fmt.Errorf("create raw db: %v", err)
 	}
-	env.DeferErr("close rawDB db", rawDB.Close)
+	env.DeferErr("close raw db", rawDB.Close)
 	trieDB := triedb.NewDatabase(rawDB, nil)
 	env.DeferErr("close trieDB", trieDB.Close)
 	ethstatedb := state.NewDatabaseWithNodeDB(rawDB, trieDB)
