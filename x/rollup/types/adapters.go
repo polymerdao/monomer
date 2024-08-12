@@ -59,7 +59,6 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx txSigner, from st
 
 	if signTx != nil {
 		err := signTx(&depositTx)
-
 		if err != nil {
 			return nil, fmt.Errorf("sign tx: %v", err)
 		}
