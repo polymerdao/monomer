@@ -43,11 +43,9 @@ func NewMemDB(t *testing.T) dbm.DB {
 
 func NewEthStateDB(t *testing.T) state.Database {
 	rawstatedb := rawdb.NewMemoryDatabase()
-	t.Cleanup(func() {
-		require.NoError(t, rawstatedb.Close())
-	})
 	ethstatedb := state.NewDatabase(rawstatedb)
 	t.Cleanup(func() {
+		require.NoError(t, rawstatedb.Close())
 		require.NoError(t, ethstatedb.TrieDB().Close())
 	})
 	return ethstatedb
