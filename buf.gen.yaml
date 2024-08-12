@@ -1,15 +1,20 @@
-version: v1
+version: v2
 managed:
   enabled: true
-  go_package_prefix:
-    default: github.com/polymerdao/monomer/gen
-    except:
-      - buf.build/googleapis/googleapis
-      - buf.build/cosmos/gogo-proto
-      - buf.build/cosmos/cosmos-proto
-    override:
-      buf.build/cosmos/cosmos-sdk: cosmossdk.io/api
+  disable:
+    - file_option: go_package
+      module: buf.build/googleapis/googleapis
+    - file_option: go_package
+      module: buf.build/cosmos/gogo-proto
+    - file_option: go_package
+      module: buf.build/cosmos/cosmos-proto
+  override:
+    - file_option: go_package_prefix
+      value: github.com/polymerdao/monomer/gen
+    - file_option: go_package_prefix
+      module: buf.build/cosmos/cosmos-sdk
+      value: cosmossdk.io/api
 plugins:
-  - name: gocosmos
+  - local: protoc-gen-gocosmos
     out: gen
     opt: plugins=grpc,Mgoogle/protobuf/any.proto=github.com/cosmos/cosmos-sdk/codec/types,paths=source_relative
