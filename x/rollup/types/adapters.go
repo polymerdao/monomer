@@ -17,7 +17,7 @@ var errL1AttributesNotFound = errors.New("L1 attributes tx not found")
 type txSigner func(tx *sdktx.Tx) error
 
 // AdaptPayloadTxsToCosmosTxs assumes the deposit transactions come first.
-func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx txSigner) (bfttypes.Txs, error) {
+func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx txSigner, from string) (bfttypes.Txs, error) {
 	if len(ethTxs) == 0 {
 		return bfttypes.Txs{}, nil
 	}
@@ -45,7 +45,8 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx txSigner) (bfttyp
 		depositTxsBytes = append(depositTxsBytes, depositTx)
 	}
 	msgAny, err := codectypes.NewAnyWithValue(&rollupv1.ApplyL1TxsRequest{
-		TxBytes: depositTxsBytes,
+		TxBytes:     depositTxsBytes,
+		FromAddress: from,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("new any with value: %v", err)

@@ -15,9 +15,13 @@ service MsgService {
 
 // ApplyL1TxsRequest defines a message for all L1 system and user deposit txs
 message ApplyL1TxsRequest {
+  option (cosmos.msg.v1.signer) = "from_address";
+
   // Array of bytes where each bytes is a eth.Transaction.MarshalBinary tx.
   // The first tx must be the L1 system deposit tx, and the rest are user txs if present.
   repeated bytes tx_bytes = 1;
+
+  string from_address = 2;
 }
 
 message ApplyL1TxsResponse {}
