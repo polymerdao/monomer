@@ -75,10 +75,12 @@ func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 		return fmt.Errorf("get account: %v", err)
 	}
 
+	seq := acc.GetSequence()
+
 	signerData := authsigning.SignerData{
 		ChainID:       s.appchainCtx.ChainID,
 		AccountNumber: acc.GetAccountNumber(),
-		Sequence:      acc.GetSequence(),
+		Sequence:      seq,
 		PubKey:        s.PubKey(),
 		Address:       acc.GetAddress().String(),
 	}
@@ -108,7 +110,7 @@ func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 		txBuilder,
 		s.privKey,
 		txConfig,
-		acc.GetSequence(),
+		seq,
 	)
 	if err != nil {
 		return fmt.Errorf("sign with priv key: %v", err)
@@ -128,14 +130,13 @@ func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 			{
 				PublicKey: pubKeyAny,
 				ModeInfo: &sdktx.ModeInfo{
-					// Assuming you want single signer mode
 					Sum: &sdktx.ModeInfo_Single_{
 						Single: &sdktx.ModeInfo_Single{
 							Mode: signing.SignMode_SIGN_MODE_DIRECT,
 						},
 					},
 				},
-				Sequence: acc.GetSequence(),
+				Sequence: seq,
 			},
 		},
 		Fee: &sdktx.Fee{},
