@@ -200,7 +200,7 @@ func startMonomerNode(
 	}
 	env.DeferErr("close mempool db", mempooldb.Close)
 
-	rawdb, err := rawdb.NewPebbleDBDatabase(
+	rawDB, err := rawdb.NewPebbleDBDatabase(
 		svrCtx.Config.RootDir+"/ethstate",
 		defaultCacheSize,
 		defaultHandlesSize,
@@ -211,10 +211,10 @@ func startMonomerNode(
 	if err != nil {
 		return fmt.Errorf("create raw db: %v", err)
 	}
-	env.DeferErr("close raw db", rawdb.Close)
-	trieDB := triedb.NewDatabase(rawdb, nil)
+	env.DeferErr("close raw db", rawDB.Close)
+	trieDB := triedb.NewDatabase(rawDB, nil)
 	env.DeferErr("close trieDB", trieDB.Close)
-	ethstatedb := state.NewDatabaseWithNodeDB(rawdb, trieDB)
+	ethstatedb := state.NewDatabaseWithNodeDB(rawDB, trieDB)
 
 	monomerGenesisPath := svrCtx.Config.GenesisFile()
 
