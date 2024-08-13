@@ -95,7 +95,12 @@ func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 		},
 	}
 
-	err = txBuilder.SetMsgs(tx.Body.Messages[0])
+	messages := make([]sdktypes.Msg, 0)
+	for _, m := range tx.Body.Messages {
+		messages = append(messages, m)
+	}
+
+	err = txBuilder.SetMsgs(messages...)
 	if err != nil {
 		return fmt.Errorf("set msgs: %v", err)
 	}
