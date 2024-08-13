@@ -1,4 +1,4 @@
-package engine
+package signer
 
 import (
 	"context"
@@ -15,18 +15,18 @@ import (
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
 )
 
-type signer struct {
+type Signer struct {
 	appchainCtx    *appchainClient.Context
 	privKey        *ed25519.PrivKey
 	pubKey         *cryptotypes.PubKey
 	accountAddress *sdktypes.AccAddress
 }
 
-func NewSigner(appchainCtx *appchainClient.Context, privKey *ed25519.PrivKey) *signer {
+func New(appchainCtx *appchainClient.Context, privKey *ed25519.PrivKey) *Signer {
 	pubKey := privKey.PubKey()
 	accAddress := sdktypes.AccAddress(pubKey.Address())
 
-	return &signer{
+	return &Signer{
 		appchainCtx:    appchainCtx,
 		privKey:        privKey,
 		pubKey:         &pubKey,
@@ -34,7 +34,7 @@ func NewSigner(appchainCtx *appchainClient.Context, privKey *ed25519.PrivKey) *s
 	}
 }
 
-func (s *signer) PubKey() cryptotypes.PubKey {
+func (s *Signer) PubKey() cryptotypes.PubKey {
 	if s.pubKey == nil {
 		pubKey := s.privKey.PubKey()
 		s.pubKey = &pubKey
@@ -42,7 +42,7 @@ func (s *signer) PubKey() cryptotypes.PubKey {
 	return *s.pubKey
 }
 
-func (s *signer) AccountAddress() sdktypes.AccAddress {
+func (s *Signer) AccountAddress() sdktypes.AccAddress {
 	if s.accountAddress == nil {
 		accAddress := sdktypes.AccAddress(s.PubKey().Address())
 		s.accountAddress = &accAddress
@@ -51,7 +51,7 @@ func (s *signer) AccountAddress() sdktypes.AccAddress {
 }
 
 // Applies a signiture and related metadata to the provided transaction using the signer's private key.
-func (s *signer) Sign(tx *sdktx.Tx) (err error) {
+func (s *Signer) Sign(tx *sdktx.Tx) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("panic during tx signing: %v", r)

@@ -16,6 +16,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/builder"
+	"github.com/polymerdao/monomer/engine/signer"
 	"github.com/polymerdao/monomer/monomerdb"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
@@ -33,7 +34,7 @@ type EngineAPI struct {
 	builder                  *builder.Builder
 	txValidator              TxValidator
 	blockStore               DB
-	signer                   *signer
+	signer                   *signer.Signer
 	currentPayloadAttributes *monomer.PayloadAttributes
 	metrics                  Metrics
 	lock                     sync.RWMutex
@@ -54,7 +55,7 @@ func NewEngineAPI(
 
 	return &EngineAPI{
 		txValidator: txValidator,
-		signer:      NewSigner(appchainCtx, privKey),
+		signer:      signer.New(appchainCtx, privKey),
 		blockStore:  blockStore,
 		builder:     b,
 		metrics:     metrics,
