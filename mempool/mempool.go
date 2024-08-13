@@ -39,7 +39,7 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) error {
 	// Moving to a different DB interface is left for future work.
 
 	// Attempt to adapt the Cosmos transaction to an Ethereum deposit transaction.
-	// If the adaptation results in one or more transactions, it indicates that the
+	// If the adaptation succeeds, it indicates that the
 	// user transaction is a deposit transaction, which is not allowed in the pool.
 	if _, err := rolluptypes.AdaptCosmosDepositTxToEthTxs(userTxn); err == nil {
 		return errors.New("deposit txs are not allowed in the pool")
