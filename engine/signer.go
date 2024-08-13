@@ -16,17 +16,21 @@ import (
 )
 
 type signer struct {
-	appchainCtx   *appchainClient.Context
-	privKey       *ed25519.PrivKey
-	pubKey        *cryptotypes.PubKey
-	address       *cryptotypes.Address
-	bech32Address *sdktypes.AccAddress
+	appchainCtx    *appchainClient.Context
+	privKey        *ed25519.PrivKey
+	pubKey         *cryptotypes.PubKey
+	accountAddress *sdktypes.AccAddress
 }
 
 func NewSigner(appchainCtx *appchainClient.Context, privKey *ed25519.PrivKey) *signer {
+	pubKey := privKey.PubKey()
+	accAddress := sdktypes.AccAddress(pubKey.Address())
+
 	return &signer{
-		appchainCtx: appchainCtx,
-		privKey:     privKey,
+		appchainCtx:    appchainCtx,
+		privKey:        privKey,
+		pubKey:         &pubKey,
+		accountAddress: &accAddress,
 	}
 }
 
@@ -38,20 +42,12 @@ func (s *signer) PubKey() cryptotypes.PubKey {
 	return *s.pubKey
 }
 
-func (s *signer) Address() cryptotypes.Address {
-	if s.address == nil {
-		address := s.privKey.PubKey().Address()
-		s.address = &address
+func (s *signer) AccountAddress() sdktypes.AccAddress {
+	if s.accountAddress == nil {
+		accAddress := sdktypes.AccAddress(s.PubKey().Address())
+		s.accountAddress = &accAddress
 	}
-	return *s.address
-}
-
-func (s *signer) AccAddress() sdktypes.AccAddress {
-	if s.bech32Address == nil {
-		bech32Addr := sdktypes.AccAddress(s.Address())
-		s.bech32Address = &bech32Addr
-	}
-	return *s.bech32Address
+	return *s.accountAddress
 }
 
 // Applies a signiture and related metadata to the provided transaction using the signer's private key.
@@ -65,7 +61,7 @@ func (s *signer) Sign(tx *sdktx.Tx) (err error) {
 	txConfig := s.appchainCtx.TxConfig
 	txBuilder := txConfig.NewTxBuilder()
 
-	acc, err := s.appchainCtx.AccountRetriever.GetAccount(*s.appchainCtx, s.AccAddress())
+	acc, err := s.appchainCtx.AccountRetriever.GetAccount(*s.appchainCtx, s.AccountAddress())
 	if err != nil {
 		return fmt.Errorf("get account: %v", err)
 	}
