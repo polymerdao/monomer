@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
@@ -243,8 +244,11 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	env.DeferErr("close tx db", txdb.Close)
 	mempooldb := dbm.NewMemDB()
 	env.DeferErr("close mempool db", mempooldb.Close)
-	ethstatedb := rawdb.NewMemoryDatabase()
-	env.DeferErr("close eth state db", ethstatedb.Close)
+	rawDB := rawdb.NewMemoryDatabase()
+	env.DeferErr("close raw db", rawDB.Close)
+	trieDB := triedb.NewDatabase(rawDB, nil)
+	env.DeferErr("close trieDB", trieDB.Close)
+	ethstatedb := state.NewDatabaseWithNodeDB(rawDB, trieDB)
 	n := node.New(
 		app,
 		&genesis.Genesis{
