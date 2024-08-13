@@ -33,7 +33,6 @@ type EngineAPI struct {
 	builder                  *builder.Builder
 	txValidator              TxValidator
 	blockStore               DB
-	appchainClient           *appchainClient.Context
 	signer                   *signer
 	currentPayloadAttributes *monomer.PayloadAttributes
 	metrics                  Metrics
@@ -48,18 +47,17 @@ func NewEngineAPI(
 	b *builder.Builder,
 	txValidator TxValidator,
 	blockStore DB,
-	appChainClient *appchainClient.Context,
+	appchainCtx *appchainClient.Context,
 	metrics Metrics,
 ) *EngineAPI {
 	privKey := ed25519.GenPrivKeyFromSecret([]byte("monomer")) // TODO: configurable
 
 	return &EngineAPI{
-		txValidator:    txValidator,
-		appchainClient: appChainClient,
-		signer:         NewSigner(appChainClient, privKey),
-		blockStore:     blockStore,
-		builder:        b,
-		metrics:        metrics,
+		txValidator: txValidator,
+		signer:      NewSigner(appchainCtx, privKey),
+		blockStore:  blockStore,
+		builder:     b,
+		metrics:     metrics,
 	}
 }
 
