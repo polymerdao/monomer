@@ -31,33 +31,27 @@ func NewSigner(appchainCtx *appchainClient.Context, privKey *ed25519.PrivKey) *s
 }
 
 func (s *signer) PubKey() cryptotypes.PubKey {
-	if s.pubKey != nil {
-		return *s.pubKey
-	} else {
+	if s.pubKey == nil {
 		pubKey := s.privKey.PubKey()
 		s.pubKey = &pubKey
-		return s.PubKey()
 	}
+	return *s.pubKey
 }
 
 func (s *signer) Address() cryptotypes.Address {
-	if s.address != nil {
-		return *s.address
-	} else {
+	if s.address == nil {
 		address := s.privKey.PubKey().Address()
 		s.address = &address
-		return s.Address()
 	}
+	return *s.address
 }
 
 func (s *signer) AccAddress() sdktypes.AccAddress {
-	if s.bech32Address != nil {
-		return *s.bech32Address
-	} else {
+	if s.bech32Address == nil {
 		bech32Addr := sdktypes.AccAddress(s.Address())
 		s.bech32Address = &bech32Addr
-		return s.AccAddress()
 	}
+	return *s.bech32Address
 }
 
 // Applies a signiture and related metadata to the provided transaction using the signer's private key.
