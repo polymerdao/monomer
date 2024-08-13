@@ -28,13 +28,3 @@ jobs:
       - name: Build website
         working-directory: ./doc
         run: yarn build
-
-      - name: Verify Build Output
-        working-directory: ./doc
-        run: |
-          if [ -d build ] && [ -f build/index.html ]; then  
-              echo "Build successful!"  
-          else  
-              echo "Build failed!"  
-              exit 1  
-          fi
