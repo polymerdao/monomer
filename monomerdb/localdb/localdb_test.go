@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -122,29 +123,36 @@ func TestRollback(t *testing.T) {
 	cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
 	require.NoError(t, err)
 
-	adaptedTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes, cosmosEthTxBytes})
-	require.NoError(t, err)
+	adoptedTxsCases := make([]types.Txs, 3)
 
-	block, err := monomer.MakeBlock(&monomer.Header{Height: 1}, adaptedTxs)
-	require.NoError(t, err)
-	require.NoError(t, db.AppendBlock(block))
-	require.NoError(t, db.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
+	for i := range adoptedTxsCases {
+		hexTxs := make([]hexutil.Bytes, 0, 2*(i+1))
+		for range i + 1 {
+			hexTxs = append(hexTxs, depositTxBytes)
+		}
+		for range i + 1 {
+			hexTxs = append(hexTxs, cosmosEthTxBytes)
+		}
+		adoptedTxsCases[i], err = rolluptypes.AdaptPayloadTxsToCosmosTxs(hexTxs)
+		require.NoError(t, err)
+	}
 
-	block2, err := monomer.MakeBlock(&monomer.Header{
-		Height: 2,
-	}, adaptedTxs)
+	block1, err := monomer.MakeBlock(&monomer.Header{Height: 1}, adoptedTxsCases[0])
+	require.NoError(t, err)
+	require.NoError(t, db.AppendBlock(block1))
+	require.NoError(t, db.UpdateLabels(block1.Header.Hash, block1.Header.Hash, block1.Header.Hash))
+
+	block2, err := monomer.MakeBlock(&monomer.Header{Height: 2}, adoptedTxsCases[1])
 	require.NoError(t, err)
 	require.NoError(t, db.AppendBlock(block2))
 
-	block3, err := monomer.MakeBlock(&monomer.Header{
-		Height: 3,
-	}, adaptedTxs)
+	block3, err := monomer.MakeBlock(&monomer.Header{Height: 3}, adoptedTxsCases[2])
 	require.NoError(t, err)
 	require.NoError(t, db.AppendBlock(block3))
 
-	require.NoError(t, db.UpdateLabels(block3.Header.Hash, block2.Header.Hash, block.Header.Hash))
-	require.NoError(t, db.Rollback(block.Header.Hash, block.Header.Hash, block.Header.Hash))
-	testHeadBlock(t, db, block)
+	require.NoError(t, db.UpdateLabels(block3.Header.Hash, block2.Header.Hash, block1.Header.Hash))
+	require.NoError(t, db.Rollback(block1.Header.Hash, block1.Header.Hash, block1.Header.Hash))
+	testHeadBlock(t, db, block1)
 
 	for _, removedBlock := range []*monomer.Block{block2, block3} {
 		t.Run(fmt.Sprintf("block %d rolled back", removedBlock.Header.Height), func(t *testing.T) {
