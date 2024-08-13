@@ -315,19 +315,19 @@ type mockAccount struct {
 	seqNumber uint64
 }
 
-func (mar mockAccount) GetAddress() sdktypes.AccAddress {
-	return mar.address
+func (ma mockAccount) GetAddress() sdktypes.AccAddress {
+	return ma.address
 }
 
-func (mar mockAccount) GetPubKey() cryptotypes.PubKey {
+func (ma mockAccount) GetPubKey() cryptotypes.PubKey {
 	return nil
 }
 
-func (mar mockAccount) GetAccountNumber() uint64 {
+func (ma mockAccount) GetAccountNumber() uint64 {
 	return 1
 }
 
-func (mar mockAccount) GetSequence() uint64 {
-	mar.seqNumber++
-	return mar.seqNumber
+func (ma mockAccount) GetSequence() uint64 {
+	ma.seqNumber++
+	return ma.seqNumber
 }
