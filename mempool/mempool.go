@@ -90,7 +90,7 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) (err error) {
 }
 
 // Dequeue returns the transaction with the highest priority from the pool
-func (p *Pool) Dequeue() (txn comettypes.Tx, err error) {
+func (p *Pool) Dequeue() (_ comettypes.Tx, err error) {
 	pLen, err := p.Len()
 	if err != nil {
 		return nil, err
