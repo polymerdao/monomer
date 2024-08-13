@@ -19,9 +19,7 @@ jobs:
 
       - name: Set up Yarn
         working-directory: ./doc
-        run: |
-          corepack enable
-          corepack prepare yarn@4.3.1 --activate
+        run: corepack enable && corepack prepare yarn@4.3.1 --activate
 
       - name: Install dependencies
         working-directory: ./doc
