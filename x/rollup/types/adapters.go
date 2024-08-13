@@ -9,13 +9,15 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/polymerdao/monomer/gen/rollup/v1"
+	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
 )
 
 var errL1AttributesNotFound = errors.New("L1 attributes tx not found")
 
+type txSigner func(tx *sdktx.Tx) error
+
 // AdaptPayloadTxsToCosmosTxs assumes the deposit transactions come first.
-func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
+func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx txSigner, from string) (bfttypes.Txs, error) {
 	if len(ethTxs) == 0 {
 		return bfttypes.Txs{}, nil
 	}
@@ -43,16 +45,25 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 		depositTxsBytes = append(depositTxsBytes, depositTx)
 	}
 	msgAny, err := codectypes.NewAnyWithValue(&rollupv1.ApplyL1TxsRequest{
-		TxBytes: depositTxsBytes,
+		TxBytes:     depositTxsBytes,
+		FromAddress: from,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("new any with value: %v", err)
 	}
-	depositSDKMsgBytes, err := (&sdktx.Tx{
+	depositTx := sdktx.Tx{
 		Body: &sdktx.TxBody{
 			Messages: []*codectypes.Any{msgAny},
 		},
-	}).Marshal()
+	}
+
+	if signTx != nil {
+		if err := signTx(&depositTx); err != nil {
+			return nil, fmt.Errorf("sign tx: %v", err)
+		}
+	}
+
+	depositSDKMsgBytes, err := depositTx.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("marshal tx: %v", err)
 	}

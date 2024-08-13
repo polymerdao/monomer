@@ -134,7 +134,7 @@ func startInProcess(
 	svrCtx.Logger.Info("Starting Monomer node in-process")
 	err := startMonomerNode(&WrappedApplication{
 		app: app,
-	}, env, monomerCtx, svrCtx)
+	}, env, monomerCtx, svrCtx, clientCtx)
 	if err != nil {
 		return fmt.Errorf("start Monomer node: %v", err)
 	}
@@ -159,6 +159,7 @@ func startMonomerNode(
 	env *environment.Env,
 	monomerCtx context.Context,
 	svrCtx *server.Context,
+	clientCtx *client.Context,
 ) error {
 	engineWS, err := net.Listen("tcp", viper.GetString(monomerEngineWSFlag))
 	if err != nil {
@@ -235,6 +236,7 @@ func startMonomerNode(
 
 	n := node.New(
 		wrappedApp,
+		clientCtx,
 		&genesis.Genesis{
 			ChainID:  monomer.ChainID(genChainID),
 			AppState: appState,

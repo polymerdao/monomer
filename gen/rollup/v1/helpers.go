@@ -10,10 +10,6 @@ import (
 
 var _ sdktypes.Msg = (*ApplyL1TxsRequest)(nil)
 
-func (*ApplyL1TxsRequest) GetSigners() []sdktypes.AccAddress {
-	return nil
-}
-
 func (m *ApplyL1TxsRequest) ValidateBasic() error {
 	if len(m.TxBytes) < 1 {
 		return errors.New("expected TxBytes to contain at least one deposit transaction")

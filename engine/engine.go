@@ -8,12 +8,15 @@ import (
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
+	appchainClient "github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/builder"
+	"github.com/polymerdao/monomer/engine/signer"
 	"github.com/polymerdao/monomer/monomerdb"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
@@ -31,6 +34,7 @@ type EngineAPI struct {
 	builder                  *builder.Builder
 	txValidator              TxValidator
 	blockStore               DB
+	signer                   *signer.Signer
 	currentPayloadAttributes *monomer.PayloadAttributes
 	metrics                  Metrics
 	lock                     sync.RWMutex
@@ -44,10 +48,14 @@ func NewEngineAPI(
 	b *builder.Builder,
 	txValidator TxValidator,
 	blockStore DB,
+	appchainCtx *appchainClient.Context,
 	metrics Metrics,
 ) *EngineAPI {
+	privKey := ed25519.GenPrivKeyFromSecret([]byte("monomer")) // TODO: configurable
+
 	return &EngineAPI{
 		txValidator: txValidator,
+		signer:      signer.New(appchainCtx, privKey),
 		blockStore:  blockStore,
 		builder:     b,
 		metrics:     metrics,
@@ -174,7 +182,11 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("gas limit not provided"))
 	}
 
-	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(pa.Transactions)
+	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(
+		pa.Transactions,
+		e.signer.Sign,
+		e.signer.AccountAddress().String(),
+	)
 	if err != nil {
 		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
 	}
@@ -188,13 +200,16 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	//   It must return STATUS_VALID if all of the transactions could be executed without error.
 	// TODO checktx doesn't actually run the tx, it only does basic validation.
 	for _, txBytes := range cosmosTxs {
-		if _, err := e.txValidator.CheckTx(context.Background(), &abci.RequestCheckTx{
+		if checkTxResult, err := e.txValidator.CheckTx(context.Background(), &abci.RequestCheckTx{
 			Tx: txBytes,
-		}); err != nil {
+		}); err != nil { // a catch-all for errors unrelated to the actual validation.
+			return nil, engine.GenericServerError.With(fmt.Errorf("CheckTx: %v", err))
+		} else if checkTxResult.IsErr() { // validation error.
 			return &eth.ForkchoiceUpdatedResult{
 				PayloadStatus: eth.PayloadStatusV1{
 					Status:          eth.ExecutionInvalid,
 					LatestValidHash: &fcs.HeadBlockHash,
+					ValidationError: &checkTxResult.Log,
 				},
 			}, nil
 		}
