@@ -203,7 +203,7 @@ func (s *SubscriberAPI) Subscribe(ctx *jsonrpctypes.Context, query string) (*rpc
 	// From CometBFT:
 	//   The timeout is the maximum time we wait to subscribe for an event.
 	//   Must be less than the http server's write timeout.
-	subCtx, cancel := context.WithTimeout(ctx.Context(), 5*time.Second) //nolint:gomnd
+	subCtx, cancel := context.WithTimeout(ctx.Context(), 5*time.Second) //nolint:mnd
 	defer cancel()
 
 	sub, err := s.eventBus.Subscribe(subCtx, ctx.RemoteAddr(), parsedQuery)
@@ -224,7 +224,7 @@ func (s *SubscriberAPI) Subscribe(ctx *jsonrpctypes.Context, query string) (*rpc
 					Events: msg.Events(),
 				}
 				resp := jsonrpctypes.NewRPCSuccessResponse(subscriptionID, resultEvent)
-				writeCtx, cancel := context.WithTimeout(ctx.Context(), 10*time.Second) //nolint:gomnd
+				writeCtx, cancel := context.WithTimeout(ctx.Context(), 10*time.Second) //nolint:mnd
 				if writeErr := ctx.WSConn.WriteRPCResponse(writeCtx, resp); writeErr != nil {
 					cancel()
 					err := fmt.Errorf("subscription was canceled (reason: %v)", writeErr)
