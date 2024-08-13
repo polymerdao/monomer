@@ -31,12 +31,9 @@ func NewEVM(ethState vm.StateDB, header *monomer.Header) (*vm.EVM, error) {
 		PetersburgBlock:     new(big.Int),
 		IstanbulBlock:       new(big.Int),
 		MuirGlacierBlock:    new(big.Int),
-		// TODO: investigate SSTORE access list EVM execution bug with BerlinBlock/LondonBlock
-		// BerlinBlock:        new(big.Int),
-		// LondonBlock:        new(big.Int),
-		ArrowGlacierBlock:  new(big.Int),
-		GrayGlacierBlock:   new(big.Int),
-		MergeNetsplitBlock: new(big.Int),
+		ArrowGlacierBlock:   new(big.Int),
+		GrayGlacierBlock:    new(big.Int),
+		MergeNetsplitBlock:  new(big.Int),
 
 		BedrockBlock: new(big.Int),
 		RegolithTime: utils.Ptr(uint64(0)),
