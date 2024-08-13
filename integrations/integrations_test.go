@@ -2,7 +2,6 @@ package integrations
 
 import (
 	"context"
-	"encoding/json"
 	"io"
 	stdURL "net/url"
 	"path/filepath"
@@ -23,16 +22,11 @@ import (
 	serverconfig "github.com/cosmos/cosmos-sdk/server/config"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/gogoproto/grpc"
-	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e/url"
 	testapp "github.com/polymerdao/monomer/testapp"
 	"github.com/sourcegraph/conc"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
-)
-
-const (
-	chainID = monomer.ChainID(901)
 )
 
 // Application Constructor `appCreator` for testing
@@ -42,7 +36,7 @@ func mockAppCreator(
 	_ io.Writer,
 	_ servertypes.AppOptions,
 ) servertypes.Application {
-	app, err := testapp.New(db, chainID.String())
+	app, err := testapp.New(db, testapp.ChainID.String())
 	if err != nil {
 		panic(err)
 	}
@@ -86,26 +80,16 @@ func TestStartCommandHandler(t *testing.T) {
 
 	require.True(t, cmtListenURL.IsReachable(context.Background()))
 
-	app := testapp.NewTest(t, chainID.String())
-	_, err = app.InitChain(context.Background(), &abcitypes.RequestInitChain{
-		ChainId: chainID.String(),
-		AppStateBytes: func() []byte {
-			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
-			require.NoError(t, err)
-			return appStateBytes
-		}(),
-	})
-	require.NoError(t, err)
-
+	app := testapp.NewTest(t, testapp.ChainID, false)
 	appCtx := app.GetContext(true)
-	sk, _, acc := app.TestAccount(appCtx)
+	require.NoError(t, app.LoadTestAccount(appCtx))
 
 	// --- Submit a Monomer Tx ---
 	bftClient, err := bftclient.New("http://"+cmtListenAddr, "http://"+cmtListenAddr)
 	require.NoError(t, err, "could not create CometBFT client")
 	t.Log("CometBFT client created", "bftClient", bftClient)
 
-	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue", chainID.String(), sk, acc, acc.GetSequence(), appCtx)
+	txBytes := app.ToTx(t, "userTxKey", "userTxValue", app.Account.GetSequence())
 	bftTx := bfttypes.Tx(txBytes)
 
 	putTx, err := bftClient.BroadcastTxAsync(appCtx, txBytes)

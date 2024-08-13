@@ -7,10 +7,7 @@ import (
 	"fmt"
 	"net"
 	"os"
-	"path"
 	"path/filepath"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/cockroachdb/pebble"
@@ -249,29 +246,16 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	ethstatedb := rawdb.NewMemoryDatabase()
 	env.DeferErr("close eth state db", ethstatedb.Close)
 
-	genesisPath := path.Join("..", "integrations", "testdata", "genesis.json")
-	genesisBytes, err := os.ReadFile(genesisPath)
+	genesisAppState, genesisChainID, err := testapp.LoadGenesisFile()
 	if err != nil {
-		return fmt.Errorf("read genesis file: %v", err)
-	}
-	var genesisData map[string]json.RawMessage
-	if err := json.Unmarshal(genesisBytes, &genesisData); err != nil {
-		return fmt.Errorf("unmarshal genesis file: %v", err)
-	}
-	genesisChainID, err := strconv.ParseUint(strings.Trim(string(genesisData["chain_id"]), "\""), 10, 64)
-	if err != nil {
-		return fmt.Errorf("parse chain id: %v", err)
-	}
-	var appState map[string]json.RawMessage
-	if err := json.Unmarshal(genesisData["app_state"], &appState); err != nil {
-		return fmt.Errorf("unmarshal app state: %v", err)
+		return fmt.Errorf("load genesis app state: %v", err)
 	}
 
 	n := node.New(
 		app,
 		&genesis.Genesis{
-			AppState: appState,
-			ChainID:  monomer.ChainID(genesisChainID),
+			AppState: genesisAppState,
+			ChainID:  genesisChainID,
 			Time:     genesisTime,
 		},
 		engineWS,

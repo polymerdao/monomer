@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/rpc"
-	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/node"
@@ -28,12 +27,12 @@ const (
 )
 
 func TestRun(t *testing.T) {
-	chainID := monomer.ChainID(0)
+	app := testapp.NewTest(t, testapp.ChainID, false)
+
 	engineWS, err := net.Listen("tcp", engineWSAddress)
 	require.NoError(t, err)
 	cometListener, err := net.Listen("tcp", cometHTTPAddress)
 	require.NoError(t, err)
-	app := testapp.NewTest(t, chainID.String())
 	ethstatedb := rawdb.NewMemoryDatabase()
 	defer func() {
 		require.NoError(t, ethstatedb.Close())
@@ -41,8 +40,8 @@ func TestRun(t *testing.T) {
 	n := node.New(
 		app,
 		&genesis.Genesis{
-			ChainID:  chainID,
-			AppState: testapp.MakeGenesisAppState(t, app),
+			ChainID:  app.ChainID,
+			AppState: testapp.MakeGenesisAppState(t, app.App),
 		},
 		engineWS,
 		cometListener,
@@ -79,7 +78,7 @@ func TestRun(t *testing.T) {
 	ethClient := ethclient.NewClient(client)
 	chainIDBig, err := ethClient.ChainID(ctx)
 	require.NoError(t, err)
-	require.Equal(t, uint64(chainID), chainIDBig.Uint64())
+	require.Equal(t, uint64(app.ChainID), chainIDBig.Uint64())
 
 	cometClient, err := rpc.DialContext(ctx, "http://"+cometListener.Addr().String())
 	require.NoError(t, err)

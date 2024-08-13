@@ -3,7 +3,17 @@ package testapp
 import (
 	"context"
 	"encoding/json"
+	"fmt"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/polymerdao/monomer"
+	"github.com/polymerdao/monomer/genesis"
+	"github.com/polymerdao/monomer/monomerdb/localdb"
+	"github.com/polymerdao/monomer/testutils"
+	"os"
+	"path"
 	"sort"
+	"strconv"
+	"strings"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -20,16 +30,61 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const QueryPath = "/testapp.v1.GetService/Get"
+const (
+	// ChainID for the test application. See /e2e/optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
+	ChainID   = monomer.ChainID(901)
+	QueryPath = "/testapp.v1.GetService/Get"
+)
 
-func NewTest(t *testing.T, chainID string) *App {
+// TestApp wraps a boilerplate Cosmos SDK application with auxiliary data structures for testing.
+type TestApp struct {
+	*App
+	Ctx        sdk.Context
+	ChainID    monomer.ChainID
+	Genesis    *genesis.Genesis
+	BlockStore *localdb.DB
+	EthStateDB state.Database
+	PrivKey    *secp256k1.PrivKey
+	Account    sdk.AccountI
+}
+
+// NewTest creates and initializes a new TestApp
+func NewTest(t *testing.T, chainID monomer.ChainID, commitGenesis bool) TestApp {
 	appdb := dbm.NewMemDB()
 	t.Cleanup(func() {
 		require.NoError(t, appdb.Close())
 	})
-	app, err := New(appdb, chainID)
+	app, err := New(appdb, chainID.String())
 	require.NoError(t, err)
-	return app
+
+	blockStore := testutils.NewLocalMemDB(t)
+	ethstatedb := testutils.NewEthStateDB(t)
+	g := &genesis.Genesis{
+		ChainID:  chainID,
+		AppState: MakeGenesisAppState(t, app),
+	}
+
+	if commitGenesis {
+		require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
+	}
+
+	_, err = app.InitChain(context.Background(), &abcitypes.RequestInitChain{
+		ChainId: chainID.String(),
+		AppStateBytes: func() []byte {
+			appStateBytes, err := json.Marshal(MakeGenesisAppState(t, app))
+			require.NoError(t, err)
+			return appStateBytes
+		}(),
+	})
+	require.NoError(t, err)
+
+	return TestApp{
+		App:        app,
+		ChainID:    chainID,
+		Genesis:    g,
+		BlockStore: blockStore,
+		EthStateDB: ethstatedb,
+	}
 }
 
 func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.RawMessage {
@@ -53,11 +108,34 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 	return defaultGenesis
 }
 
+// LoadGenesisFile loads the genesis app state and chain ID from the genesis file in "integrations/testdata/genesis.json".
+func LoadGenesisFile() (map[string]json.RawMessage, monomer.ChainID, error) {
+	genesisPath := path.Join("..", "integrations", "testdata", "genesis.json")
+	genesisBytes, err := os.ReadFile(genesisPath)
+	if err != nil {
+		return nil, 0, fmt.Errorf("read genesis file: %v", err)
+	}
+	var genesisData map[string]json.RawMessage
+	if err := json.Unmarshal(genesisBytes, &genesisData); err != nil {
+		return nil, 0, fmt.Errorf("unmarshal genesis file: %v", err)
+	}
+	genesisChainID, err := strconv.ParseUint(strings.Trim(string(genesisData["chain_id"]), "\""), 10, 64)
+	if err != nil {
+		return nil, 0, fmt.Errorf("parse chain id: %v", err)
+	}
+	var appState map[string]json.RawMessage
+	if err := json.Unmarshal(genesisData["app_state"], &appState); err != nil {
+		return nil, 0, fmt.Errorf("unmarshal app state: %v", err)
+	}
+
+	return appState, monomer.ChainID(genesisChainID), nil
+}
+
 // ToTx converts the key-value to a testappv1.SetRequest message and returns the encoded transaction bytes. It also handles
 // signing the transaction with the provided private key. The caller is responsible for ensuring the account sequence is
 // correct.
-func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, acc sdk.AccountI, seq uint64, ctx sdk.Context) []byte {
-	pk := sk.PubKey()
+func (a *TestApp) ToTx(t *testing.T, k, v string, seq uint64) []byte {
+	pk := a.PrivKey.PubKey()
 	fromAddr := sdk.AccAddress(pk.Address())
 
 	msg := &testappv1.SetRequest{
@@ -72,8 +150,8 @@ func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, acc sdk.Acc
 	require.NoError(t, err)
 
 	signerData := authsigning.SignerData{
-		ChainID:       chainID,
-		AccountNumber: acc.GetAccountNumber(),
+		ChainID:       a.ChainID.String(),
+		AccountNumber: a.Account.GetAccountNumber(),
 		Sequence:      seq,
 		PubKey:        pk,
 		Address:       pk.Address().String(),
@@ -93,7 +171,7 @@ func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, acc sdk.Acc
 	err = txBuilder.SetSignatures(emptySig)
 	require.NoError(t, err)
 
-	sig, err := tx.SignWithPrivKey(ctx, signing.SignMode_SIGN_MODE_DIRECT, signerData, txBuilder, sk, txConfig, seq)
+	sig, err := tx.SignWithPrivKey(a.Ctx, signing.SignMode_SIGN_MODE_DIRECT, signerData, txBuilder, a.PrivKey, txConfig, seq)
 	require.NoError(t, err)
 	err = txBuilder.SetSignatures(sig)
 	require.NoError(t, err)
@@ -111,7 +189,7 @@ func ToTx(t *testing.T, k, v, chainID string, sk *secp256k1.PrivKey, acc sdk.Acc
 
 // ToTxs converts the key-values to SetRequest sdk.Msgs and marshals the messages to protobuf wire format.
 // Each message is placed in a separate tx.
-func ToTxs(t *testing.T, kvs map[string]string, chainID string, sk *secp256k1.PrivKey, acc sdk.AccountI, startingSeq uint64, ctx sdk.Context) [][]byte {
+func (a *TestApp) ToTxs(t *testing.T, kvs map[string]string, startingSeq uint64) [][]byte {
 	// Extract the keys and sort them
 	keys := make([]string, 0, len(kvs))
 	for k := range kvs {
@@ -122,14 +200,14 @@ func ToTxs(t *testing.T, kvs map[string]string, chainID string, sk *secp256k1.Pr
 	var txs [][]byte
 	for _, k := range keys {
 		v := kvs[k]
-		txs = append(txs, ToTx(t, k, v, chainID, sk, acc, startingSeq, ctx))
+		txs = append(txs, a.ToTx(t, k, v, startingSeq))
 		startingSeq += 1
 	}
 	return txs
 }
 
 // StateContains ensures the key-values exist in the testmodule's state.
-func (a *App) StateContains(t *testing.T, height uint64, kvs map[string]string) {
+func (a *TestApp) StateContains(t *testing.T, height uint64, kvs map[string]string) {
 	if len(kvs) == 0 {
 		return
 	}
@@ -153,7 +231,7 @@ func (a *App) StateContains(t *testing.T, height uint64, kvs map[string]string) 
 }
 
 // StateDoesNotContain ensures the key-values do not exist in the app's state.
-func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]string) {
+func (a *TestApp) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]string) {
 	if len(kvs) == 0 {
 		return
 	}
@@ -174,8 +252,8 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 	}
 }
 
-// TestAccount loads a pre-funded test account with a private key from the testdata directory.
-func (a *App) TestAccount(ctx sdk.Context) (*secp256k1.PrivKey, *secp256k1.PubKey, sdk.AccountI) {
+// LoadTestAccount loads a pre-funded test account from a predetermined private key
+func (a *TestApp) LoadTestAccount(ctx sdk.Context) error {
 	// The private key corresponding to our pre-funded test account
 	skBytes := []byte{85, 55, 6, 26, 146, 55, 109, 224, 90, 200, 239, 207, 63, 193, 137, 45, 143, 86, 124, 111, 39, 66, 173, 26, 133, 208, 231, 109, 66, 224, 101, 79}
 	sk := secp256k1.PrivKey{
@@ -193,17 +271,20 @@ func (a *App) TestAccount(ctx sdk.Context) (*secp256k1.PrivKey, *secp256k1.PubKe
 
 	err := account.SetPubKey(sk.PubKey())
 	if err != nil {
-		panic("Failed to set account public key: %v" + err.Error())
+		return fmt.Errorf("Failed to set account public key: %v" + err.Error())
 	}
 
 	err = account.SetAccountNumber(0)
 	if err != nil {
-		panic("Failed to set account number: %v" + err.Error())
+		return fmt.Errorf("Failed to set account number: %v" + err.Error())
 	}
 
 	// This is required for signing transactions. If we do not set the params, the signature limit will be 0.
 	// Default params will set the signature limit to 7.
 	a.accountKeeper.Params.Set(ctx, authtypes.DefaultParams())
 
-	return &sk, &pk, account
+	a.PrivKey = &sk
+	a.Account = account
+
+	return nil
 }

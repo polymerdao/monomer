@@ -45,8 +45,8 @@ func TestCommit(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			app := testapp.NewTest(t, test.genesis.ChainID.String())
-			test.genesis.AppState = testapp.MakeGenesisAppState(t, app, test.kvs...)
+			app := testapp.NewTest(t, test.genesis.ChainID, false)
+			test.genesis.AppState = testapp.MakeGenesisAppState(t, app.App, test.kvs...)
 
 			blockStore := testutils.NewLocalMemDB(t)
 			ethstatedb := testutils.NewEthStateDB(t)

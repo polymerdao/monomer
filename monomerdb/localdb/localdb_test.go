@@ -1,12 +1,9 @@
 package localdb_test
 
 import (
-	"context"
-	"encoding/json"
 	"fmt"
 	"testing"
 
-	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
@@ -18,30 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	chainID = monomer.ChainID(0)
-)
-
 var labels = []eth.BlockLabel{eth.Unsafe, eth.Safe, eth.Finalized}
 
 func TestBlockAndHeader(t *testing.T) {
-	app := testapp.NewTest(t, chainID.String())
+	app := testapp.NewTest(t, testapp.ChainID, false)
+	ctx := app.GetContext(false)
+	require.NoError(t, app.LoadTestAccount(ctx))
+
 	db := testutils.NewLocalMemDB(t)
 
-	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
-		ChainId: chainID.String(),
-		AppStateBytes: func() []byte {
-			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
-			require.NoError(t, err)
-			return appStateBytes
-		}(),
-	})
-	require.NoError(t, err)
-
-	ctx := app.GetContext(false)
-	sk, _, acc := app.TestAccount(ctx)
-
-	block, err := monomer.MakeBlock(&monomer.Header{}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{"k": "v"}, chainID.String(), sk, acc, acc.GetSequence(), ctx)))
+	block, err := monomer.MakeBlock(&monomer.Header{}, bfttypes.ToTxs(app.ToTxs(t, map[string]string{"k": "v"}, app.Account.GetSequence())))
 	require.NoError(t, err)
 	require.NoError(t, db.AppendBlock(block))
 
@@ -124,38 +107,28 @@ func testHeadBlock(t *testing.T, db *localdb.DB, block *monomer.Block) {
 }
 
 func TestRollback(t *testing.T) {
-	app := testapp.NewTest(t, chainID.String())
-	db := testutils.NewLocalMemDB(t)
-
-	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
-		ChainId: chainID.String(),
-		AppStateBytes: func() []byte {
-			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
-			require.NoError(t, err)
-			return appStateBytes
-		}(),
-	})
-	require.NoError(t, err)
-
+	app := testapp.NewTest(t, testapp.ChainID, false)
 	ctx := app.GetContext(false)
-	sk, _, acc := app.TestAccount(ctx)
+	require.NoError(t, app.LoadTestAccount(ctx))
+
+	db := testutils.NewLocalMemDB(t)
 
 	block, err := monomer.MakeBlock(&monomer.Header{
 		Height: 1,
-	}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{"k": "v"}, chainID.String(), sk, acc, acc.GetSequence(), ctx)))
+	}, bfttypes.ToTxs(app.ToTxs(t, map[string]string{"k": "v"}, app.Account.GetSequence())))
 	require.NoError(t, err)
 	require.NoError(t, db.AppendBlock(block))
 	require.NoError(t, db.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
 
 	block2, err := monomer.MakeBlock(&monomer.Header{
 		Height: 2,
-	}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{"k2": "v2"}, chainID.String(), sk, acc, acc.GetSequence(), ctx)))
+	}, bfttypes.ToTxs(app.ToTxs(t, map[string]string{"k2": "v2"}, app.Account.GetSequence())))
 	require.NoError(t, err)
 	require.NoError(t, db.AppendBlock(block2))
 
 	block3, err := monomer.MakeBlock(&monomer.Header{
 		Height: 3,
-	}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{"k3": "v3"}, chainID.String(), sk, acc, acc.GetSequence(), ctx)))
+	}, bfttypes.ToTxs(app.ToTxs(t, map[string]string{"k3": "v3"}, app.Account.GetSequence())))
 	require.NoError(t, err)
 	require.NoError(t, db.AppendBlock(block3))
 

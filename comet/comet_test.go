@@ -25,27 +25,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const (
-	chainID = monomer.ChainID(0)
-)
-
 func TestABCI(t *testing.T) {
-	app := testapp.NewTest(t, chainID.String())
-
-	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
-		ChainId: chainID.String(),
-		AppStateBytes: func() []byte {
-			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
-			require.NoError(t, err)
-			return appStateBytes
-		}(),
-	})
-	require.NoError(t, err)
-
+	app := testapp.NewTest(t, testapp.ChainID, false)
 	ctx := app.GetContext(false)
-	sk, _, acc := app.TestAccount(ctx)
+	require.NoError(t, app.LoadTestAccount(ctx))
+
 	// TODO: Test fails if account number is anything other than 4. Why?
-	require.NoError(t, acc.SetAccountNumber(4))
+	require.NoError(t, app.Account.SetAccountNumber(4))
 
 	// data to store and retrieve
 	k := "k1"
@@ -53,8 +39,8 @@ func TestABCI(t *testing.T) {
 
 	// Build bock with tx.
 	height := int64(1)
-	_, err = app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
-		Txs:    [][]byte{testapp.ToTx(t, k, v, chainID.String(), sk, acc, acc.GetSequence(), ctx)},
+	_, err := app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
+		Txs:    [][]byte{app.ToTx(t, k, v, app.Account.GetSequence())},
 		Height: height,
 	})
 	require.NoError(t, err)
@@ -125,24 +111,15 @@ func TestStatus(t *testing.T) {
 }
 
 func TestBroadcastTx(t *testing.T) {
-	app := testapp.NewTest(t, chainID.String())
-	_, err := app.InitChain(context.Background(), &abcitypes.RequestInitChain{
-		ChainId: chainID.String(),
-		AppStateBytes: func() []byte {
-			appStateBytes, err := json.Marshal(testapp.MakeGenesisAppState(t, app))
-			require.NoError(t, err)
-			return appStateBytes
-		}(),
-	})
-	require.NoError(t, err)
-
+	app := testapp.NewTest(t, testapp.ChainID, false)
 	ctx := app.GetContext(true)
-	sk, _, acc := app.TestAccount(ctx)
+	require.NoError(t, app.LoadTestAccount(ctx))
+
 	mpool := mempool.New(testutils.NewMemDB(t))
 	broadcastTxAPI := comet.NewBroadcastTxAPI(app, mpool)
 
 	// Success case.
-	tx := testapp.ToTx(t, "k1", "v1", chainID.String(), sk, acc, acc.GetSequence(), ctx)
+	tx := app.ToTx(t, "k1", "v1", app.Account.GetSequence())
 	result, err := broadcastTxAPI.BroadcastTx(&jsonrpctypes.Context{}, tx)
 	require.NoError(t, err)
 	// We trust that the other fields are set correctly.
