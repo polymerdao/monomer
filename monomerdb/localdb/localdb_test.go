@@ -28,7 +28,7 @@ func TestBlockAndHeader(t *testing.T) {
 	cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
 	require.NoError(t, err)
 
-	adaptedTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes, cosmosEthTxBytes})
+	adaptedTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes, cosmosEthTxBytes}, nil, "")
 	require.NoError(t, err)
 
 	block, err := monomer.MakeBlock(&monomer.Header{}, adaptedTxs)
@@ -133,7 +133,7 @@ func TestRollback(t *testing.T) {
 		for range i + 1 {
 			hexTxs = append(hexTxs, cosmosEthTxBytes)
 		}
-		adoptedTxsCases[i], err = rolluptypes.AdaptPayloadTxsToCosmosTxs(hexTxs)
+		adoptedTxsCases[i], err = rolluptypes.AdaptPayloadTxsToCosmosTxs(hexTxs, nil, "")
 		require.NoError(t, err)
 	}
 

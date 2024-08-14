@@ -145,7 +145,7 @@ func TestBuild(t *testing.T) {
 				ethstatedb,
 			)
 
-			adaptedPayloadTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxsBytes)
+			adaptedPayloadTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxsBytes, nil, "")
 			require.NoError(t, err)
 
 			allTxs := slices.Clone(adaptedPayloadTxs)
@@ -278,7 +278,7 @@ func TestRollback(t *testing.T) {
 	cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
 	require.NoError(t, err)
 
-	adaptedTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes, cosmosEthTxBytes})
+	adaptedTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes, cosmosEthTxBytes}, nil, "")
 	require.NoError(t, err)
 
 	block, err := b.Build(context.Background(), &builder.Payload{
