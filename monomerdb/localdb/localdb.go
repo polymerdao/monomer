@@ -447,7 +447,7 @@ func get(g getter, key []byte) (_ []byte, _ io.Closer, err error) {
 }
 
 func marshalUint64(x uint64) []byte {
-	bytes := make([]byte, 8) //nolint:gomnd
+	bytes := make([]byte, 8) //nolint:mnd
 	endian.PutUint64(bytes, x)
 	return bytes
 }

@@ -25,7 +25,7 @@ linters-settings:
       - unnamedResult
   goimports:
     local-prefixes: github.com/golangci/golangci-lint
-  gomnd:
+  mnd:
     # don't include the "operation" and "assign"
     checks:
       - argument
@@ -71,7 +71,7 @@ linters:
     - goconst
     - gocritic
     - gofumpt
-    - gomnd
+    - mnd
     - goprintffuncname
     - gosec
     - gosimple
@@ -115,7 +115,7 @@ issues:
   exclude-rules:
     - path: (testutils)|(_test\.go)
       linters:
-        - gomnd
+        - mnd
         - funlen
         - lll
         - gosec
