@@ -6,6 +6,10 @@ import "cosmos/msg/v1/msg.proto";
 
 option go_package = "github.com/polymerdao/monomer/gen/testapp/v1;testappv1";
 
+service MsgService {
+    rpc Set(SetRequest) returns (SetResponse) {}
+}
+
 message SetRequest {
     option (cosmos.msg.v1.signer) = "from_address";
 
@@ -15,7 +19,3 @@ message SetRequest {
 }
 
 message SetResponse {}
-
-service SetService {
-    rpc Set(SetRequest) returns (SetResponse) {}
-}

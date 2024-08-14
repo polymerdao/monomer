@@ -11,8 +11,6 @@ import (
 
 type Keeper struct {
 	storeService store.KVStoreService
-	//testappv1.UnimplementedSetServiceServer
-	//testappv1.UnimplementedGetServiceServer
 }
 
 func New(storeService store.KVStoreService) *Keeper {

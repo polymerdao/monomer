@@ -57,7 +57,7 @@ type Module struct {
 }
 
 var (
-	_ module.AppModule  = (*Module)(nil)
+	_ module.AppModule      = (*Module)(nil)
 	_ module.HasABCIGenesis = (*Module)(nil)
 )
 
@@ -131,6 +131,6 @@ func (*Module) RegisterInterfaces(r codectypes.InterfaceRegistry) {
 func (*Module) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {}
 
 func (m *Module) RegisterServices(cfg module.Configurator) {
-	testappv1.RegisterSetServiceServer(cfg.MsgServer(), m.keeper)
-	testappv1.RegisterGetServiceServer(cfg.QueryServer(), m.keeper)
+	testappv1.RegisterMsgServiceServer(cfg.MsgServer(), m.keeper)
+	testappv1.RegisterQueryServiceServer(cfg.QueryServer(), m.keeper)
 }

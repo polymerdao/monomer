@@ -4,14 +4,14 @@ package testapp.v1;
 
 option go_package = "github.com/polymerdao/monomer/gen/testapp/v1;testappv1";
 
+service QueryService {
+    rpc Get(GetRequest) returns (GetResponse) {}
+}
+
 message GetRequest {
     string key = 1;
 }
 
 message GetResponse {
     string value = 2;
-}
-
-service GetService {
-    rpc Get(GetRequest) returns (GetResponse) {}
 }

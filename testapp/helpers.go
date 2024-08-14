@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const QueryPath = "/testapp.v1.GetService/Get"
+const QueryPath = "/testapp.v1.QueryService/Get"
 
 func NewTest(t *testing.T, chainID string) *App {
 	appdb := dbm.NewMemDB()
@@ -54,8 +54,8 @@ func ToTx(t *testing.T, k, v string) []byte {
 		// This is just a dummy address. The signature and gas checks are disabled in testapp.go,
 		// so this works for now.
 		FromAddress: "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
-		Key:   k,
-		Value: v,
+		Key:         k,
+		Value:       v,
 	})
 	require.NoError(t, err)
 	tx := &sdktx.Tx{
@@ -128,7 +128,7 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 		}).Marshal()
 		require.NoError(t, err)
 		resp, err := a.Query(context.Background(), &abcitypes.RequestQuery{
-			Path:   "/testapp.v1.GetService/Get", // TODO is there a way to find this programmatically?
+			Path:   QueryPath, // TODO is there a way to find this programmatically?
 			Data:   requestBytes,
 			Height: int64(height),
 		})
