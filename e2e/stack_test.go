@@ -251,17 +251,17 @@ func requireEthIsMinted(t *testing.T, appchainClient *bftclient.HTTP) {
 
 	require.NoError(t, err, "search transactions")
 
-	eth_minted := false
+	ethMinted := false
 
 	for _, tx := range result.Txs {
 		for _, event := range tx.TxResult.Events {
 			if event.Type == rolluptypes.EventTypeMintETH {
-				eth_minted = true
+				ethMinted = true
 			}
 		}
 	}
 
-	require.True(t, eth_minted, "mint_eth event not found")
+	require.True(t, ethMinted, "mint_eth event not found")
 	t.Log("Monomer can mint_eth from L1 user deposits")
 }
 
