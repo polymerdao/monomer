@@ -43,25 +43,19 @@ func (*queryAll) String() string {
 }
 
 func TestBuild(t *testing.T) {
-	tests := []struct {
-		name                                           string
+	tests := map[string]struct {
 		depositTxsNum, nonDepositTxsNum, mempoolTxsNum int
 		noTxPool                                       bool
 	}{
-		{
-			name: "no txs",
-		},
-		{
-			name:          "deposit txs only",
+		"no txs": {},
+		"deposit txs only": {
 			depositTxsNum: 2,
 		},
-		{
-			name:          "deposit txs + mempool txs",
+		"deposit txs + mempool txs": {
 			depositTxsNum: 2,
 			mempoolTxsNum: 2,
 		},
-		{
-			name:          "deposit txs + mempool txs with NoTxPool",
+		"deposit txs + mempool txs with NoTxPool": {
 			depositTxsNum: 2,
 			mempoolTxsNum: 2,
 			noTxPool:      true,
@@ -69,8 +63,8 @@ func TestBuild(t *testing.T) {
 		// TODO add test cases for non-deposit txs
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for description, test := range tests {
+		t.Run(description, func(t *testing.T) {
 			ethTxsBytes := make([]hexutil.Bytes, test.depositTxsNum, test.depositTxsNum+test.nonDepositTxsNum)
 			bftEthDepositTxsBytes := make(bfttypes.Txs, test.depositTxsNum)
 			mempoolTxsBytes := make([][]byte, test.mempoolTxsNum)
