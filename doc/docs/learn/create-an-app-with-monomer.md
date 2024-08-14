@@ -22,7 +22,7 @@ We'll use the handy tool [spawn](https://github.com/rollchains/spawn) to bootstr
 ```bash
 git clone https://github.com/rollchains/spawn
 cd spawn
-git checkout v0.50.4
+git checkout v0.50.5
 make install
 ```
 </details>
@@ -35,7 +35,7 @@ spawn new rollchain --consensus=proof-of-authority \
     --bech32=roll \
     --denom=uroll \
     --bin=rolld \
-    --disabled=cosmwasm,globalfee \
+    --disabled=cosmwasm,globalfee,block-explorer \
     --org=monomer
 ```
 
@@ -47,7 +47,6 @@ Let's move into the `rollchain` directory and add Monomer to our application.
 
 ```bash
 cd rollchain
-go get github.com/polymerdao/monomer
 ```
 
 ### Import `x/rollup` and `x/testmodule`
@@ -142,26 +141,6 @@ rollup.NewAppModule( // <-- add this block
 testmodule.New(testmodulekeeper.New(runtime.NewKVStoreService(keys[testmodule.StoreKey]))),
 ```
 
-### Finalizing our Changes
-Near the bottom of the `NewChainApp` function, comment out the following lines:
-```go
-// app/app.go
-
-/*protoFiles, err := proto.MergedRegistry()
-if err != nil {
-    panic(err)
-}
-err = msgservice.ValidateProtoAnnotations(protoFiles)
-if err != nil {
-    // Once we switch to using protoreflect-based antehandlers, we might
-    // want to panic here instead of logging a warning.
-    _, _ = fmt.Fprintln(os.Stderr, err.Error())
-}*/
-```
-and remove this import: `github.com/cosmos/cosmos-sdk/types/msgservice`. 
-
-
-
 That's it for `app.go`! Next we'll add a CLI command to interact with Monomer.
 
 ### Defining the Monomer Command
@@ -206,10 +185,16 @@ func initRootCmd(
 ```
 
 ## Building the Application
-Before we can build our application, we need to add the following replace directive in `go.mod` and then run `go mod
+Before we can build our application, we need to add the following replace directives in `go.mod` and then run `go mod
 tidy`: 
 ```go
 github.com/ethereum/go-ethereum => github.com/joshklop/op-geth v0.0.0-20240515205036-e3b990384a74
+github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20240814165419-c6b91fa9f263
+```
+
+and change the `cosmossdk.io/core` replace directive to `v0.11.1`:
+```
+cosmossdk.io/core => cosmossdk.io/core v0.11.1
 ```
 
 Now we can build our application by running 
