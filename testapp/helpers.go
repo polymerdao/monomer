@@ -128,7 +128,7 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 		}).Marshal()
 		require.NoError(t, err)
 		resp, err := a.Query(context.Background(), &abcitypes.RequestQuery{
-			Path:   QueryPath, // TODO is there a way to find this programmatically?
+			Path:   QueryPath,
 			Data:   requestBytes,
 			Height: int64(height),
 		})
