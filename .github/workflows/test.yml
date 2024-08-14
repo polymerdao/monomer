@@ -7,15 +7,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  short:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - run: make test
-
   devrequirements:
     runs-on: macos-latest
     steps:
@@ -54,6 +45,15 @@ jobs:
       - uses: vladopajic/go-test-coverage@v2
         with:
           config: .testcoverage.yml
+
+  unit:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make test
 
   e2e:
     runs-on: ubuntu-latest
