@@ -7,6 +7,8 @@ import "cosmos/msg/v1/msg.proto";
 import "cosmos_proto/cosmos.proto";
 import "gogoproto/gogo.proto";
 
+option go_package = "github.com/polymerdao/monomer/x/rollup/types";
+
 // MsgService defines all tx endpoints for the rollup module.
 service MsgService {
   rpc ApplyL1Txs(ApplyL1TxsRequest) returns (ApplyL1TxsResponse);
@@ -26,7 +28,6 @@ message ApplyL1TxsRequest {
 
 message ApplyL1TxsResponse {}
 
-// TODO: add validations in the x/rollup module to ensure that the target address and gas limit are valid before burning the users ETH
 // InitiateWithdrawalRequest defines a message for all L2 withdrawal txs
 message InitiateWithdrawalRequest {
   option (cosmos.msg.v1.signer) = "sender";

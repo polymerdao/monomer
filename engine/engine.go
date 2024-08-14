@@ -18,7 +18,6 @@ import (
 	"github.com/polymerdao/monomer/builder"
 	"github.com/polymerdao/monomer/engine/signer"
 	"github.com/polymerdao/monomer/monomerdb"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type DB interface {
@@ -182,7 +181,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("gas limit not provided"))
 	}
 
-	cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(
+	cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(
 		pa.Transactions,
 		e.signer.Sign,
 		e.signer.AccountAddress().String(),
@@ -276,7 +275,7 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 		panic(fmt.Errorf("build block: %v", err))
 	}
 
-	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
+	txs, err := monomer.AdaptCosmosTxsToEthTxs(block.Txs)
 	if err != nil {
 		return nil, engine.GenericServerError.With(fmt.Errorf("convert cosmos txs to eth txs: %v", err))
 	}

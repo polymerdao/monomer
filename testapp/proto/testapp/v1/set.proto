@@ -4,6 +4,8 @@ package testapp.v1;
 
 import "cosmos/msg/v1/msg.proto";
 
+option go_package = "github.com/polymerdao/monomer/gen/testapp/v1;testappv1";
+
 message SetRequest {
     option (cosmos.msg.v1.signer) = "from_address";
 

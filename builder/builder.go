@@ -17,7 +17,6 @@ import (
 	"github.com/polymerdao/monomer/app/peptide/txstore"
 	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/evm"
-	"github.com/polymerdao/monomer/gen/rollup/v1"
 	"github.com/polymerdao/monomer/mempool"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
@@ -255,7 +254,7 @@ func (b *Builder) parseWithdrawalMessages(
 			return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
 		}
 		for _, msg := range cosmosTx.GetBody().GetMessages() {
-			withdrawalMsg := new(rollupv1.InitiateWithdrawalRequest)
+			withdrawalMsg := new(rolluptypes.InitiateWithdrawalRequest)
 			if msg.TypeUrl == cdctypes.MsgTypeURL(withdrawalMsg) {
 				if err := withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
 					return nil, fmt.Errorf("unmarshal InitiateWithdrawalRequest: %v", err)
@@ -285,7 +284,7 @@ func (b *Builder) parseWithdrawalMessages(
 // storeWithdrawalMsgInEVM stores the withdrawal message hash in the monomer evm state db and returns the L2ToL1MessagePasser
 // message nonce used for the withdrawal. This is used for proving withdrawals.
 func (b *Builder) storeWithdrawalMsgInEVM(
-	withdrawalMsg *rollupv1.InitiateWithdrawalRequest,
+	withdrawalMsg *rolluptypes.InitiateWithdrawalRequest,
 	ethState *state.StateDB,
 	header *monomer.Header,
 ) (*big.Int, error) {

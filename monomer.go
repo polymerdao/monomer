@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type Application interface {
@@ -123,7 +122,7 @@ func (b *Block) ToEth() (*ethtypes.Block, error) {
 		return nil, errors.New("converted a nil block")
 	}
 
-	txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(b.Txs)
+	txs, err := AdaptCosmosTxsToEthTxs(b.Txs)
 	if err != nil {
 		return nil, fmt.Errorf("adapt txs: %v", err)
 	}
