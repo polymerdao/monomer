@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package testapp.v1;
+
+option go_package = "github.com/polymerdao/monomer/testapp/x/testmodule/types";
+
+service QueryService {
+    rpc Get(GetRequest) returns (GetResponse) {}
+}
+
+message GetRequest {
+    string key = 1;
+}
+
+message GetResponse {
+    string value = 2;
+}

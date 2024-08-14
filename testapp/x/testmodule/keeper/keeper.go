@@ -6,13 +6,11 @@ import (
 	"fmt"
 
 	"cosmossdk.io/core/store"
-	testappv1 "github.com/polymerdao/monomer/gen/testapp/v1"
+	"github.com/polymerdao/monomer/testapp/x/testmodule/types"
 )
 
 type Keeper struct {
 	storeService store.KVStoreService
-	//testappv1.UnimplementedSetServiceServer
-	//testappv1.UnimplementedGetServiceServer
 }
 
 func New(storeService store.KVStoreService) *Keeper {
@@ -31,7 +29,7 @@ func (m *Keeper) InitGenesis(ctx context.Context, kvs map[string]string) error {
 	return nil
 }
 
-func (m *Keeper) Get(ctx context.Context, req *testappv1.GetRequest) (*testappv1.GetResponse, error) {
+func (m *Keeper) Get(ctx context.Context, req *types.GetRequest) (*types.GetResponse, error) {
 	key := req.GetKey()
 	if key == "" {
 		return nil, errors.New("empty key")
@@ -46,15 +44,15 @@ func (m *Keeper) Get(ctx context.Context, req *testappv1.GetRequest) (*testappv1
 	} else {
 		value = string(valueBytes)
 	}
-	return &testappv1.GetResponse{
+	return &types.GetResponse{
 		Value: value,
 	}, nil
 }
 
-func (m *Keeper) Set(ctx context.Context, req *testappv1.SetRequest) (*testappv1.SetResponse, error) {
+func (m *Keeper) Set(ctx context.Context, req *types.SetRequest) (*types.SetResponse, error) {
 	key := req.GetKey()
 	if err := m.storeService.OpenKVStore(ctx).Set([]byte(key), []byte(req.GetValue())); err != nil {
 		return nil, fmt.Errorf("set: %v", err)
 	}
-	return &testappv1.SetResponse{}, nil
+	return &types.SetResponse{}, nil
 }

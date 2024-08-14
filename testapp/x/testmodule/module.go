@@ -17,8 +17,8 @@ import (
 	"github.com/gorilla/mux"
 	grpcruntime "github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/polymerdao/monomer/gen/testapp/module/v1"
-	testappv1 "github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/testapp/x/testmodule/keeper"
+	"github.com/polymerdao/monomer/testapp/x/testmodule/types"
 	"github.com/spf13/cobra"
 )
 
@@ -57,7 +57,7 @@ type Module struct {
 }
 
 var (
-	_ module.AppModule  = (*Module)(nil)
+	_ module.AppModule      = (*Module)(nil)
 	_ module.HasABCIGenesis = (*Module)(nil)
 )
 
@@ -125,12 +125,12 @@ func (*Module) RegisterRESTRoutes(clientCtx client.Context, rtr *mux.Router) {
 
 // RegisterInterfaces registers the module's interface types
 func (*Module) RegisterInterfaces(r codectypes.InterfaceRegistry) {
-	testappv1.RegisterInterfaces(r)
+	types.RegisterInterfaces(r)
 }
 
 func (*Module) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {}
 
 func (m *Module) RegisterServices(cfg module.Configurator) {
-	testappv1.RegisterSetServiceServer(cfg.MsgServer(), m.keeper)
-	testappv1.RegisterGetServiceServer(cfg.QueryServer(), m.keeper)
+	types.RegisterMsgServiceServer(cfg.MsgServer(), m.keeper)
+	types.RegisterQueryServiceServer(cfg.QueryServer(), m.keeper)
 }

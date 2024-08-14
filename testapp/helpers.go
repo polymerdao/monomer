@@ -10,12 +10,12 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/polymerdao/monomer/gen/testapp/v1"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
+	"github.com/polymerdao/monomer/testapp/x/testmodule/types"
 	"github.com/stretchr/testify/require"
 )
 
-const QueryPath = "/testapp.v1.GetService/Get"
+const QueryPath = "/testapp.v1.QueryService/Get"
 
 func NewTest(t *testing.T, chainID string) *App {
 	appdb := dbm.NewMemDB()
@@ -49,13 +49,13 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 }
 
 func ToTx(t *testing.T, k, v string) []byte {
-	msgAny, err := codectypes.NewAnyWithValue(&testappv1.SetRequest{
+	msgAny, err := codectypes.NewAnyWithValue(&types.SetRequest{
 		// TODO use real addresses and enable the signature and gas checks.
 		// This is just a dummy address. The signature and gas checks are disabled in testapp.go,
 		// so this works for now.
 		FromAddress: "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
-		Key:   k,
-		Value: v,
+		Key:         k,
+		Value:       v,
 	})
 	require.NoError(t, err)
 	tx := &sdktx.Tx{
@@ -100,7 +100,7 @@ func (a *App) StateContains(t *testing.T, height uint64, kvs map[string]string) 
 	}
 	gotState := make(map[string]string, len(kvs))
 	for k := range kvs {
-		requestBytes, err := (&testappv1.GetRequest{
+		requestBytes, err := (&types.GetRequest{
 			Key: k,
 		}).Marshal()
 		require.NoError(t, err)
@@ -110,7 +110,7 @@ func (a *App) StateContains(t *testing.T, height uint64, kvs map[string]string) 
 			Height: int64(height),
 		})
 		require.NoError(t, err)
-		var val testappv1.GetResponse
+		var val types.GetResponse
 		require.NoError(t, (&val).Unmarshal(resp.GetValue()))
 		gotState[k] = val.GetValue()
 	}
@@ -123,17 +123,17 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 		return
 	}
 	for k := range kvs {
-		requestBytes, err := (&testappv1.GetRequest{
+		requestBytes, err := (&types.GetRequest{
 			Key: k,
 		}).Marshal()
 		require.NoError(t, err)
 		resp, err := a.Query(context.Background(), &abcitypes.RequestQuery{
-			Path:   "/testapp.v1.GetService/Get", // TODO is there a way to find this programmatically?
+			Path:   QueryPath,
 			Data:   requestBytes,
 			Height: int64(height),
 		})
 		require.NoError(t, err)
-		var val testappv1.GetResponse
+		var val types.GetResponse
 		require.NoError(t, (&val).Unmarshal(resp.GetValue()))
 		require.Empty(t, val.GetValue())
 	}
