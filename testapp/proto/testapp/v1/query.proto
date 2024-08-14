@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package testapp.v1;
 
-option go_package = "github.com/polymerdao/monomer/gen/testapp/v1;testappv1";
+option go_package = "github.com/polymerdao/monomer/testapp/x/testmodule/types";
 
 service QueryService {
     rpc Get(GetRequest) returns (GetResponse) {}

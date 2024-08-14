@@ -4,7 +4,7 @@ package testapp.v1;
 
 import "cosmos/msg/v1/msg.proto";
 
-option go_package = "github.com/polymerdao/monomer/gen/testapp/v1;testappv1";
+option go_package = "github.com/polymerdao/monomer/testapp/x/testmodule/types";
 
 service MsgService {
     rpc Set(SetRequest) returns (SetResponse) {}
