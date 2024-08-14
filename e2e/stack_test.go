@@ -26,6 +26,7 @@ import (
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slog"
 )
@@ -191,6 +192,8 @@ func TestE2E(t *testing.T) {
 	require.Equal(t, bftTx, getTx.Tx, "txBytes do not match")
 	t.Log("Monomer can serve txs by hash")
 
+	requireEthIsMinted(t, appchainClient)
+
 	txBlock, err := monomerClient.BlockByNumber(ctx, big.NewInt(getTx.Height))
 	require.NoError(t, err)
 	require.Len(t, txBlock.Transactions(), 2)
@@ -229,6 +232,37 @@ func TestE2E(t *testing.T) {
 		}
 	}
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
+}
+
+func requireEthIsMinted(t *testing.T, appchainClient *bftclient.HTTP) {
+	query := "tx.height > 0"
+	page := 1
+	perPage := 100
+	orderBy := "desc"
+
+	result, err := appchainClient.TxSearch(
+		context.Background(),
+		query,
+		false,
+		&page,
+		&perPage,
+		orderBy,
+	)
+
+	require.NoError(t, err, "search transactions")
+
+	eth_minted := false
+
+	for _, tx := range result.Txs {
+		for _, event := range tx.TxResult.Events {
+			if event.Type == rolluptypes.EventTypeMintETH {
+				eth_minted = true
+			}
+		}
+	}
+
+	require.True(t, eth_minted, "mint_eth event not found")
+	t.Log("Monomer can mint_eth from L1 user deposits")
 }
 
 func newURL(t *testing.T, address string) *e2eurl.URL {
