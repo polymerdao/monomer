@@ -19,7 +19,7 @@ import (
 	"github.com/polymerdao/monomer/comet"
 	"github.com/polymerdao/monomer/mempool"
 	"github.com/polymerdao/monomer/testapp"
-	testapptypes "github.com/polymerdao/monomer/testapp/x/testmodule/types"
+	testmoduletypes "github.com/polymerdao/monomer/testapp/x/testmodule/types"
 	"github.com/polymerdao/monomer/testutils"
 	"github.com/sourcegraph/conc"
 	"github.com/stretchr/testify/require"
@@ -58,7 +58,7 @@ func TestABCI(t *testing.T) {
 	infoResult, err := abci.Info(&jsonrpctypes.Context{})
 	require.NoError(t, err)
 	require.Equal(t, height, infoResult.Response.LastBlockHeight) // We trust that the other fields are set properly.
-	requestBytes, err := (&testapptypes.GetRequest{
+	requestBytes, err := (&testmoduletypes.GetRequest{
 		Key: k,
 	}).Marshal()
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestABCI(t *testing.T) {
 	// Query.
 	queryResult, err := abci.Query(&jsonrpctypes.Context{}, testapp.QueryPath, requestBytes, height, false)
 	require.NoError(t, err)
-	var val testapptypes.GetResponse
+	var val testmoduletypes.GetResponse
 	require.NoError(t, (&val).Unmarshal(queryResult.Response.GetValue()))
 	require.Equal(t, v, val.GetValue())
 }
