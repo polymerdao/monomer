@@ -67,7 +67,7 @@ func TestBuild(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			ethTxsBytes := make([]hexutil.Bytes, test.depositTxsNum, test.depositTxsNum+test.nonDepositTxsNum)
 			bftEthDepositTxsBytes := make(bfttypes.Txs, test.depositTxsNum)
-			mempoolTxsBytes := make([][]byte, test.mempoolTxsNum)
+			mempoolTxs := make([][]byte, test.mempoolTxsNum)
 			cosmosTxsBytes := make([]hexutil.Bytes, test.mempoolTxsNum)
 
 			rng := rand.New(rand.NewSource(1234))
@@ -99,11 +99,11 @@ func TestBuild(t *testing.T) {
 					MarshalBinary()
 				require.NoError(t, err)
 				cosmosTxsBytes[i] = hexutil.Bytes(cosmosEthTxBytes)
-				mempoolTxsBytes[i] = cosmosEthTxBytes
+				mempoolTxs[i] = cosmosEthTxBytes
 			}
 
 			pool := mempool.New(testutils.NewMemDB(t))
-			for _, tx := range mempoolTxsBytes {
+			for _, tx := range mempoolTxs {
 				require.NoError(t, pool.Enqueue(tx))
 			}
 			blockStore := testutils.NewLocalMemDB(t)
@@ -144,7 +144,7 @@ func TestBuild(t *testing.T) {
 
 			allTxs := slices.Clone(adaptedPayloadTxs)
 			if !test.noTxPool {
-				allTxs = append(allTxs, bfttypes.ToTxs(mempoolTxsBytes)...)
+				allTxs = append(allTxs, bfttypes.ToTxs(mempoolTxs)...)
 			}
 
 			payload := &builder.Payload{
