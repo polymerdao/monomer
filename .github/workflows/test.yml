@@ -7,15 +7,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  short:
-    runs-on: macos-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
-        with:
-          go-version-file: go.mod
-      - run: make test
-
   devrequirements:
     runs-on: macos-latest
     steps:
@@ -24,6 +15,24 @@ jobs:
         with:
           go-version-file: go.mod
       - run: make install-buf
+
+  verify-generated-code:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make install-buf
+      - run: make gen-proto
+      - name: Check for changes
+        run: |
+          if [[ -n $(git status --porcelain) ]]; then
+            echo "Generated code is not up to date. Please run 'make gen-proto' locally and commit the changes."
+            git status
+            git diff
+            exit 1
+          fi
 
   coverage:
     runs-on: ubuntu-latest
@@ -36,6 +45,15 @@ jobs:
       - uses: vladopajic/go-test-coverage@v2
         with:
           config: .testcoverage.yml
+
+  short:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - run: make test
 
   e2e:
     runs-on: ubuntu-latest
