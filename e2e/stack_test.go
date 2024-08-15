@@ -26,6 +26,7 @@ import (
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slog"
 )
@@ -155,20 +156,20 @@ func TestE2E(t *testing.T) {
 	)
 	require.NoError(t, err, "deposit tx")
 
-	client, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
+	appchainClient, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
 	require.NoError(t, err, "create Comet client")
 
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
 
-	putTx, err := client.BroadcastTxAsync(ctx, txBytes)
+	putTx, err := appchainClient.BroadcastTxAsync(ctx, txBytes)
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
 	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash does not match local hash")
 	t.Log("Monomer can ingest cometbft txs")
 
 	badPutTx := []byte("malformed")
-	badPut, err := client.BroadcastTxAsync(ctx, badPutTx)
+	badPut, err := appchainClient.BroadcastTxAsync(ctx, badPutTx)
 	require.NoError(t, err) // no API error - failure encoded in response
 	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
 	t.Log("Monomer can reject malformed cometbft txs")
@@ -184,12 +185,14 @@ func TestE2E(t *testing.T) {
 	}
 	t.Log("Monomer can sync")
 
-	getTx, err := client.Tx(ctx, bftTx.Hash(), false)
+	getTx, err := appchainClient.Tx(ctx, bftTx.Hash(), false)
 
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, getTx.TxResult.Code, "txResult.Code is not OK")
 	require.Equal(t, bftTx, getTx.Tx, "txBytes do not match")
 	t.Log("Monomer can serve txs by hash")
+
+	requireEthIsMinted(t, appchainClient)
 
 	txBlock, err := monomerClient.BlockByNumber(ctx, big.NewInt(getTx.Height))
 	require.NoError(t, err)
@@ -229,6 +232,37 @@ func TestE2E(t *testing.T) {
 		}
 	}
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
+}
+
+func requireEthIsMinted(t *testing.T, appchainClient *bftclient.HTTP) {
+	query := "tx.height > 0"
+	page := 1
+	perPage := 100
+	orderBy := "desc"
+
+	result, err := appchainClient.TxSearch(
+		context.Background(),
+		query,
+		false,
+		&page,
+		&perPage,
+		orderBy,
+	)
+
+	require.NoError(t, err, "search transactions")
+
+	ethMinted := false
+
+	for _, tx := range result.Txs {
+		for _, event := range tx.TxResult.Events {
+			if event.Type == rolluptypes.EventTypeMintETH {
+				ethMinted = true
+			}
+		}
+	}
+
+	require.True(t, ethMinted, "mint_eth event not found")
+	t.Log("Monomer can mint_eth from L1 user deposits")
 }
 
 func newURL(t *testing.T, address string) *e2eurl.URL {
