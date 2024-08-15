@@ -41,8 +41,8 @@ type EventListener interface {
 }
 
 type StackConfig struct {
-	L1URL *url.URL
-	*rollup.Config
+	L1URL    *url.URL
+	RUConfig *rollup.Config
 	Operator L1User
 	Users    []L1User
 }
@@ -219,7 +219,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 
 	return &StackConfig{
 		L1URL:    l1url,
-		Config:   rollupConfig,
+		RUConfig: rollupConfig,
 		Operator: l1users[0],
 		Users:    l1users[1:],
 	}, nil

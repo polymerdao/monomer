@@ -115,10 +115,10 @@ func TestE2E(t *testing.T) {
 
 	// instantiate L1 user, tx signer.
 	user := stack.Users[0]
-	signer := types.NewEIP155Signer(stack.L1ChainID)
+	signer := types.NewEIP155Signer(stack.RUConfig.L1ChainID)
 
 	// op Portal
-	portal, err := bindings.NewOptimismPortal(stack.DepositContractAddress, l1Client)
+	portal, err := bindings.NewOptimismPortal(stack.RUConfig.DepositContractAddress, l1Client)
 	require.NoError(t, err)
 
 	// send user Deposit Tx
@@ -128,8 +128,8 @@ func TestE2E(t *testing.T) {
 	gasPrice, err := l1Client.Client.SuggestGasPrice(context.Background())
 	require.NoError(t, err)
 
-	l2GasLimit := stack.Genesis.SystemConfig.GasLimit / 10 // 10% of block gas limit
-	l1GasLimit := l2GasLimit * 2                           // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+	l2GasLimit := stack.RUConfig.Genesis.SystemConfig.GasLimit / 10 // 10% of block gas limit
+	l1GasLimit := l2GasLimit * 2                                    // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
 
 	depositTx, err := portal.DepositTransaction(
 		&bind.TransactOpts{
