@@ -67,7 +67,11 @@ type L1User struct {
 	PrivateKey *ecdsa.PrivateKey
 }
 
-// Setup assumes all ports are available and that all paths exist and are valid.
+// Setup creates and runs a new stack for end-to-end testing.
+//
+// It assumes availability of hard-coded local URLs for the Monomer engine, Comet, and OP node.
+//
+// It returns a StackConfig with L1 and L2 clients, the rollup config, and operator and user accounts.
 func Setup(
 	ctx context.Context,
 	env *environment.Env,
