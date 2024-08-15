@@ -86,11 +86,11 @@ func TestE2E(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	l1Client := stack.L1Client
 	monomerClient := stack.MonomerClient
+	appchainClient := stack.L2Client
 
 	const targetHeight = 5
-
-	l1Client := stack.L1Client
 
 	// instantiate L1 user, tx signer.
 	user := stack.Users[0]
@@ -134,8 +134,6 @@ func TestE2E(t *testing.T) {
 		[]byte{}, // no data
 	)
 	require.NoError(t, err, "deposit tx")
-
-	appchainClient := stack.L2Client
 
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
