@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"net/url"
 	"os"
 	"path/filepath"
 	"testing"
@@ -21,7 +20,8 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/polymerdao/monomer/e2e"
-	e2eurl "github.com/polymerdao/monomer/e2e/url"
+
+	// e2eurl "github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
@@ -48,16 +48,6 @@ func TestE2E(t *testing.T) {
 		t.Skip("skipping e2e tests in short mode")
 	}
 
-	deployConfigDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/deploy-config")
-	require.NoError(t, err)
-	l1StateDumpDir, err := filepath.Abs("./optimism/.devnet")
-	require.NoError(t, err)
-
-	l1URL := newURL(t, "ws://127.0.0.1:8545")
-	monomerEngineURL := newURL(t, "ws://127.0.0.1:8889")
-	monomerCometURL := newURL(t, "http://127.0.0.1:8890")
-	opNodeURL := newURL(t, "http://127.0.0.1:8891")
-
 	env := environment.New()
 	defer func() {
 		require.NoError(t, env.Close())
@@ -75,7 +65,7 @@ func TestE2E(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	stack, err := e2e.Setup(ctx, env, l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, prometheusCfg, &e2e.SelectiveListener{
+	stack, err := e2e.Setup(ctx, env, prometheusCfg, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {
 			require.NoError(t, opLogger.Handle(context.Background(), r))
 		},
@@ -251,12 +241,4 @@ func requireEthIsMinted(t *testing.T, appchainClient *bftclient.HTTP) {
 
 	require.True(t, ethMinted, "mint_eth event not found")
 	t.Log("Monomer can mint_eth from L1 user deposits")
-}
-
-func newURL(t *testing.T, address string) *e2eurl.URL {
-	stdURL, err := url.Parse(address)
-	require.NoError(t, err)
-	resultURL, err := e2eurl.Parse(stdURL)
-	require.NoError(t, err)
-	return resultURL
 }

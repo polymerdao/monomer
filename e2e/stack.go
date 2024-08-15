@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -28,7 +29,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/e2e/url"
+	e2eurl "github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/monomerdb/localdb"
@@ -42,7 +43,7 @@ type EventListener interface {
 }
 
 type StackConfig struct {
-	L1URL         *url.URL
+	L1URL         *e2eurl.URL
 	RUConfig      *rollup.Config
 	Operator      L1User
 	Users         []L1User
@@ -52,9 +53,9 @@ type StackConfig struct {
 }
 
 type stack struct {
-	monomerEngineURL *url.URL
-	monomerCometURL  *url.URL
-	opNodeURL        *url.URL
+	monomerEngineURL *e2eurl.URL
+	monomerCometURL  *e2eurl.URL
+	opNodeURL        *e2eurl.URL
 	deployConfigDir  string
 	l1stateDumpDir   string
 	eventListener    EventListener
@@ -70,15 +71,31 @@ type L1User struct {
 func Setup(
 	ctx context.Context,
 	env *environment.Env,
-	anvilURL,
-	monomerEngineURL,
-	monomerCometURL,
-	opNodeURL *url.URL,
-	deployConfigDir string,
-	l1stateDumpDir string,
 	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
 ) (*StackConfig, error) {
+	deployConfigDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/deploy-config")
+	if err != nil {
+		return nil, fmt.Errorf("abs deploy config dir: %v", err)
+	}
+	l1stateDumpDir, err := filepath.Abs("./optimism/.devnet")
+	if err != nil {
+		return nil, fmt.Errorf("abs l1 state dump dir: %v", err)
+	}
+
+	monomerEngineURL, err := newURL("ws://127.0.0.1:8889")
+	if err != nil {
+		return nil, fmt.Errorf("new l1 url: %v", err)
+	}
+	monomerCometURL, err := newURL("http://127.0.0.1:8890")
+	if err != nil {
+		return nil, fmt.Errorf("new l1 url: %v", err)
+	}
+	opNodeURL, err := newURL("http://127.0.0.1:8891")
+	if err != nil {
+		return nil, fmt.Errorf("new l1 url: %v", err)
+	}
+
 	stack := stack{
 		monomerEngineURL: monomerEngineURL,
 		monomerCometURL:  monomerCometURL,
@@ -169,7 +186,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("ethdevnet: %v", err)
 	}
 
-	l1url, err := url.ParseString(l1HTTPendpoint)
+	l1url, err := e2eurl.ParseString(l1HTTPendpoint)
 	if err != nil {
 		return nil, fmt.Errorf("new l1 url: %v", err)
 	}
@@ -301,4 +318,16 @@ func (s *stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		return fmt.Errorf("run monomer: %v", err)
 	}
 	return nil
+}
+
+func newURL(address string) (*e2eurl.URL, error) {
+	stdURL, err := url.Parse(address)
+	if err != nil {
+		return nil, fmt.Errorf("parse URL: %v", err)
+	}
+	resultURL, err := e2eurl.Parse(stdURL)
+	if err != nil {
+		return nil, fmt.Errorf("parse e2e URL: %v", err)
+	}
+	return resultURL, nil
 }
