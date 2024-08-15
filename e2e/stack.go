@@ -45,6 +45,7 @@ type StackConfig struct {
 	RUConfig *rollup.Config
 	Operator L1User
 	Users    []L1User
+	L1Client *L1Client
 }
 
 type stack struct {
@@ -219,6 +220,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 
 	return &StackConfig{
 		L1URL:    l1url,
+		L1Client: l1,
 		RUConfig: rollupConfig,
 		Operator: l1users[0],
 		Users:    l1users[1:],
