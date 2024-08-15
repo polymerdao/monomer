@@ -131,6 +131,6 @@ func (*Module) RegisterInterfaces(r codectypes.InterfaceRegistry) {
 func (*Module) RegisterLegacyAminoCodec(cdc *codec.LegacyAmino) {}
 
 func (m *Module) RegisterServices(cfg module.Configurator) {
-	types.RegisterMsgServiceServer(cfg.MsgServer(), m.keeper)
-	types.RegisterQueryServiceServer(cfg.QueryServer(), m.keeper)
+	types.RegisterMsgServer(cfg.MsgServer(), m.keeper)
+	types.RegisterQueryServer(cfg.QueryServer(), m.keeper)
 }

@@ -16,14 +16,14 @@ type msgServer struct {
 
 // NewMsgServerImpl returns an implementation of the MsgServer interface
 // for the provided Keeper.
-func NewMsgServerImpl(keeper *Keeper) types.MsgServiceServer {
+func NewMsgServerImpl(keeper *Keeper) types.MsgServer {
 	return &msgServer{Keeper: keeper}
 }
 
-var _ types.MsgServiceServer = msgServer{}
+var _ types.MsgServer = msgServer{}
 
 // ApplyL1Txs implements types.MsgServer.
-func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.ApplyL1TxsRequest) (*types.ApplyL1TxsResponse, error) {
+func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*types.MsgApplyL1TxsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
 	ctx.Logger().Debug("Processing L1 txs", "txCount", len(msg.TxBytes))
@@ -57,13 +57,13 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.ApplyL1TxsRequest)
 		return nil, types.WrapError(types.ErrProcessL1UserDepositTxs, "err: %v", err)
 	}
 
-	return &types.ApplyL1TxsResponse{}, nil
+	return &types.MsgApplyL1TxsResponse{}, nil
 }
 
 func (k *Keeper) InitiateWithdrawal(
 	goCtx context.Context,
-	msg *types.InitiateWithdrawalRequest,
-) (*types.InitiateWithdrawalResponse, error) {
+	msg *types.MsgInitiateWithdrawal,
+) (*types.MsgInitiateWithdrawalResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 	ctx.Logger().Debug("Withdrawing L2 assets", "sender", msg.Sender, "value", msg.Value)
 
@@ -101,5 +101,5 @@ func (k *Keeper) InitiateWithdrawal(
 		),
 	})
 
-	return &types.InitiateWithdrawalResponse{}, nil
+	return &types.MsgInitiateWithdrawalResponse{}, nil
 }

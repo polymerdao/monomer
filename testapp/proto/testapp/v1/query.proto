@@ -4,14 +4,18 @@ package testapp.v1;
 
 option go_package = "github.com/polymerdao/monomer/testapp/x/testmodule/types";
 
-service QueryService {
-    rpc Get(GetRequest) returns (GetResponse) {}
+// Query defines the gRPC querier service.
+service Query {
+    // Value queries a value stored at a given key.
+    rpc Value(QueryValueRequest) returns (QueryValueResponse) {}
 }
 
-message GetRequest {
+// QueryValueRequest is the request type for the Query/Value method.
+message QueryValueRequest {
     string key = 1;
 }
 
-message GetResponse {
+// QueryValueResponse is the response type for the Query/Value method.
+message QueryValueResponse {
     string value = 2;
 }

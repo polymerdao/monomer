@@ -15,7 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const QueryPath = "/testapp.v1.QueryService/Get"
+const QueryPath = "/testapp.v1.Query/Value"
 
 func NewTest(t *testing.T, chainID string) *App {
 	appdb := dbm.NewMemDB()
@@ -49,7 +49,7 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 }
 
 func ToTx(t *testing.T, k, v string) []byte {
-	msgAny, err := codectypes.NewAnyWithValue(&types.SetRequest{
+	msgAny, err := codectypes.NewAnyWithValue(&types.MsgSetValue{
 		// TODO use real addresses and enable the signature and gas checks.
 		// This is just a dummy address. The signature and gas checks are disabled in testapp.go,
 		// so this works for now.
@@ -72,7 +72,7 @@ func ToTx(t *testing.T, k, v string) []byte {
 	return txBytes
 }
 
-// ToTxs converts the key-values to SetRequest sdk.Msgs and marshals the messages to protobuf wire format.
+// ToTxs converts the key-values to MsgSetValue sdk.Msgs and marshals the messages to protobuf wire format.
 // Each message is placed in a separate tx.
 func ToTxs(t *testing.T, kvs map[string]string) [][]byte {
 	var txs [][]byte
@@ -100,7 +100,7 @@ func (a *App) StateContains(t *testing.T, height uint64, kvs map[string]string) 
 	}
 	gotState := make(map[string]string, len(kvs))
 	for k := range kvs {
-		requestBytes, err := (&types.GetRequest{
+		requestBytes, err := (&types.QueryValueRequest{
 			Key: k,
 		}).Marshal()
 		require.NoError(t, err)
@@ -110,7 +110,7 @@ func (a *App) StateContains(t *testing.T, height uint64, kvs map[string]string) 
 			Height: int64(height),
 		})
 		require.NoError(t, err)
-		var val types.GetResponse
+		var val types.QueryValueResponse
 		require.NoError(t, (&val).Unmarshal(resp.GetValue()))
 		gotState[k] = val.GetValue()
 	}
@@ -123,7 +123,7 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 		return
 	}
 	for k := range kvs {
-		requestBytes, err := (&types.GetRequest{
+		requestBytes, err := (&types.QueryValueRequest{
 			Key: k,
 		}).Marshal()
 		require.NoError(t, err)
@@ -133,7 +133,7 @@ func (a *App) StateDoesNotContain(t *testing.T, height uint64, kvs map[string]st
 			Height: int64(height),
 		})
 		require.NoError(t, err)
-		var val types.GetResponse
+		var val types.QueryValueResponse
 		require.NoError(t, (&val).Unmarshal(resp.GetValue()))
 		require.Empty(t, val.GetValue())
 	}

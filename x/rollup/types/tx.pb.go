@@ -32,26 +32,27 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.GoGoProtoPackageIsVersion3 // please upgrade the proto package
 
-// ApplyL1TxsRequest defines a message for all L1 system and user deposit txs
-type ApplyL1TxsRequest struct {
+// MsgApplyL1Txs defines the message for applying all L1 system and user deposit txs.
+type MsgApplyL1Txs struct {
 	// Array of bytes where each bytes is a eth.Transaction.MarshalBinary tx.
 	// The first tx must be the L1 system deposit tx, and the rest are user txs if present.
-	TxBytes     [][]byte `protobuf:"bytes,1,rep,name=tx_bytes,json=txBytes,proto3" json:"tx_bytes,omitempty"`
-	FromAddress string   `protobuf:"bytes,2,opt,name=from_address,json=fromAddress,proto3" json:"from_address,omitempty"`
+	TxBytes [][]byte `protobuf:"bytes,1,rep,name=tx_bytes,json=txBytes,proto3" json:"tx_bytes,omitempty"`
+	// The cosmos address of the L1 system and user deposit tx signer.
+	FromAddress string `protobuf:"bytes,2,opt,name=from_address,json=fromAddress,proto3" json:"from_address,omitempty"`
 }
 
-func (m *ApplyL1TxsRequest) Reset()         { *m = ApplyL1TxsRequest{} }
-func (m *ApplyL1TxsRequest) String() string { return proto.CompactTextString(m) }
-func (*ApplyL1TxsRequest) ProtoMessage()    {}
-func (*ApplyL1TxsRequest) Descriptor() ([]byte, []int) {
+func (m *MsgApplyL1Txs) Reset()         { *m = MsgApplyL1Txs{} }
+func (m *MsgApplyL1Txs) String() string { return proto.CompactTextString(m) }
+func (*MsgApplyL1Txs) ProtoMessage()    {}
+func (*MsgApplyL1Txs) Descriptor() ([]byte, []int) {
 	return fileDescriptor_106533843870de0f, []int{0}
 }
-func (m *ApplyL1TxsRequest) XXX_Unmarshal(b []byte) error {
+func (m *MsgApplyL1Txs) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ApplyL1TxsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *MsgApplyL1Txs) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ApplyL1TxsRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_MsgApplyL1Txs.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -61,47 +62,48 @@ func (m *ApplyL1TxsRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, e
 		return b[:n], nil
 	}
 }
-func (m *ApplyL1TxsRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ApplyL1TxsRequest.Merge(m, src)
+func (m *MsgApplyL1Txs) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgApplyL1Txs.Merge(m, src)
 }
-func (m *ApplyL1TxsRequest) XXX_Size() int {
+func (m *MsgApplyL1Txs) XXX_Size() int {
 	return m.Size()
 }
-func (m *ApplyL1TxsRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_ApplyL1TxsRequest.DiscardUnknown(m)
+func (m *MsgApplyL1Txs) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgApplyL1Txs.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ApplyL1TxsRequest proto.InternalMessageInfo
+var xxx_messageInfo_MsgApplyL1Txs proto.InternalMessageInfo
 
-func (m *ApplyL1TxsRequest) GetTxBytes() [][]byte {
+func (m *MsgApplyL1Txs) GetTxBytes() [][]byte {
 	if m != nil {
 		return m.TxBytes
 	}
 	return nil
 }
 
-func (m *ApplyL1TxsRequest) GetFromAddress() string {
+func (m *MsgApplyL1Txs) GetFromAddress() string {
 	if m != nil {
 		return m.FromAddress
 	}
 	return ""
 }
 
-type ApplyL1TxsResponse struct {
+// MsgApplyL1TxsResponse defines the Msg/ApplyL1Txs response type.
+type MsgApplyL1TxsResponse struct {
 }
 
-func (m *ApplyL1TxsResponse) Reset()         { *m = ApplyL1TxsResponse{} }
-func (m *ApplyL1TxsResponse) String() string { return proto.CompactTextString(m) }
-func (*ApplyL1TxsResponse) ProtoMessage()    {}
-func (*ApplyL1TxsResponse) Descriptor() ([]byte, []int) {
+func (m *MsgApplyL1TxsResponse) Reset()         { *m = MsgApplyL1TxsResponse{} }
+func (m *MsgApplyL1TxsResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgApplyL1TxsResponse) ProtoMessage()    {}
+func (*MsgApplyL1TxsResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_106533843870de0f, []int{1}
 }
-func (m *ApplyL1TxsResponse) XXX_Unmarshal(b []byte) error {
+func (m *MsgApplyL1TxsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *ApplyL1TxsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *MsgApplyL1TxsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_ApplyL1TxsResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_MsgApplyL1TxsResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -111,20 +113,20 @@ func (m *ApplyL1TxsResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, 
 		return b[:n], nil
 	}
 }
-func (m *ApplyL1TxsResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_ApplyL1TxsResponse.Merge(m, src)
+func (m *MsgApplyL1TxsResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgApplyL1TxsResponse.Merge(m, src)
 }
-func (m *ApplyL1TxsResponse) XXX_Size() int {
+func (m *MsgApplyL1TxsResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *ApplyL1TxsResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_ApplyL1TxsResponse.DiscardUnknown(m)
+func (m *MsgApplyL1TxsResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgApplyL1TxsResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_ApplyL1TxsResponse proto.InternalMessageInfo
+var xxx_messageInfo_MsgApplyL1TxsResponse proto.InternalMessageInfo
 
-// InitiateWithdrawalRequest defines a message for all L2 withdrawal txs
-type InitiateWithdrawalRequest struct {
+// MsgInitiateWithdrawal defines the message for initiating an L2 withdrawal.
+type MsgInitiateWithdrawal struct {
 	// The cosmos address of the user who wants to withdraw from L2.
 	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
 	// The ethereum address on L1 that the user wants to withdraw to.
@@ -137,18 +139,18 @@ type InitiateWithdrawalRequest struct {
 	Data []byte `protobuf:"bytes,5,opt,name=data,proto3" json:"data,omitempty"`
 }
 
-func (m *InitiateWithdrawalRequest) Reset()         { *m = InitiateWithdrawalRequest{} }
-func (m *InitiateWithdrawalRequest) String() string { return proto.CompactTextString(m) }
-func (*InitiateWithdrawalRequest) ProtoMessage()    {}
-func (*InitiateWithdrawalRequest) Descriptor() ([]byte, []int) {
+func (m *MsgInitiateWithdrawal) Reset()         { *m = MsgInitiateWithdrawal{} }
+func (m *MsgInitiateWithdrawal) String() string { return proto.CompactTextString(m) }
+func (*MsgInitiateWithdrawal) ProtoMessage()    {}
+func (*MsgInitiateWithdrawal) Descriptor() ([]byte, []int) {
 	return fileDescriptor_106533843870de0f, []int{2}
 }
-func (m *InitiateWithdrawalRequest) XXX_Unmarshal(b []byte) error {
+func (m *MsgInitiateWithdrawal) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *InitiateWithdrawalRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *MsgInitiateWithdrawal) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_InitiateWithdrawalRequest.Marshal(b, m, deterministic)
+		return xxx_messageInfo_MsgInitiateWithdrawal.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -158,61 +160,62 @@ func (m *InitiateWithdrawalRequest) XXX_Marshal(b []byte, deterministic bool) ([
 		return b[:n], nil
 	}
 }
-func (m *InitiateWithdrawalRequest) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_InitiateWithdrawalRequest.Merge(m, src)
+func (m *MsgInitiateWithdrawal) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgInitiateWithdrawal.Merge(m, src)
 }
-func (m *InitiateWithdrawalRequest) XXX_Size() int {
+func (m *MsgInitiateWithdrawal) XXX_Size() int {
 	return m.Size()
 }
-func (m *InitiateWithdrawalRequest) XXX_DiscardUnknown() {
-	xxx_messageInfo_InitiateWithdrawalRequest.DiscardUnknown(m)
+func (m *MsgInitiateWithdrawal) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgInitiateWithdrawal.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_InitiateWithdrawalRequest proto.InternalMessageInfo
+var xxx_messageInfo_MsgInitiateWithdrawal proto.InternalMessageInfo
 
-func (m *InitiateWithdrawalRequest) GetSender() string {
+func (m *MsgInitiateWithdrawal) GetSender() string {
 	if m != nil {
 		return m.Sender
 	}
 	return ""
 }
 
-func (m *InitiateWithdrawalRequest) GetTarget() string {
+func (m *MsgInitiateWithdrawal) GetTarget() string {
 	if m != nil {
 		return m.Target
 	}
 	return ""
 }
 
-func (m *InitiateWithdrawalRequest) GetGasLimit() []byte {
+func (m *MsgInitiateWithdrawal) GetGasLimit() []byte {
 	if m != nil {
 		return m.GasLimit
 	}
 	return nil
 }
 
-func (m *InitiateWithdrawalRequest) GetData() []byte {
+func (m *MsgInitiateWithdrawal) GetData() []byte {
 	if m != nil {
 		return m.Data
 	}
 	return nil
 }
 
-type InitiateWithdrawalResponse struct {
+// MsgInitiateWithdrawalResponse defines the Msg/InitiateWithdrawal response type.
+type MsgInitiateWithdrawalResponse struct {
 }
 
-func (m *InitiateWithdrawalResponse) Reset()         { *m = InitiateWithdrawalResponse{} }
-func (m *InitiateWithdrawalResponse) String() string { return proto.CompactTextString(m) }
-func (*InitiateWithdrawalResponse) ProtoMessage()    {}
-func (*InitiateWithdrawalResponse) Descriptor() ([]byte, []int) {
+func (m *MsgInitiateWithdrawalResponse) Reset()         { *m = MsgInitiateWithdrawalResponse{} }
+func (m *MsgInitiateWithdrawalResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgInitiateWithdrawalResponse) ProtoMessage()    {}
+func (*MsgInitiateWithdrawalResponse) Descriptor() ([]byte, []int) {
 	return fileDescriptor_106533843870de0f, []int{3}
 }
-func (m *InitiateWithdrawalResponse) XXX_Unmarshal(b []byte) error {
+func (m *MsgInitiateWithdrawalResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
 }
-func (m *InitiateWithdrawalResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+func (m *MsgInitiateWithdrawalResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
 	if deterministic {
-		return xxx_messageInfo_InitiateWithdrawalResponse.Marshal(b, m, deterministic)
+		return xxx_messageInfo_MsgInitiateWithdrawalResponse.Marshal(b, m, deterministic)
 	} else {
 		b = b[:cap(b)]
 		n, err := m.MarshalToSizedBuffer(b)
@@ -222,60 +225,59 @@ func (m *InitiateWithdrawalResponse) XXX_Marshal(b []byte, deterministic bool) (
 		return b[:n], nil
 	}
 }
-func (m *InitiateWithdrawalResponse) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_InitiateWithdrawalResponse.Merge(m, src)
+func (m *MsgInitiateWithdrawalResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgInitiateWithdrawalResponse.Merge(m, src)
 }
-func (m *InitiateWithdrawalResponse) XXX_Size() int {
+func (m *MsgInitiateWithdrawalResponse) XXX_Size() int {
 	return m.Size()
 }
-func (m *InitiateWithdrawalResponse) XXX_DiscardUnknown() {
-	xxx_messageInfo_InitiateWithdrawalResponse.DiscardUnknown(m)
+func (m *MsgInitiateWithdrawalResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgInitiateWithdrawalResponse.DiscardUnknown(m)
 }
 
-var xxx_messageInfo_InitiateWithdrawalResponse proto.InternalMessageInfo
+var xxx_messageInfo_MsgInitiateWithdrawalResponse proto.InternalMessageInfo
 
 func init() {
-	proto.RegisterType((*ApplyL1TxsRequest)(nil), "rollup.v1.ApplyL1TxsRequest")
-	proto.RegisterType((*ApplyL1TxsResponse)(nil), "rollup.v1.ApplyL1TxsResponse")
-	proto.RegisterType((*InitiateWithdrawalRequest)(nil), "rollup.v1.InitiateWithdrawalRequest")
-	proto.RegisterType((*InitiateWithdrawalResponse)(nil), "rollup.v1.InitiateWithdrawalResponse")
+	proto.RegisterType((*MsgApplyL1Txs)(nil), "rollup.v1.MsgApplyL1Txs")
+	proto.RegisterType((*MsgApplyL1TxsResponse)(nil), "rollup.v1.MsgApplyL1TxsResponse")
+	proto.RegisterType((*MsgInitiateWithdrawal)(nil), "rollup.v1.MsgInitiateWithdrawal")
+	proto.RegisterType((*MsgInitiateWithdrawalResponse)(nil), "rollup.v1.MsgInitiateWithdrawalResponse")
 }
 
 func init() { proto.RegisterFile("rollup/v1/tx.proto", fileDescriptor_106533843870de0f) }
 
 var fileDescriptor_106533843870de0f = []byte{
-	// 490 bytes of a gzipped FileDescriptorProto
+	// 479 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x52, 0x31, 0x6f, 0x13, 0x31,
-	0x14, 0x8e, 0x69, 0x1b, 0x1a, 0x37, 0x4b, 0xac, 0x00, 0x97, 0xa3, 0x5c, 0x43, 0x04, 0x52, 0x54,
-	0xd1, 0x73, 0x03, 0x5b, 0xb7, 0x66, 0xa8, 0x14, 0xa9, 0x2c, 0x57, 0x24, 0x24, 0x96, 0xc8, 0xc9,
-	0x19, 0xc7, 0xe2, 0x7c, 0x3e, 0x6c, 0x27, 0x5c, 0x56, 0x7e, 0x01, 0x3f, 0x83, 0xb1, 0x43, 0x27,
-	0x7e, 0x41, 0xc7, 0xaa, 0x13, 0x62, 0xa8, 0x50, 0x32, 0x74, 0xe0, 0x4f, 0xa0, 0x3b, 0x1b, 0x28,
-	0x2a, 0x11, 0x8b, 0xe5, 0xef, 0xfb, 0xde, 0x7b, 0xdf, 0xf3, 0xf3, 0x83, 0x48, 0xc9, 0x24, 0x99,
-	0x66, 0x78, 0xd6, 0xc3, 0x26, 0x0f, 0x33, 0x25, 0x8d, 0x44, 0x35, 0xcb, 0x85, 0xb3, 0x9e, 0xdf,
-	0x20, 0x82, 0xa7, 0x12, 0x97, 0xa7, 0x55, 0xfd, 0x07, 0x63, 0xa9, 0x85, 0xd4, 0x58, 0x68, 0x56,
-	0x64, 0x09, 0xcd, 0x9c, 0xd0, 0xb2, 0xc2, 0xb0, 0x44, 0xd8, 0x02, 0x27, 0x35, 0x99, 0x64, 0xd2,
-	0xf2, 0xc5, 0xcd, 0xb2, 0x9d, 0x18, 0x36, 0x0e, 0xb3, 0x2c, 0x99, 0x1f, 0xf7, 0x5e, 0xe5, 0x3a,
-	0xa2, 0xef, 0xa7, 0x54, 0x1b, 0xd4, 0x82, 0x9b, 0x26, 0x1f, 0x8e, 0xe6, 0x86, 0x6a, 0x0f, 0xb4,
-	0xd7, 0xba, 0xf5, 0xe8, 0xae, 0xc9, 0xfb, 0x05, 0x44, 0x8f, 0x61, 0xfd, 0xad, 0x92, 0x62, 0x48,
-	0xe2, 0x58, 0x51, 0xad, 0xbd, 0x3b, 0x6d, 0xd0, 0xad, 0x45, 0x5b, 0x05, 0x77, 0x68, 0xa9, 0x83,
-	0xc6, 0xc7, 0xeb, 0xd3, 0xdd, 0xbf, 0xa2, 0x3a, 0x4d, 0x88, 0x6e, 0xba, 0xe8, 0x4c, 0xa6, 0x9a,
-	0x76, 0x7e, 0x00, 0xd8, 0x1a, 0xa4, 0xdc, 0x70, 0x62, 0xe8, 0x6b, 0x6e, 0x26, 0xb1, 0x22, 0x1f,
-	0x48, 0xf2, 0xab, 0x89, 0x7d, 0x58, 0xd5, 0x34, 0x8d, 0xa9, 0xf2, 0x40, 0xe1, 0xd1, 0xf7, 0x2e,
-	0xcf, 0xf6, 0x9a, 0xee, 0x45, 0xce, 0xea, 0xc4, 0x28, 0x9e, 0xb2, 0xc8, 0xc5, 0xa1, 0xfb, 0xb0,
-	0x6a, 0x88, 0x62, 0xd4, 0xb8, 0xae, 0x1c, 0x42, 0x47, 0x70, 0x63, 0x46, 0x92, 0x29, 0xf5, 0xd6,
-	0xca, 0x42, 0xfb, 0xe7, 0x57, 0x3b, 0x95, 0x6f, 0x57, 0x3b, 0xf7, 0x6c, 0x31, 0x1d, 0xbf, 0x0b,
-	0xb9, 0xc4, 0x82, 0x98, 0x49, 0x38, 0x48, 0xcd, 0xe5, 0xd9, 0x1e, 0x74, 0x2e, 0x83, 0xd4, 0x7c,
-	0xbe, 0x3e, 0xdd, 0x05, 0x91, 0x4d, 0x47, 0x0f, 0x61, 0x8d, 0x11, 0x3d, 0x4c, 0xb8, 0xe0, 0xc6,
-	0x5b, 0x6f, 0x83, 0x6e, 0x3d, 0xda, 0x64, 0x44, 0x1f, 0x17, 0x18, 0x21, 0xb8, 0x1e, 0x13, 0x43,
-	0xbc, 0x8d, 0x92, 0x2f, 0xef, 0x07, 0x5b, 0xc5, 0x24, 0x5c, 0x77, 0x9d, 0x6d, 0xe8, 0xff, 0xeb,
-	0xb1, 0x76, 0x16, 0xcf, 0xbf, 0x00, 0x08, 0x5f, 0x6a, 0x76, 0x42, 0xd5, 0x8c, 0x8f, 0x29, 0x1a,
-	0x40, 0xf8, 0x67, 0x60, 0x68, 0x3b, 0xfc, 0xbd, 0x0d, 0xe1, 0xad, 0xdf, 0xf2, 0x1f, 0xad, 0x50,
-	0x6d, 0x65, 0x44, 0x20, 0xba, 0xed, 0x8b, 0x9e, 0xdc, 0x48, 0x5a, 0xf9, 0x07, 0xfe, 0xd3, 0xff,
-	0x44, 0x59, 0x8b, 0xfe, 0xd1, 0xf9, 0x22, 0x00, 0x17, 0x8b, 0x00, 0x7c, 0x5f, 0x04, 0xe0, 0xd3,
-	0x32, 0xa8, 0x5c, 0x2c, 0x83, 0xca, 0xd7, 0x65, 0x50, 0x79, 0xf3, 0x8c, 0x71, 0x33, 0x99, 0x8e,
-	0xc2, 0xb1, 0x14, 0x38, 0x93, 0xc9, 0x5c, 0x50, 0x15, 0x13, 0x89, 0x85, 0x4c, 0xa5, 0xa0, 0x0a,
-	0xe7, 0xd8, 0xad, 0xbe, 0x99, 0x67, 0x54, 0x8f, 0xaa, 0xe5, 0x4e, 0xbe, 0xf8, 0x19, 0x00, 0x00,
-	0xff, 0xff, 0xee, 0x34, 0x5a, 0x78, 0x11, 0x03, 0x00, 0x00,
+	0x14, 0x8e, 0x49, 0x1b, 0x1a, 0x37, 0x0c, 0xb5, 0x5a, 0x7a, 0x0d, 0xe2, 0x12, 0x32, 0x45, 0x15,
+	0x3d, 0x37, 0xb0, 0x75, 0x6b, 0x86, 0x8a, 0x48, 0xed, 0x72, 0x20, 0x21, 0xb1, 0xa4, 0x4e, 0xcf,
+	0x38, 0x27, 0xce, 0xe7, 0x93, 0xfd, 0x12, 0x92, 0x95, 0x5f, 0xc0, 0xcf, 0x60, 0x2c, 0x52, 0x7f,
+	0x44, 0xc7, 0xaa, 0x13, 0x62, 0xa8, 0x50, 0x32, 0xe4, 0x6f, 0xa0, 0x3b, 0x3b, 0x88, 0x40, 0x11,
+	0xcb, 0xc9, 0xdf, 0xf7, 0xbd, 0xf7, 0x3e, 0xfb, 0xbb, 0x87, 0x89, 0x56, 0x49, 0x32, 0xca, 0xe8,
+	0xb8, 0x43, 0x61, 0x12, 0x64, 0x5a, 0x81, 0x22, 0x55, 0xcb, 0x05, 0xe3, 0x4e, 0x7d, 0x8b, 0xc9,
+	0x38, 0x55, 0xb4, 0xf8, 0x5a, 0xb5, 0xbe, 0x7b, 0xa1, 0x8c, 0x54, 0x86, 0x4a, 0x23, 0xf2, 0x2e,
+	0x69, 0x84, 0x13, 0xf6, 0xac, 0xd0, 0x2f, 0x10, 0xb5, 0xc0, 0x49, 0xdb, 0x42, 0x09, 0x65, 0xf9,
+	0xfc, 0x64, 0xd9, 0xd6, 0x39, 0x7e, 0x74, 0x66, 0xc4, 0x71, 0x96, 0x25, 0xd3, 0xd3, 0xce, 0x9b,
+	0x89, 0x21, 0x7b, 0x78, 0x03, 0x26, 0xfd, 0xc1, 0x14, 0xb8, 0xf1, 0x50, 0xb3, 0xdc, 0xae, 0x85,
+	0x0f, 0x61, 0xd2, 0xcd, 0x21, 0x79, 0x86, 0x6b, 0xef, 0xb5, 0x92, 0x7d, 0x16, 0x45, 0x9a, 0x1b,
+	0xe3, 0x3d, 0x68, 0xa2, 0x76, 0x35, 0xdc, 0xcc, 0xb9, 0x63, 0x4b, 0x1d, 0x6d, 0x7d, 0x5a, 0x5c,
+	0xee, 0xaf, 0x54, 0xb5, 0x76, 0xf1, 0xce, 0x8a, 0x43, 0xc8, 0x4d, 0xa6, 0x52, 0xc3, 0x5b, 0x0b,
+	0x54, 0x28, 0xbd, 0x34, 0x86, 0x98, 0x01, 0x7f, 0x1b, 0xc3, 0x30, 0xd2, 0xec, 0x23, 0x4b, 0xc8,
+	0x21, 0xae, 0x18, 0x9e, 0x46, 0x5c, 0x7b, 0x28, 0xb7, 0xe8, 0x7a, 0xb7, 0x57, 0x07, 0xdb, 0xee,
+	0x31, 0xce, 0xe9, 0x35, 0xe8, 0x38, 0x15, 0xa1, 0xab, 0x23, 0x8f, 0x71, 0x05, 0x98, 0x16, 0x1c,
+	0xdc, 0xa5, 0x1c, 0x22, 0x27, 0x78, 0x7d, 0xcc, 0x92, 0x11, 0xf7, 0xca, 0xc5, 0xa0, 0xc3, 0xeb,
+	0xbb, 0x46, 0xe9, 0xfb, 0x5d, 0x63, 0xc7, 0x0e, 0x33, 0xd1, 0x87, 0x20, 0x56, 0x54, 0x32, 0x18,
+	0x06, 0xbd, 0x14, 0x6e, 0xaf, 0x0e, 0xb0, 0x73, 0xe9, 0xa5, 0xf0, 0x65, 0x71, 0xb9, 0x8f, 0x42,
+	0xdb, 0x4e, 0x9e, 0xe0, 0xaa, 0x60, 0xa6, 0x9f, 0xc4, 0x32, 0x06, 0x6f, 0xad, 0x89, 0xda, 0xb5,
+	0x70, 0x43, 0x30, 0x73, 0x9a, 0x63, 0x42, 0xf0, 0x5a, 0xc4, 0x80, 0x79, 0xeb, 0x05, 0x5f, 0x9c,
+	0x8f, 0x36, 0xf3, 0x20, 0xdc, 0xed, 0x5a, 0x0d, 0xfc, 0xf4, 0xde, 0x87, 0x2e, 0xa3, 0x78, 0xf1,
+	0x15, 0xe1, 0xf2, 0x99, 0x11, 0xe4, 0x15, 0xc6, 0xbf, 0xfd, 0x0a, 0x2f, 0xf8, 0xb5, 0x04, 0xc1,
+	0x4a, 0x84, 0xf5, 0xe6, 0xbf, 0x94, 0xe5, 0x44, 0x72, 0x8e, 0xc9, 0x3d, 0xc1, 0xfe, 0xd1, 0xf7,
+	0x77, 0x45, 0xbd, 0xfd, 0xbf, 0x8a, 0xa5, 0x43, 0xf7, 0xe4, 0x7a, 0xe6, 0xa3, 0x9b, 0x99, 0x8f,
+	0x7e, 0xcc, 0x7c, 0xf4, 0x79, 0xee, 0x97, 0x6e, 0xe6, 0x7e, 0xe9, 0xdb, 0xdc, 0x2f, 0xbd, 0x7b,
+	0x2e, 0x62, 0x18, 0x8e, 0x06, 0xc1, 0x85, 0x92, 0x34, 0x53, 0xc9, 0x54, 0x72, 0x1d, 0x31, 0x45,
+	0xa5, 0x4a, 0x95, 0xe4, 0x9a, 0x4e, 0xa8, 0xdb, 0x77, 0x98, 0x66, 0xdc, 0x0c, 0x2a, 0xc5, 0x22,
+	0xbe, 0xfc, 0x19, 0x00, 0x00, 0xff, 0xff, 0xa3, 0x27, 0xf0, 0x02, 0x06, 0x03, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -286,115 +288,119 @@ var _ grpc.ClientConn
 // is compatible with the grpc package it is being compiled against.
 const _ = grpc.SupportPackageIsVersion4
 
-// MsgServiceClient is the client API for MsgService service.
+// MsgClient is the client API for Msg service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
-type MsgServiceClient interface {
-	ApplyL1Txs(ctx context.Context, in *ApplyL1TxsRequest, opts ...grpc.CallOption) (*ApplyL1TxsResponse, error)
-	InitiateWithdrawal(ctx context.Context, in *InitiateWithdrawalRequest, opts ...grpc.CallOption) (*InitiateWithdrawalResponse, error)
+type MsgClient interface {
+	// ApplyL1Txs defines a method for applying applying all L1 system and user deposit txs.
+	ApplyL1Txs(ctx context.Context, in *MsgApplyL1Txs, opts ...grpc.CallOption) (*MsgApplyL1TxsResponse, error)
+	// InitiateWithdrawal defines a method for initiating a withdrawal from L2 to L1.
+	InitiateWithdrawal(ctx context.Context, in *MsgInitiateWithdrawal, opts ...grpc.CallOption) (*MsgInitiateWithdrawalResponse, error)
 }
 
-type msgServiceClient struct {
+type msgClient struct {
 	cc grpc1.ClientConn
 }
 
-func NewMsgServiceClient(cc grpc1.ClientConn) MsgServiceClient {
-	return &msgServiceClient{cc}
+func NewMsgClient(cc grpc1.ClientConn) MsgClient {
+	return &msgClient{cc}
 }
 
-func (c *msgServiceClient) ApplyL1Txs(ctx context.Context, in *ApplyL1TxsRequest, opts ...grpc.CallOption) (*ApplyL1TxsResponse, error) {
-	out := new(ApplyL1TxsResponse)
-	err := c.cc.Invoke(ctx, "/rollup.v1.MsgService/ApplyL1Txs", in, out, opts...)
+func (c *msgClient) ApplyL1Txs(ctx context.Context, in *MsgApplyL1Txs, opts ...grpc.CallOption) (*MsgApplyL1TxsResponse, error) {
+	out := new(MsgApplyL1TxsResponse)
+	err := c.cc.Invoke(ctx, "/rollup.v1.Msg/ApplyL1Txs", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-func (c *msgServiceClient) InitiateWithdrawal(ctx context.Context, in *InitiateWithdrawalRequest, opts ...grpc.CallOption) (*InitiateWithdrawalResponse, error) {
-	out := new(InitiateWithdrawalResponse)
-	err := c.cc.Invoke(ctx, "/rollup.v1.MsgService/InitiateWithdrawal", in, out, opts...)
+func (c *msgClient) InitiateWithdrawal(ctx context.Context, in *MsgInitiateWithdrawal, opts ...grpc.CallOption) (*MsgInitiateWithdrawalResponse, error) {
+	out := new(MsgInitiateWithdrawalResponse)
+	err := c.cc.Invoke(ctx, "/rollup.v1.Msg/InitiateWithdrawal", in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
 	return out, nil
 }
 
-// MsgServiceServer is the server API for MsgService service.
-type MsgServiceServer interface {
-	ApplyL1Txs(context.Context, *ApplyL1TxsRequest) (*ApplyL1TxsResponse, error)
-	InitiateWithdrawal(context.Context, *InitiateWithdrawalRequest) (*InitiateWithdrawalResponse, error)
+// MsgServer is the server API for Msg service.
+type MsgServer interface {
+	// ApplyL1Txs defines a method for applying applying all L1 system and user deposit txs.
+	ApplyL1Txs(context.Context, *MsgApplyL1Txs) (*MsgApplyL1TxsResponse, error)
+	// InitiateWithdrawal defines a method for initiating a withdrawal from L2 to L1.
+	InitiateWithdrawal(context.Context, *MsgInitiateWithdrawal) (*MsgInitiateWithdrawalResponse, error)
 }
 
-// UnimplementedMsgServiceServer can be embedded to have forward compatible implementations.
-type UnimplementedMsgServiceServer struct {
+// UnimplementedMsgServer can be embedded to have forward compatible implementations.
+type UnimplementedMsgServer struct {
 }
 
-func (*UnimplementedMsgServiceServer) ApplyL1Txs(ctx context.Context, req *ApplyL1TxsRequest) (*ApplyL1TxsResponse, error) {
+func (*UnimplementedMsgServer) ApplyL1Txs(ctx context.Context, req *MsgApplyL1Txs) (*MsgApplyL1TxsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ApplyL1Txs not implemented")
 }
-func (*UnimplementedMsgServiceServer) InitiateWithdrawal(ctx context.Context, req *InitiateWithdrawalRequest) (*InitiateWithdrawalResponse, error) {
+func (*UnimplementedMsgServer) InitiateWithdrawal(ctx context.Context, req *MsgInitiateWithdrawal) (*MsgInitiateWithdrawalResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InitiateWithdrawal not implemented")
 }
 
-func RegisterMsgServiceServer(s grpc1.Server, srv MsgServiceServer) {
-	s.RegisterService(&_MsgService_serviceDesc, srv)
+func RegisterMsgServer(s grpc1.Server, srv MsgServer) {
+	s.RegisterService(&_Msg_serviceDesc, srv)
 }
 
-func _MsgService_ApplyL1Txs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ApplyL1TxsRequest)
+func _Msg_ApplyL1Txs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgApplyL1Txs)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MsgServiceServer).ApplyL1Txs(ctx, in)
+		return srv.(MsgServer).ApplyL1Txs(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rollup.v1.MsgService/ApplyL1Txs",
+		FullMethod: "/rollup.v1.Msg/ApplyL1Txs",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServiceServer).ApplyL1Txs(ctx, req.(*ApplyL1TxsRequest))
+		return srv.(MsgServer).ApplyL1Txs(ctx, req.(*MsgApplyL1Txs))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-func _MsgService_InitiateWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(InitiateWithdrawalRequest)
+func _Msg_InitiateWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgInitiateWithdrawal)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(MsgServiceServer).InitiateWithdrawal(ctx, in)
+		return srv.(MsgServer).InitiateWithdrawal(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: "/rollup.v1.MsgService/InitiateWithdrawal",
+		FullMethod: "/rollup.v1.Msg/InitiateWithdrawal",
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(MsgServiceServer).InitiateWithdrawal(ctx, req.(*InitiateWithdrawalRequest))
+		return srv.(MsgServer).InitiateWithdrawal(ctx, req.(*MsgInitiateWithdrawal))
 	}
 	return interceptor(ctx, in, info, handler)
 }
 
-var _MsgService_serviceDesc = grpc.ServiceDesc{
-	ServiceName: "rollup.v1.MsgService",
-	HandlerType: (*MsgServiceServer)(nil),
+var _Msg_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "rollup.v1.Msg",
+	HandlerType: (*MsgServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
 			MethodName: "ApplyL1Txs",
-			Handler:    _MsgService_ApplyL1Txs_Handler,
+			Handler:    _Msg_ApplyL1Txs_Handler,
 		},
 		{
 			MethodName: "InitiateWithdrawal",
-			Handler:    _MsgService_InitiateWithdrawal_Handler,
+			Handler:    _Msg_InitiateWithdrawal_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
 	Metadata: "rollup/v1/tx.proto",
 }
 
-func (m *ApplyL1TxsRequest) Marshal() (dAtA []byte, err error) {
+func (m *MsgApplyL1Txs) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -404,12 +410,12 @@ func (m *ApplyL1TxsRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ApplyL1TxsRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgApplyL1Txs) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ApplyL1TxsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *MsgApplyL1Txs) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -433,7 +439,7 @@ func (m *ApplyL1TxsRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *ApplyL1TxsResponse) Marshal() (dAtA []byte, err error) {
+func (m *MsgApplyL1TxsResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -443,12 +449,12 @@ func (m *ApplyL1TxsResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *ApplyL1TxsResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgApplyL1TxsResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *ApplyL1TxsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *MsgApplyL1TxsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -456,7 +462,7 @@ func (m *ApplyL1TxsResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	return len(dAtA) - i, nil
 }
 
-func (m *InitiateWithdrawalRequest) Marshal() (dAtA []byte, err error) {
+func (m *MsgInitiateWithdrawal) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -466,12 +472,12 @@ func (m *InitiateWithdrawalRequest) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *InitiateWithdrawalRequest) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgInitiateWithdrawal) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *InitiateWithdrawalRequest) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *MsgInitiateWithdrawal) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -517,7 +523,7 @@ func (m *InitiateWithdrawalRequest) MarshalToSizedBuffer(dAtA []byte) (int, erro
 	return len(dAtA) - i, nil
 }
 
-func (m *InitiateWithdrawalResponse) Marshal() (dAtA []byte, err error) {
+func (m *MsgInitiateWithdrawalResponse) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
 	n, err := m.MarshalToSizedBuffer(dAtA[:size])
@@ -527,12 +533,12 @@ func (m *InitiateWithdrawalResponse) Marshal() (dAtA []byte, err error) {
 	return dAtA[:n], nil
 }
 
-func (m *InitiateWithdrawalResponse) MarshalTo(dAtA []byte) (int, error) {
+func (m *MsgInitiateWithdrawalResponse) MarshalTo(dAtA []byte) (int, error) {
 	size := m.Size()
 	return m.MarshalToSizedBuffer(dAtA[:size])
 }
 
-func (m *InitiateWithdrawalResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+func (m *MsgInitiateWithdrawalResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
 	i := len(dAtA)
 	_ = i
 	var l int
@@ -551,7 +557,7 @@ func encodeVarintTx(dAtA []byte, offset int, v uint64) int {
 	dAtA[offset] = uint8(v)
 	return base
 }
-func (m *ApplyL1TxsRequest) Size() (n int) {
+func (m *MsgApplyL1Txs) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -570,7 +576,7 @@ func (m *ApplyL1TxsRequest) Size() (n int) {
 	return n
 }
 
-func (m *ApplyL1TxsResponse) Size() (n int) {
+func (m *MsgApplyL1TxsResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -579,7 +585,7 @@ func (m *ApplyL1TxsResponse) Size() (n int) {
 	return n
 }
 
-func (m *InitiateWithdrawalRequest) Size() (n int) {
+func (m *MsgInitiateWithdrawal) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -606,7 +612,7 @@ func (m *InitiateWithdrawalRequest) Size() (n int) {
 	return n
 }
 
-func (m *InitiateWithdrawalResponse) Size() (n int) {
+func (m *MsgInitiateWithdrawalResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -621,7 +627,7 @@ func sovTx(x uint64) (n int) {
 func sozTx(x uint64) (n int) {
 	return sovTx(uint64((x << 1) ^ uint64((int64(x) >> 63))))
 }
-func (m *ApplyL1TxsRequest) Unmarshal(dAtA []byte) error {
+func (m *MsgApplyL1Txs) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -644,10 +650,10 @@ func (m *ApplyL1TxsRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ApplyL1TxsRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgApplyL1Txs: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ApplyL1TxsRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgApplyL1Txs: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -735,7 +741,7 @@ func (m *ApplyL1TxsRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *ApplyL1TxsResponse) Unmarshal(dAtA []byte) error {
+func (m *MsgApplyL1TxsResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -758,10 +764,10 @@ func (m *ApplyL1TxsResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: ApplyL1TxsResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgApplyL1TxsResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: ApplyL1TxsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgApplyL1TxsResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
@@ -785,7 +791,7 @@ func (m *ApplyL1TxsResponse) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *InitiateWithdrawalRequest) Unmarshal(dAtA []byte) error {
+func (m *MsgInitiateWithdrawal) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -808,10 +814,10 @@ func (m *InitiateWithdrawalRequest) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: InitiateWithdrawalRequest: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgInitiateWithdrawal: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: InitiateWithdrawalRequest: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgInitiateWithdrawal: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		case 1:
@@ -1001,7 +1007,7 @@ func (m *InitiateWithdrawalRequest) Unmarshal(dAtA []byte) error {
 	}
 	return nil
 }
-func (m *InitiateWithdrawalResponse) Unmarshal(dAtA []byte) error {
+func (m *MsgInitiateWithdrawalResponse) Unmarshal(dAtA []byte) error {
 	l := len(dAtA)
 	iNdEx := 0
 	for iNdEx < l {
@@ -1024,10 +1030,10 @@ func (m *InitiateWithdrawalResponse) Unmarshal(dAtA []byte) error {
 		fieldNum := int32(wire >> 3)
 		wireType := int(wire & 0x7)
 		if wireType == 4 {
-			return fmt.Errorf("proto: InitiateWithdrawalResponse: wiretype end group for non-group")
+			return fmt.Errorf("proto: MsgInitiateWithdrawalResponse: wiretype end group for non-group")
 		}
 		if fieldNum <= 0 {
-			return fmt.Errorf("proto: InitiateWithdrawalResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+			return fmt.Errorf("proto: MsgInitiateWithdrawalResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:

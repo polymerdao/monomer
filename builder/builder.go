@@ -254,10 +254,10 @@ func (b *Builder) parseWithdrawalMessages(
 			return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
 		}
 		for _, msg := range cosmosTx.GetBody().GetMessages() {
-			withdrawalMsg := new(rolluptypes.InitiateWithdrawalRequest)
+			withdrawalMsg := new(rolluptypes.MsgInitiateWithdrawal)
 			if msg.TypeUrl == cdctypes.MsgTypeURL(withdrawalMsg) {
 				if err := withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
-					return nil, fmt.Errorf("unmarshal InitiateWithdrawalRequest: %v", err)
+					return nil, fmt.Errorf("unmarshal MsgInitiateWithdrawal: %v", err)
 				}
 
 				// Store the withdrawal message hash in the monomer EVM state db.
@@ -284,7 +284,7 @@ func (b *Builder) parseWithdrawalMessages(
 // storeWithdrawalMsgInEVM stores the withdrawal message hash in the monomer evm state db and returns the L2ToL1MessagePasser
 // message nonce used for the withdrawal. This is used for proving withdrawals.
 func (b *Builder) storeWithdrawalMsgInEVM(
-	withdrawalMsg *rolluptypes.InitiateWithdrawalRequest,
+	withdrawalMsg *rolluptypes.MsgInitiateWithdrawal,
 	ethState *state.StateDB,
 	header *monomer.Header,
 ) (*big.Int, error) {
