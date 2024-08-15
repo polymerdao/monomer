@@ -106,12 +106,7 @@ func TestE2E(t *testing.T) {
 
 	const targetHeight = 5
 
-	// Hang until L1 responsive.
-	require.True(t, stack.L1URL.IsReachable(ctx))
-
-	l1RPCClient, err := rpc.DialContext(ctx, stack.L1URL.String())
-	require.NoError(t, err)
-	l1Client := e2e.NewL1Client(l1RPCClient)
+	l1Client := stack.L1Client
 
 	// instantiate L1 user, tx signer.
 	user := stack.Users[0]
