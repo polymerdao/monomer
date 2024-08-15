@@ -14,6 +14,7 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
 	"github.com/cometbft/cometbft/config"
+	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
@@ -46,6 +47,7 @@ type StackConfig struct {
 	Operator      L1User
 	Users         []L1User
 	L1Client      *L1Client
+	L2Client      *bftclient.HTTP
 	MonomerClient *MonomerClient
 }
 
@@ -219,9 +221,16 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("run the op stack: %v", err)
 	}
 
+	// construct L2 client
+	l2Client, err := bftclient.New(s.monomerCometURL.String(), s.monomerCometURL.String())
+	if err != nil {
+		return nil, fmt.Errorf("new Comet client: %v", err)
+	}
+
 	return &StackConfig{
 		L1URL:         l1url,
 		L1Client:      l1,
+		L2Client:      l2Client,
 		MonomerClient: monomerClient,
 		RUConfig:      rollupConfig,
 		Operator:      l1users[0],
