@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"testing"
 
-	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/polymerdao/monomer"
@@ -19,8 +18,7 @@ var labels = []eth.BlockLabel{eth.Unsafe, eth.Safe, eth.Finalized}
 
 func TestBlockAndHeader(t *testing.T) {
 	db := testutils.NewLocalMemDB(t)
-	block, err := monomer.MakeBlock(&monomer.Header{}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{"k": "v"})))
-	require.NoError(t, err)
+	block := testutils.GenerateBlock(t)
 	require.NoError(t, db.AppendBlock(block))
 
 	// Labels don't exist yet.
@@ -103,29 +101,14 @@ func testHeadBlock(t *testing.T, db *localdb.DB, block *monomer.Block) {
 
 func TestRollback(t *testing.T) {
 	db := testutils.NewLocalMemDB(t)
-	block, err := monomer.MakeBlock(&monomer.Header{
-		Height: 1,
-	}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{
-		"k": "v",
-	})))
-	require.NoError(t, err)
+	block := testutils.GenerateBlockWithParentAndTxs(t, &monomer.Header{}, testapp.ToTx(t, "k", "v"))
 	require.NoError(t, db.AppendBlock(block))
 	require.NoError(t, db.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
 
-	block2, err := monomer.MakeBlock(&monomer.Header{
-		Height: 2,
-	}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{
-		"k2": "v2",
-	})))
-	require.NoError(t, err)
+	block2 := testutils.GenerateBlockWithParentAndTxs(t, block.Header, testapp.ToTx(t, "k2", "v2"))
 	require.NoError(t, db.AppendBlock(block2))
 
-	block3, err := monomer.MakeBlock(&monomer.Header{
-		Height: 3,
-	}, bfttypes.ToTxs(testapp.ToTxs(t, map[string]string{
-		"k3": "v3",
-	})))
-	require.NoError(t, err)
+	block3 := testutils.GenerateBlockWithParentAndTxs(t, block2.Header, testapp.ToTx(t, "k3", "v3"))
 	require.NoError(t, db.AppendBlock(block3))
 
 	require.NoError(t, db.UpdateLabels(block3.Header.Hash, block2.Header.Hash, block.Header.Hash))

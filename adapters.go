@@ -110,7 +110,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	for _, txBytes := range ethTxsBytes {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
-			break
+			return nil, fmt.Errorf("unmarshal binary: %v", err)
 		}
 		if !tx.IsDepositTx() {
 			return nil, errors.New("MsgL1Tx contains non-deposit tx")

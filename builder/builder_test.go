@@ -80,7 +80,7 @@ func TestBuild(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			inclusionListTxs := testapp.ToTxs(t, test.inclusionList)
+			inclusionListTxs := append([][]byte{testutils.GenerateBlock(t).Txs[0]}, testapp.ToTxs(t, test.inclusionList)...)
 			mempoolTxs := testapp.ToTxs(t, test.mempool)
 
 			pool := mempool.New(testutils.NewMemDB(t))
@@ -246,7 +246,7 @@ func TestRollback(t *testing.T) {
 	}
 	block, err := b.Build(context.Background(), &builder.Payload{
 		Timestamp:            g.Time + 1,
-		InjectedTransactions: bfttypes.ToTxs(testapp.ToTxs(t, kvs)),
+		InjectedTransactions: bfttypes.ToTxs(append([][]byte{testutils.GenerateBlock(t).Txs[0]}, testapp.ToTxs(t, kvs)...)),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, block)
