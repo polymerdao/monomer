@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
+	rolluptypes "github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/monomerdb"
 	"github.com/polymerdao/monomer/monomerdb/localdb"
 	"github.com/polymerdao/monomer/testutils"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 

@@ -8,7 +8,7 @@ import (
 
 	comettypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
+	rolluptypes "github.com/polymerdao/monomer"
 )
 
 const (

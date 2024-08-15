@@ -5,9 +5,9 @@ import (
 
 	comettypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	rolluptypes "github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/mempool"
 	"github.com/polymerdao/monomer/testutils"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
