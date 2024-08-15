@@ -12,9 +12,9 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/fxamacker/cbor/v2"
-	"github.com/hashicorp/go-multierror"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/monomerdb"
+	"github.com/polymerdao/monomer/utils"
 )
 
 var (
@@ -95,7 +95,7 @@ func (db *DB) Rollback(unsafe, safe, finalized common.Hash) error {
 			return fmt.Errorf("get height by hash %s: %w", unsafe, err)
 		}
 		defer func() {
-			err = wrapCloseErr(err, closer)
+			err = utils.WrapCloseErr(err, closer)
 		}()
 		unsafeHeight := endian.Uint64(unsafeHeightBytesValue)
 		firstHeightBytesToDelete := marshalUint64(unsafeHeight + 1)
@@ -116,7 +116,7 @@ func (db *DB) Rollback(unsafe, safe, finalized common.Hash) error {
 			return fmt.Errorf("new bucketHeaderByHeight iterator: %v", err)
 		}
 		defer func() {
-			err = wrapCloseErr(err, headerIter)
+			err = utils.WrapCloseErr(err, headerIter)
 		}()
 		header := new(monomer.Header)
 		for headerIter.First(); headerIter.Valid(); headerIter.Next() {
@@ -146,7 +146,7 @@ func (db *DB) Rollback(unsafe, safe, finalized common.Hash) error {
 			return fmt.Errorf("new bucketTxByHeightAndIndex iterator: %v", err)
 		}
 		defer func() {
-			err = wrapCloseErr(err, txIter)
+			err = utils.WrapCloseErr(err, txIter)
 		}()
 		for txIter.First(); txIter.Valid(); txIter.Next() {
 			value, err := txIter.ValueAndErr()
@@ -334,7 +334,7 @@ func txsInRange(s *pebble.Snapshot, startHeightBytes, endHeightBytes []byte) (_ 
 		return nil, fmt.Errorf("new iterator: %v", err)
 	}
 	defer func() {
-		err = wrapCloseErr(err, iter)
+		err = utils.WrapCloseErr(err, iter)
 	}()
 	txs := bfttypes.Txs{}
 	for iter.First(); iter.Valid(); iter.Next() {
@@ -359,7 +359,7 @@ func headerByHeight(g getter, heightBytes []byte) (_ *monomer.Header, err error)
 		return nil, err
 	}
 	defer func() {
-		err = wrapCloseErr(err, closer)
+		err = utils.WrapCloseErr(err, closer)
 	}()
 
 	h := new(monomer.Header)
@@ -375,7 +375,7 @@ func headerByLabel(s *pebble.Snapshot, label eth.BlockLabel) (_ *monomer.Header,
 		return nil, fmt.Errorf("get label hash: %w", err)
 	}
 	defer func() {
-		err = wrapCloseErr(err, closer)
+		err = utils.WrapCloseErr(err, closer)
 	}()
 	header, err := headerByHash(s, common.Hash(hashBytes))
 	if err != nil {
@@ -390,7 +390,7 @@ func headerByHash(s *pebble.Snapshot, hash common.Hash) (_ *monomer.Header, err 
 		return nil, fmt.Errorf("get height by hash: %w", err)
 	}
 	defer func() {
-		err = wrapCloseErr(err, closer)
+		err = utils.WrapCloseErr(err, closer)
 	}()
 	header, err := headerByHeight(s, heightBytes)
 	if err != nil {
@@ -402,7 +402,7 @@ func headerByHash(s *pebble.Snapshot, hash common.Hash) (_ *monomer.Header, err 
 func (db *DB) view(cb func(*pebble.Snapshot) error) (err error) {
 	s := db.db.NewSnapshot()
 	defer func() {
-		err = wrapCloseErr(err, s)
+		err = utils.WrapCloseErr(err, s)
 	}()
 	return cb(s)
 }
@@ -410,7 +410,7 @@ func (db *DB) view(cb func(*pebble.Snapshot) error) (err error) {
 func (db *DB) updateIndexed(cb func(*pebble.Batch) error) (err error) {
 	b := db.db.NewIndexedBatch()
 	defer func() {
-		err = wrapCloseErr(err, b)
+		err = utils.WrapCloseErr(err, b)
 	}()
 	if err := cb(b); err != nil {
 		return err
@@ -424,7 +424,7 @@ func (db *DB) updateIndexed(cb func(*pebble.Batch) error) (err error) {
 func (db *DB) update(cb func(*pebble.Batch) error) (err error) {
 	b := db.db.NewBatch()
 	defer func() {
-		err = wrapCloseErr(err, b)
+		err = utils.WrapCloseErr(err, b)
 	}()
 	if err := cb(b); err != nil {
 		return err
@@ -450,15 +450,4 @@ func marshalUint64(x uint64) []byte {
 	bytes := make([]byte, 8) //nolint:mnd
 	endian.PutUint64(bytes, x)
 	return bytes
-}
-
-func wrapCloseErr(err error, closer io.Closer) error {
-	closeErr := closer.Close()
-	if closeErr != nil {
-		closeErr = fmt.Errorf("close: %v", closeErr)
-	}
-	if err != nil || closeErr != nil {
-		return multierror.Append(err, closeErr)
-	}
-	return nil
 }

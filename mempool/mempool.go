@@ -8,6 +8,7 @@ import (
 
 	comettypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/polymerdao/monomer/utils"
 )
 
 const (
@@ -32,13 +33,15 @@ func New(db dbm.DB) *Pool {
 	}
 }
 
-func (p *Pool) Enqueue(userTxn comettypes.Tx) error {
+func (p *Pool) Enqueue(userTxn comettypes.Tx) (err error) {
 	// NOTE: we should do reads and writes on the same view. Right now they occur on separate views.
 	// Unfortunately, comet's DB interface doesn't support it.
 	// Moving to a different DB interface is left for future work.
 
 	batch := p.db.NewBatch()
-	defer batch.Close() // TODO: catch error.
+	defer func() {
+		err = utils.WrapCloseErr(err, batch)
+	}()
 
 	tail, err := p.db.Get([]byte(tailKey))
 	if err != nil {
@@ -87,7 +90,7 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) error {
 }
 
 // Dequeue returns the transaction with the highest priority from the pool
-func (p *Pool) Dequeue() (comettypes.Tx, error) {
+func (p *Pool) Dequeue() (_ comettypes.Tx, err error) {
 	pLen, err := p.Len()
 	if err != nil {
 		return nil, err
@@ -108,7 +111,9 @@ func (p *Pool) Dequeue() (comettypes.Tx, error) {
 	}
 
 	batch := p.db.NewBatch()
-	defer batch.Close() // TODO catch error.
+	defer func() {
+		err = utils.WrapCloseErr(err, batch)
+	}()
 
 	if err = batch.Delete(headHash); err != nil {
 		return nil, err
