@@ -145,8 +145,7 @@ func TestE2E(t *testing.T) {
 	)
 	require.NoError(t, err, "deposit tx")
 
-	appchainClient, err := bftclient.New(monomerCometURL.String(), monomerCometURL.String())
-	require.NoError(t, err, "create Comet client")
+	appchainClient := stack.L2Client
 
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
