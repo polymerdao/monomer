@@ -73,7 +73,10 @@ func TestE2E(t *testing.T) {
 		Prometheus: false,
 	}
 
-	stack := e2e.New(l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, prometheusCfg, &e2e.SelectiveListener{
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	stack, err := e2e.Setup(ctx, env, l1URL, monomerEngineURL, monomerCometURL, opNodeURL, deployConfigDir, l1StateDumpDir, prometheusCfg, &e2e.SelectiveListener{
 		OPLogCb: func(r slog.Record) {
 			require.NoError(t, opLogger.Handle(context.Background(), r))
 		},
@@ -92,11 +95,8 @@ func TestE2E(t *testing.T) {
 			},
 		},
 	})
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	stackConfig, err := stack.Run(ctx, env)
 	require.NoError(t, err)
+
 	// To avoid flaky tests, hang until the Monomer server is ready.
 	// We rely on the `go test` timeout to ensure the tests don't hang forever (default is 10 minutes).
 	require.True(t, monomerEngineURL.IsReachable(ctx))
@@ -107,18 +107,18 @@ func TestE2E(t *testing.T) {
 	const targetHeight = 5
 
 	// Hang until L1 responsive.
-	require.True(t, stackConfig.L1URL.IsReachable(ctx))
+	require.True(t, stack.L1URL.IsReachable(ctx))
 
-	l1RPCClient, err := rpc.DialContext(ctx, stackConfig.L1URL.String())
+	l1RPCClient, err := rpc.DialContext(ctx, stack.L1URL.String())
 	require.NoError(t, err)
 	l1Client := e2e.NewL1Client(l1RPCClient)
 
 	// instantiate L1 user, tx signer.
-	user := stackConfig.Users[0]
-	signer := types.NewEIP155Signer(stackConfig.L1ChainID)
+	user := stack.Users[0]
+	signer := types.NewEIP155Signer(stack.L1ChainID)
 
 	// op Portal
-	portal, err := bindings.NewOptimismPortal(stackConfig.DepositContractAddress, l1Client)
+	portal, err := bindings.NewOptimismPortal(stack.DepositContractAddress, l1Client)
 	require.NoError(t, err)
 
 	// send user Deposit Tx
@@ -128,8 +128,8 @@ func TestE2E(t *testing.T) {
 	gasPrice, err := l1Client.Client.SuggestGasPrice(context.Background())
 	require.NoError(t, err)
 
-	l2GasLimit := stackConfig.Genesis.SystemConfig.GasLimit / 10 // 10% of block gas limit
-	l1GasLimit := l2GasLimit * 2                                 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+	l2GasLimit := stack.Genesis.SystemConfig.GasLimit / 10 // 10% of block gas limit
+	l1GasLimit := l2GasLimit * 2                           // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
 
 	depositTx, err := portal.DepositTransaction(
 		&bind.TransactOpts{

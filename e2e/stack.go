@@ -47,7 +47,7 @@ type StackConfig struct {
 	Users    []L1User
 }
 
-type Stack struct {
+type stack struct {
 	monomerEngineURL *url.URL
 	monomerCometURL  *url.URL
 	opNodeURL        *url.URL
@@ -62,8 +62,10 @@ type L1User struct {
 	PrivateKey *ecdsa.PrivateKey
 }
 
-// New assumes all ports are available and that all paths exist and are valid.
-func New(
+// Setup assumes all ports are available and that all paths exist and are valid.
+func Setup(
+	ctx context.Context,
+	env *environment.Env,
 	anvilURL,
 	monomerEngineURL,
 	monomerCometURL,
@@ -72,8 +74,8 @@ func New(
 	l1stateDumpDir string,
 	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
-) *Stack {
-	return &Stack{
+) (*StackConfig, error) {
+	stack := stack{
 		monomerEngineURL: monomerEngineURL,
 		monomerCometURL:  monomerCometURL,
 		opNodeURL:        opNodeURL,
@@ -82,9 +84,11 @@ func New(
 		eventListener:    eventListener,
 		prometheusCfg:    prometheusCfg,
 	}
+
+	return stack.run(ctx, env)
 }
 
-func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, error) {
+func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, error) {
 	// configure & run L1
 
 	const networkName = "devnetL1"
@@ -221,7 +225,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}, nil
 }
 
-func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTime, chainIDU64 uint64) error {
+func (s *stack) runMonomer(ctx context.Context, env *environment.Env, genesisTime, chainIDU64 uint64) error {
 	engineWS, err := net.Listen("tcp", s.monomerEngineURL.Host())
 	if err != nil {
 		return fmt.Errorf("set up monomer engine ws listener: %v", err)
