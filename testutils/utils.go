@@ -8,6 +8,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
+	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -85,7 +86,7 @@ func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transactio
 	return l1InfoTx, depositTx, cosmosEthTx
 }
 
-func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depositTxs, cosmosEthTxs []*gethtypes.Transaction) *monomer.Block {
+func cosmosTxsFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depositTxs, cosmosEthTxs []*gethtypes.Transaction) bfttypes.Txs {
 	l1InfoTxBytes, err := l1InfoTx.MarshalBinary()
 	require.NoError(t, err)
 	ethTxBytes := []hexutil.Bytes{l1InfoTxBytes}
@@ -101,6 +102,11 @@ func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depo
 	}
 	cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(ethTxBytes, nil, "")
 	require.NoError(t, err)
+	return cosmosTxs
+}
+
+func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depositTxs, cosmosEthTxs []*gethtypes.Transaction) *monomer.Block {
+	cosmosTxs := cosmosTxsFromEthTxs(t, l1InfoTx, depositTxs, cosmosEthTxs)
 	block, err := monomer.MakeBlock(&monomer.Header{}, cosmosTxs)
 	require.NoError(t, err)
 	return block
@@ -110,4 +116,18 @@ func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depo
 func GenerateBlock(t *testing.T) *monomer.Block {
 	l1InfoTx, depositTx, cosmosEthTx := GenerateEthTxs(t)
 	return GenerateBlockFromEthTxs(t, l1InfoTx, []*gethtypes.Transaction{depositTx}, []*gethtypes.Transaction{cosmosEthTx})
+}
+
+// GenerateBlockWithParentAndTxs generates a child block of parent with the cosmosTxs appended to the end of its transaction list.
+// The genesis block is created if parent is nil.
+func GenerateBlockWithParentAndTxs(t *testing.T, parent *monomer.Header, cosmosTxs ...bfttypes.Tx) *monomer.Block {
+	l1InfoTx, _, _ := GenerateEthTxs(t)
+	h := &monomer.Header{}
+	if parent != nil {
+		h.ParentHash = parent.Hash
+		h.Height = parent.Height + 1
+	}
+	block, err := monomer.MakeBlock(h, append(cosmosTxsFromEthTxs(t, l1InfoTx, nil, nil), cosmosTxs...))
+	require.NoError(t, err)
+	return block
 }
