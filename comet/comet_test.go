@@ -58,7 +58,7 @@ func TestABCI(t *testing.T) {
 	infoResult, err := abci.Info(&jsonrpctypes.Context{})
 	require.NoError(t, err)
 	require.Equal(t, height, infoResult.Response.LastBlockHeight) // We trust that the other fields are set properly.
-	requestBytes, err := (&testmoduletypes.GetRequest{
+	requestBytes, err := (&testmoduletypes.QueryValueRequest{
 		Key: k,
 	}).Marshal()
 	require.NoError(t, err)
@@ -66,7 +66,7 @@ func TestABCI(t *testing.T) {
 	// Query.
 	queryResult, err := abci.Query(&jsonrpctypes.Context{}, testapp.QueryPath, requestBytes, height, false)
 	require.NoError(t, err)
-	var val testmoduletypes.GetResponse
+	var val testmoduletypes.QueryValueResponse
 	require.NoError(t, (&val).Unmarshal(queryResult.Response.GetValue()))
 	require.Equal(t, v, val.GetValue())
 }

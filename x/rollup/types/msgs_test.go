@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestInitiateWithdrawalRequestValidateBasic(t *testing.T) {
+func TestMsgInitiateWithdrawalValidateBasic(t *testing.T) {
 	validAddress := "0x311d373126EFAE95E261DefF004FF245021739d1"
 
 	invalidAddress := "invalid address"
@@ -23,19 +23,19 @@ func TestInitiateWithdrawalRequestValidateBasic(t *testing.T) {
 
 	testCases := []struct {
 		name    string
-		request *types.InitiateWithdrawalRequest
+		request *types.MsgInitiateWithdrawal
 		errMsg  string
 	}{
 		{
 			name: "Valid request",
-			request: &types.InitiateWithdrawalRequest{
+			request: &types.MsgInitiateWithdrawal{
 				Target:   validAddress,
 				GasLimit: validGasLimit,
 			},
 		},
 		{
 			name: "Invalid Ethereum address",
-			request: &types.InitiateWithdrawalRequest{
+			request: &types.MsgInitiateWithdrawal{
 				Target:   invalidAddress,
 				GasLimit: validGasLimit,
 			},
@@ -43,7 +43,7 @@ func TestInitiateWithdrawalRequestValidateBasic(t *testing.T) {
 		},
 		{
 			name: "Gas limit below the allowed range",
-			request: &types.InitiateWithdrawalRequest{
+			request: &types.MsgInitiateWithdrawal{
 				Target:   validAddress,
 				GasLimit: belowRangeGasLimit,
 			},
@@ -51,7 +51,7 @@ func TestInitiateWithdrawalRequestValidateBasic(t *testing.T) {
 		},
 		{
 			name: "Gas limit above the allowed range",
-			request: &types.InitiateWithdrawalRequest{
+			request: &types.MsgInitiateWithdrawal{
 				Target:   validAddress,
 				GasLimit: aboveRangeGasLimit,
 			},

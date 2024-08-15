@@ -14,26 +14,26 @@ const (
 	MaxTxGasLimit = params.MaxGasLimit
 )
 
-var _ sdktypes.Msg = (*ApplyL1TxsRequest)(nil)
+var _ sdktypes.Msg = (*MsgApplyL1Txs)(nil)
 
-func (m *ApplyL1TxsRequest) ValidateBasic() error {
+func (m *MsgApplyL1Txs) ValidateBasic() error {
 	if m.TxBytes == nil || len(m.TxBytes) < 1 {
 		return WrapError(ErrInvalidL1Txs, "must have at least one L1 Info Deposit tx")
 	}
 	return nil
 }
 
-func (*ApplyL1TxsRequest) Type() string {
+func (*MsgApplyL1Txs) Type() string {
 	return "l1txs"
 }
 
-func (*ApplyL1TxsRequest) Route() string {
+func (*MsgApplyL1Txs) Route() string {
 	return "rollup"
 }
 
-var _ sdktypes.Msg = (*InitiateWithdrawalRequest)(nil)
+var _ sdktypes.Msg = (*MsgInitiateWithdrawal)(nil)
 
-func (m *InitiateWithdrawalRequest) ValidateBasic() error {
+func (m *MsgInitiateWithdrawal) ValidateBasic() error {
 	// Check if the Ethereum address is valid
 	if !common.IsHexAddress(m.Target) {
 		return fmt.Errorf("invalid Ethereum address: %s", m.Target)
@@ -47,10 +47,10 @@ func (m *InitiateWithdrawalRequest) ValidateBasic() error {
 	return nil
 }
 
-func (*InitiateWithdrawalRequest) Type() string {
+func (*MsgInitiateWithdrawal) Type() string {
 	return "l2withdrawal"
 }
 
-func (*InitiateWithdrawalRequest) Route() string {
+func (*MsgInitiateWithdrawal) Route() string {
 	return "rollup"
 }

@@ -29,7 +29,7 @@ func (m *Keeper) InitGenesis(ctx context.Context, kvs map[string]string) error {
 	return nil
 }
 
-func (m *Keeper) Get(ctx context.Context, req *types.GetRequest) (*types.GetResponse, error) {
+func (m *Keeper) Value(ctx context.Context, req *types.QueryValueRequest) (*types.QueryValueResponse, error) {
 	key := req.GetKey()
 	if key == "" {
 		return nil, errors.New("empty key")
@@ -44,15 +44,15 @@ func (m *Keeper) Get(ctx context.Context, req *types.GetRequest) (*types.GetResp
 	} else {
 		value = string(valueBytes)
 	}
-	return &types.GetResponse{
+	return &types.QueryValueResponse{
 		Value: value,
 	}, nil
 }
 
-func (m *Keeper) Set(ctx context.Context, req *types.SetRequest) (*types.SetResponse, error) {
+func (m *Keeper) SetValue(ctx context.Context, req *types.MsgSetValue) (*types.MsgSetValueResponse, error) {
 	key := req.GetKey()
 	if err := m.storeService.OpenKVStore(ctx).Set([]byte(key), []byte(req.GetValue())); err != nil {
 		return nil, fmt.Errorf("set: %v", err)
 	}
-	return &types.SetResponse{}, nil
+	return &types.MsgSetValueResponse{}, nil
 }

@@ -6,6 +6,7 @@ import "cosmos/app/v1alpha1/module.proto";
 
 option go_package = "github.com/polymerdao/monomer/gen/rollup/module/v1;modulev1";
 
+// Module is the config object for the x/rollup module.
 message Module {
   option (cosmos.app.v1alpha1.module) = {
     go_import: "github.com/polymerdao/monomer/x/rollup"

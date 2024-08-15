@@ -9,28 +9,34 @@ import "gogoproto/gogo.proto";
 
 option go_package = "github.com/polymerdao/monomer/x/rollup/types";
 
-// MsgService defines all tx endpoints for the rollup module.
-service MsgService {
-  rpc ApplyL1Txs(ApplyL1TxsRequest) returns (ApplyL1TxsResponse);
-  rpc InitiateWithdrawal(InitiateWithdrawalRequest) returns (InitiateWithdrawalResponse);
+// Msg defines all tx endpoints for the x/rollup module.
+service Msg {
+  // ApplyL1Txs defines a method for applying applying all L1 system and user deposit txs.
+  rpc ApplyL1Txs(MsgApplyL1Txs) returns (MsgApplyL1TxsResponse);
+
+  // InitiateWithdrawal defines a method for initiating a withdrawal from L2 to L1.
+  rpc InitiateWithdrawal(MsgInitiateWithdrawal) returns (MsgInitiateWithdrawalResponse);
 }
 
-// ApplyL1TxsRequest defines a message for all L1 system and user deposit txs
-message ApplyL1TxsRequest {
+// MsgApplyL1Txs defines the message for applying all L1 system and user deposit txs.
+message MsgApplyL1Txs {
   option (cosmos.msg.v1.signer) = "from_address";
 
   // Array of bytes where each bytes is a eth.Transaction.MarshalBinary tx.
   // The first tx must be the L1 system deposit tx, and the rest are user txs if present.
   repeated bytes tx_bytes = 1;
 
+  // The cosmos address of the L1 system and user deposit tx signer.
   string from_address = 2;
 }
 
-message ApplyL1TxsResponse {}
+// MsgApplyL1TxsResponse defines the Msg/ApplyL1Txs response type.
+message MsgApplyL1TxsResponse {}
 
-// InitiateWithdrawalRequest defines a message for all L2 withdrawal txs
-message InitiateWithdrawalRequest {
+// MsgInitiateWithdrawal defines the message for initiating an L2 withdrawal.
+message MsgInitiateWithdrawal {
   option (cosmos.msg.v1.signer) = "sender";
+
   // The cosmos address of the user who wants to withdraw from L2.
   string sender = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
   // The ethereum address on L1 that the user wants to withdraw to.
@@ -48,4 +54,5 @@ message InitiateWithdrawalRequest {
   bytes data = 5;
 }
 
-message InitiateWithdrawalResponse {}
+// MsgInitiateWithdrawalResponse defines the Msg/InitiateWithdrawal response type.
+message MsgInitiateWithdrawalResponse {}

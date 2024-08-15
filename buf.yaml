@@ -10,10 +10,17 @@ deps:
 lint:
   use:
     - DEFAULT
+    - FILE_LOWER_SNAKE_CASE
+    - COMMENTS
   except:
     - FIELD_NOT_REQUIRED
     - PACKAGE_NO_IMPORT_CYCLE
-  disallow_comment_ignores: true
+    - UNARY_RPC
+    - COMMENT_FIELD
+    - SERVICE_SUFFIX
+    - PACKAGE_VERSION_SUFFIX
+    - RPC_REQUEST_STANDARD_NAME
+    - ENUM_NO_ALLOW_ALIAS
 breaking:
   use:
     - FILE
