@@ -52,11 +52,7 @@ jobs:
           fi
 
   coverage:
-    needs: matrix-setup
-    strategy:
-      matrix:
-        os: ${{ fromJson(needs.matrix-setup.outputs.os-matrix) }}
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest # action go-test-coverage not available on macos
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
