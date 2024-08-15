@@ -20,7 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
-	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer/e2e"
 	e2eurl "github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
@@ -97,12 +96,7 @@ func TestE2E(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// To avoid flaky tests, hang until the Monomer server is ready.
-	// We rely on the `go test` timeout to ensure the tests don't hang forever (default is 10 minutes).
-	require.True(t, monomerEngineURL.IsReachable(ctx))
-	monomerRPCClient, err := rpc.DialContext(ctx, monomerEngineURL.String())
-	require.NoError(t, err)
-	monomerClient := e2e.NewMonomerClient(monomerRPCClient)
+	monomerClient := stack.MonomerClient
 
 	const targetHeight = 5
 
