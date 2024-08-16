@@ -88,15 +88,15 @@ func Setup(
 
 	monomerEngineURL, err := e2eurl.ParseString("ws://127.0.0.1:8889")
 	if err != nil {
-		return nil, fmt.Errorf("new l1 url: %v", err)
+		return nil, fmt.Errorf("new monomer url: %v", err)
 	}
 	monomerCometURL, err := e2eurl.ParseString("http://127.0.0.1:8890")
 	if err != nil {
-		return nil, fmt.Errorf("new l1 url: %v", err)
+		return nil, fmt.Errorf("new cometBFT url: %v", err)
 	}
 	opNodeURL, err := e2eurl.ParseString("http://127.0.0.1:8891")
 	if err != nil {
-		return nil, fmt.Errorf("new l1 url: %v", err)
+		return nil, fmt.Errorf("new op-node url: %v", err)
 	}
 
 	stack := stack{
