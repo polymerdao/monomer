@@ -15,7 +15,6 @@ import (
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/testutils"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -116,7 +115,7 @@ func TestBlockToEth(t *testing.T) {
 		[]*ethtypes.Transaction{cosmosEthTx},
 	)
 
-	ethTxs, err := rolluptypes.AdaptCosmosTxsToEthTxs(block.Txs)
+	ethTxs, err := monomer.AdaptCosmosTxsToEthTxs(block.Txs)
 	require.NoError(t, err)
 
 	actualEthBlock, err := block.ToEth()
