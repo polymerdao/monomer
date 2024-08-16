@@ -20,8 +20,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/polymerdao/monomer/e2e"
-
-	// e2eurl "github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
