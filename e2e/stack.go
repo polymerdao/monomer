@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"net/url"
 	"os"
 	"path/filepath"
 	"time"
@@ -87,15 +86,15 @@ func Setup(
 		return nil, fmt.Errorf("abs l1 state dump dir: %v", err)
 	}
 
-	monomerEngineURL, err := newURL("ws://127.0.0.1:8889")
+	monomerEngineURL, err := e2eurl.ParseString("ws://127.0.0.1:8889")
 	if err != nil {
 		return nil, fmt.Errorf("new l1 url: %v", err)
 	}
-	monomerCometURL, err := newURL("http://127.0.0.1:8890")
+	monomerCometURL, err := e2eurl.ParseString("http://127.0.0.1:8890")
 	if err != nil {
 		return nil, fmt.Errorf("new l1 url: %v", err)
 	}
-	opNodeURL, err := newURL("http://127.0.0.1:8891")
+	opNodeURL, err := e2eurl.ParseString("http://127.0.0.1:8891")
 	if err != nil {
 		return nil, fmt.Errorf("new l1 url: %v", err)
 	}
@@ -322,16 +321,4 @@ func (s *stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		return fmt.Errorf("run monomer: %v", err)
 	}
 	return nil
-}
-
-func newURL(address string) (*e2eurl.URL, error) {
-	stdURL, err := url.Parse(address)
-	if err != nil {
-		return nil, fmt.Errorf("parse URL: %v", err)
-	}
-	resultURL, err := e2eurl.Parse(stdURL)
-	if err != nil {
-		return nil, fmt.Errorf("parse e2e URL: %v", err)
-	}
-	return resultURL, nil
 }
