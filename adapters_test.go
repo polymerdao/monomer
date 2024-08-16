@@ -1,4 +1,4 @@
-package types_test
+package monomer_test
 
 import (
 	"math/big"
@@ -12,15 +12,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	rollupv1 "github.com/polymerdao/monomer/gen/rollup/v1"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/testutils"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
+	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
 func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	t.Run("Zero txs", func(t *testing.T) {
-		cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{})
+		cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{}, nil, "")
 		require.NoError(t, err)
 		require.Empty(t, cosmosTxs)
 	})
@@ -54,7 +54,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		}
 
 		interfaceRegistry := codectypes.NewInterfaceRegistry()
-		rollupv1.RegisterInterfaces(interfaceRegistry)
+		types.RegisterInterfaces(interfaceRegistry)
 		protoCodec := codec.NewProtoCodec(interfaceRegistry)
 
 		for _, tc := range testTable {
@@ -69,7 +69,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 				}
 
 				// Convert the binary format to a Cosmos transaction.
-				cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs(ethTxs)
+				cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(ethTxs, nil, "")
 				require.NoError(t, err)
 
 				if len(ethTxs) == 0 {
@@ -81,13 +81,13 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 				err = decodedTx.Unmarshal(cosmosTxs[0])
 				require.NoError(t, err)
 
-				var applyL1TxsRequest rollupv1.ApplyL1TxsRequest
-				err = protoCodec.Unmarshal(decodedTx.GetBody().GetMessages()[0].GetValue(), &applyL1TxsRequest)
+				var msgApplyL1Txs types.MsgApplyL1Txs
+				err = protoCodec.Unmarshal(decodedTx.GetBody().GetMessages()[0].GetValue(), &msgApplyL1Txs)
 				require.NoError(t, err)
 
 				// Copy the original transaction because time fields are different if not copied.
-				require.Equal(t, tc.depNum, len(applyL1TxsRequest.TxBytes))
-				for i, txBytes := range applyL1TxsRequest.TxBytes {
+				require.Equal(t, tc.depNum, len(msgApplyL1Txs.TxBytes))
+				for i, txBytes := range msgApplyL1Txs.TxBytes {
 					newTransaction := transactions[i]
 					err = newTransaction.UnmarshalBinary(txBytes)
 					require.NoError(t, err)
@@ -103,7 +103,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 
 	t.Run("non-zero txs with error", func(t *testing.T) {
 		t.Run("unmarshal binary error", func(t *testing.T) {
-			cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{[]byte("invalid")})
+			cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{[]byte("invalid")}, nil, "")
 			require.Nil(t, cosmosTxs)
 			require.Error(t, err)
 		})
@@ -112,7 +112,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			transaction := ethtypes.NewTx(inner)
 			txBytes, err := transaction.MarshalBinary()
 			require.NoError(t, err)
-			cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{txBytes})
+			cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{txBytes}, nil, "")
 			require.Nil(t, cosmosTxs)
 			require.Error(t, err)
 		})
@@ -135,7 +135,9 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			nonDepTxBytes, err := nonDepTx.MarshalBinary()
 			require.NoError(t, err)
 
-			cosmosTxs, err := rolluptypes.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depTxBytes, nonDepTxBytes, []byte("invalid")})
+			cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(
+				[]hexutil.Bytes{depTxBytes, nonDepTxBytes, []byte("invalid")}, nil, "",
+			)
 			require.Nil(t, cosmosTxs)
 			require.Error(t, err)
 		})
@@ -211,7 +213,7 @@ func generateData(r *rand.Rand) []byte {
 
 func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 	t.Run("Zero txs", func(t *testing.T) {
-		txs, err := rolluptypes.AdaptCosmosTxsToEthTxs(bfttypes.Txs{})
+		txs, err := monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{})
 		require.NoError(t, err)
 		require.Equal(t, 0, len(txs))
 	})
@@ -245,7 +247,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 			t.Run(tc.name, func(t *testing.T) {
 				ethTxs := generateEthTransactions(t, tc.depNum, tc.nonDepNum)
 				cosmosSDKTxs := generateCosmosSDKTx(tc.depNum, tc.nonDepNum, ethTxs)
-				adoptedTxs, err := rolluptypes.AdaptCosmosTxsToEthTxs(cosmosSDKTxs)
+				adoptedTxs, err := monomer.AdaptCosmosTxsToEthTxs(cosmosSDKTxs)
 				require.NoError(t, err)
 				require.Equal(t, len(ethTxs), len(adoptedTxs))
 				for i := range adoptedTxs {
@@ -271,7 +273,7 @@ func generateCosmosSDKTx(depTxsNum, nonDepTxsNum int, ethTxs []*ethtypes.Transac
 
 	depositTxsBytes := ethTxsBytes[:depTxsNum]
 
-	msgAny, err := codectypes.NewAnyWithValue(&rollupv1.ApplyL1TxsRequest{
+	msgAny, err := codectypes.NewAnyWithValue(&types.MsgApplyL1Txs{
 		TxBytes: depositTxsBytes,
 	})
 	if err != nil {
