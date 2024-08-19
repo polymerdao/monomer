@@ -134,7 +134,6 @@ rollup.NewAppModule( // <-- add this block
     rollupkeeper.NewKeeper(
         appCodec,
         runtime.NewKVStoreService(keys[rolluptypes.StoreKey]),
-        &app.MintKeeper,
         app.BankKeeper,
     ),
 ),
