@@ -12,14 +12,14 @@ import (
 func (k *Keeper) burnETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.Int) error { //nolint:gocritic // hugeParam
 	coins := sdk.NewCoins(sdk.NewCoin(types.ETH, amount))
 
-	// Transfer the coins to withdraw from the user account to the mint module
-	if err := k.bankkeeper.SendCoinsFromAccountToModule(ctx, addr, types.MintModule, coins); err != nil {
-		return fmt.Errorf("failed to send withdrawal coins from user account %v to mint module: %v", addr, err)
+	// Transfer the coins to withdraw from the user account to the rollup module
+	if err := k.bankkeeper.SendCoinsFromAccountToModule(ctx, addr, types.ModuleName, coins); err != nil {
+		return fmt.Errorf("failed to send withdrawal coins from user account %v to rollup module: %v", addr, err)
 	}
 
-	// Burn the ETH coins from the mint module
-	if err := k.bankkeeper.BurnCoins(ctx, types.MintModule, coins); err != nil {
-		return fmt.Errorf("failed to burn withdrawal coins from mint module: %v", err)
+	// Burn the ETH coins from the rollup module
+	if err := k.bankkeeper.BurnCoins(ctx, types.ModuleName, coins); err != nil {
+		return fmt.Errorf("failed to burn withdrawal coins from rollup module: %v", err)
 	}
 
 	return nil

@@ -12,7 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
-	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	"github.com/polymerdao/monomer/gen/rollup/module/v1"
@@ -26,7 +25,6 @@ type ModuleInputs struct {
 
 	Codec        codec.Codec
 	StoreService store.KVStoreService
-	MintKeeper   mintkeeper.Keeper
 	BankKeeper   bankkeeper.Keeper
 }
 
@@ -41,8 +39,8 @@ func init() { //nolint:gochecknoinits
 	appmodule.Register(&modulev1.Module{}, appmodule.Provide(ProvideModule))
 }
 
-func ProvideModule(in ModuleInputs) ModuleOutputs { //nolint:gocritic
-	k := keeper.NewKeeper(in.Codec, in.StoreService, &in.MintKeeper, in.BankKeeper)
+func ProvideModule(in ModuleInputs) ModuleOutputs {
+	k := keeper.NewKeeper(in.Codec, in.StoreService, in.BankKeeper)
 	return ModuleOutputs{
 		Keeper: k,
 		Module: NewAppModule(in.Codec, k),

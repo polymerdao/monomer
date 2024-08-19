@@ -100,11 +100,11 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) error { 
 // mintETH mints ETH to an account where the amount is in wei.
 func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.Int) error { //nolint:gocritic // hugeParam
 	coin := sdk.NewCoin(types.ETH, amount)
-	if err := k.mintKeeper.MintCoins(ctx, sdk.NewCoins(coin)); err != nil {
-		return fmt.Errorf("failed to mint deposit coins from mint module: %v", err)
+	if err := k.bankkeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(coin)); err != nil {
+		return fmt.Errorf("failed to mint deposit coins to the rollup module: %v", err)
 	}
-	if err := k.bankkeeper.SendCoinsFromModuleToAccount(ctx, types.MintModule, addr, sdk.NewCoins(coin)); err != nil {
-		return fmt.Errorf("failed to send deposit coins from mint module to user account %v: %v", addr, err)
+	if err := k.bankkeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, addr, sdk.NewCoins(coin)); err != nil {
+		return fmt.Errorf("failed to send deposit coins from rollup module to user account %v: %v", addr, err)
 	}
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
