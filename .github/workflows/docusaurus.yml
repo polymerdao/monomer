@@ -13,7 +13,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Read .nvmrc
-        run: echo "NODE_VERSION=$(cat .nvmrc)" >> $GITHUB_ENV
+        run: echo "NODE_VERSION=$(cat ./doc/.nvmrc)" >> $GITHUB_ENV
         id: nvm
 
       - name: Use Node.js ${{ steps.nvm.outputs.NODE_VERSION }}
