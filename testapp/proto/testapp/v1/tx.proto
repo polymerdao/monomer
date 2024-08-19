@@ -8,17 +8,18 @@ option go_package = "github.com/polymerdao/monomer/testapp/x/testmodule/types";
 
 // Msg defines all tx endpoints for the x/testmodule module.
 service Msg {
-    // SetValue defines a method for setting a key-value pair.
-    rpc SetValue(MsgSetValue) returns (MsgSetValueResponse) {}
+  option (cosmos.msg.v1.service) = true;
+  // SetValue defines a method for setting a key-value pair.
+  rpc SetValue(MsgSetValue) returns (MsgSetValueResponse) {}
 }
 
 // MsgSetValue defines the Msg/SetValue request type for setting a key-value pair.
 message MsgSetValue {
-    option (cosmos.msg.v1.signer) = "from_address";
+  option (cosmos.msg.v1.signer) = "from_address";
 
-    string from_address = 1;
-    string key = 2;
-    string value = 3;
+  string from_address = 1;
+  string key = 2;
+  string value = 3;
 }
 
 // MsgSetValueResponse defines the Msg/SetValue response type.

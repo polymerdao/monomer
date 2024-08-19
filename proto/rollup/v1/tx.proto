@@ -11,6 +11,7 @@ option go_package = "github.com/polymerdao/monomer/x/rollup/types";
 
 // Msg defines all tx endpoints for the x/rollup module.
 service Msg {
+  option (cosmos.msg.v1.service) = true;
   // ApplyL1Txs defines a method for applying applying all L1 system and user deposit txs.
   rpc ApplyL1Txs(MsgApplyL1Txs) returns (MsgApplyL1TxsResponse);
 
