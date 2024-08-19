@@ -235,7 +235,12 @@ func TestE2E(t *testing.T) {
 }
 
 func requireEthIsMinted(t *testing.T, appchainClient *bftclient.HTTP) {
-	query := "tx.height > 0"
+	query := fmt.Sprintf(
+		"%s.%s='%s'",
+		rolluptypes.EventTypeMintETH,
+		rolluptypes.AttributeKeyL1DepositTxType,
+		rolluptypes.L1UserDepositTxType,
+	)
 	page := 1
 	perPage := 100
 	orderBy := "desc"
@@ -251,17 +256,7 @@ func requireEthIsMinted(t *testing.T, appchainClient *bftclient.HTTP) {
 
 	require.NoError(t, err, "search transactions")
 
-	ethMinted := false
-
-	for _, tx := range result.Txs {
-		for _, event := range tx.TxResult.Events {
-			if event.Type == rolluptypes.EventTypeMintETH {
-				ethMinted = true
-			}
-		}
-	}
-
-	require.True(t, ethMinted, "mint_eth event not found")
+	require.NotEmpty(t, result.Txs, "mint_eth event not found")
 	t.Log("Monomer can mint_eth from L1 user deposits")
 }
 
