@@ -198,9 +198,9 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("l1 url not reachable: %s", l1url.String())
 	}
 
-	l1 := NewL1Client(l1client)
+	l1Client := NewL1Client(l1client)
 
-	latestL1Block, err := l1.BlockByNumber(ctx, nil)
+	latestL1Block, err := l1Client.BlockByNumber(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get the latest l1 block: %v", err)
 	}
@@ -247,7 +247,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	return &StackConfig{
-		L1Client:      l1,
+		L1Client:      l1Client,
 		L2Client:      l2Client,
 		MonomerClient: monomerClient,
 		RUConfig:      rollupConfig,
