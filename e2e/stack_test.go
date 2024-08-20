@@ -87,11 +87,14 @@ func TestE2E(t *testing.T) {
 	monomerClient := stack.MonomerClient
 	appchainClient := stack.L2Client
 
+	l1ChainID, err := l1Client.ChainID(ctx)
+	require.NoError(t, err, "chain id")
+
 	const targetHeight = 5
 
 	// instantiate L1 user, tx signer.
 	user := stack.Users[0]
-	signer := types.NewEIP155Signer(stack.RUConfig.L1ChainID)
+	l1signer := types.NewEIP155Signer(l1ChainID)
 
 	// send user Deposit Tx
 	nonce, err := l1Client.Client.NonceAt(ctx, user.Address, nil)
@@ -107,7 +110,7 @@ func TestE2E(t *testing.T) {
 		&bind.TransactOpts{
 			From: user.Address,
 			Signer: func(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
-				signed, err := types.SignTx(tx, signer, user.PrivateKey)
+				signed, err := types.SignTx(tx, l1signer, user.PrivateKey)
 				if err != nil {
 					return nil, err
 				}
