@@ -105,7 +105,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	}
 	ethTxsBytes := msg.GetTxBytes()
 	if len(ethTxsBytes) == 0 {
-		return nil, errors.New("L1 Attributes tx not found")
+		return nil, errL1AttributesNotFound
 	}
 	for _, txBytes := range ethTxsBytes {
 		var tx ethtypes.Transaction
