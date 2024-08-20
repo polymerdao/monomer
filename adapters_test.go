@@ -8,6 +8,7 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/kataras/iris/v12/x/errors"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/testutils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
@@ -123,4 +124,48 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			require.Equal(t, cosmosTxs, txs)
 		})
 	}
+
+	t.Run("unmarshal binary error", func(t *testing.T) {
+		_, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes("invalid")}, nil, "")
+		require.Error(t, err)
+	})
+
+	t.Run("L1 attributes tx not found error", func(t *testing.T) {
+		_, _, cosmosEthTx := testutils.GenerateEthTxs(t)
+		cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
+		require.NoError(t, err)
+		_, err = monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{cosmosEthTxBytes}, nil, "")
+		require.Error(t, err)
+	})
+
+	t.Run("sign tx error", func(t *testing.T) {
+		_, depositTx, _ := testutils.GenerateEthTxs(t)
+		depositTxBytes, err := depositTx.MarshalBinary()
+		require.NoError(t, err)
+
+		_, err = monomer.AdaptPayloadTxsToCosmosTxs(
+			[]hexutil.Bytes{hexutil.Bytes(depositTxBytes)},
+			func(tx *sdktx.Tx) error {
+				return errors.New("sign tx error")
+			},
+			"")
+		require.Error(t, err)
+	})
+
+	t.Run("unmarshal binary tx:", func(t *testing.T) {
+		_, depositTx, _ := testutils.GenerateEthTxs(t)
+		depositTxBytes, err := depositTx.MarshalBinary()
+		require.NoError(t, err)
+
+		_, err = monomer.AdaptPayloadTxsToCosmosTxs(
+			[]hexutil.Bytes{
+				hexutil.Bytes(depositTxBytes),
+				hexutil.Bytes("invalid"),
+			},
+			func(tx *sdktx.Tx) error {
+				return errors.New("sign tx error")
+			},
+			"")
+		require.Error(t, err)
+	})
 }
