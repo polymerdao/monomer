@@ -35,7 +35,6 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	tests := []struct {
 		name, from            string
 		depTxNum, nonDepTxNum int
-		err                   error
 		signTx                monomer.TxSigner
 	}{
 		{
@@ -74,26 +73,8 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			inclusionListTxs := make([][]byte, 0, test.depTxNum+test.nonDepTxNum)
-			_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
-
-			depositTxBytes, err := depositTx.MarshalBinary()
-			require.NoError(t, err)
-			for range test.depTxNum {
-				inclusionListTxs = append(inclusionListTxs, depositTxBytes)
-			}
-
-			cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
-			require.NoError(t, err)
-			for range test.nonDepTxNum {
-				inclusionListTxs = append(inclusionListTxs, cosmosEthTxBytes)
-			}
-
-			txBytes := make([]hexutil.Bytes, 0, test.depTxNum+test.nonDepTxNum)
-			for _, tx := range inclusionListTxs {
-				txBytes = append(txBytes, hexutil.Bytes(tx))
-			}
-			txs, err := monomer.AdaptPayloadTxsToCosmosTxs(txBytes, nil, test.from)
+			inclusionListTxs, _, txBytes := generateTxsAndTxsBytes(t, test.depTxNum, test.nonDepTxNum)
+			txs, err := monomer.AdaptPayloadTxsToCosmosTxs(txBytes, test.signTx, test.from)
 			require.NoError(t, err)
 
 			msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{
@@ -106,6 +87,11 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 				Body: &sdktx.TxBody{
 					Messages: []*codectypes.Any{msgAny},
 				},
+			}
+
+			if test.signTx != nil {
+				err := test.signTx(&sdkTx)
+				require.NoError(t, err)
 			}
 
 			depositSDKMsgBytes, err := sdkTx.Marshal()
@@ -168,4 +154,106 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			"")
 		require.Error(t, err)
 	})
+}
+
+func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
+	t.Run("nil tx", func(t *testing.T) {
+		txs, err := monomer.AdaptCosmosTxsToEthTxs(nil)
+		require.NoError(t, err)
+		require.Empty(t, txs)
+	})
+
+	t.Run("0 txd", func(t *testing.T) {
+		txs, err := monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{})
+		require.NoError(t, err)
+		require.Empty(t, txs)
+	})
+
+	simpleSigner := func(_ *sdktx.Tx) error {
+		return nil
+	}
+
+	tests := []struct {
+		name, from            string
+		depTxNum, nonDepTxNum int
+		signTx                monomer.TxSigner
+	}{
+		{
+			name:     "1 dep tx",
+			depTxNum: 1,
+		},
+		{
+			name:        "1 + 1 txs",
+			depTxNum:    1,
+			nonDepTxNum: 1,
+		},
+		{
+			name:        "10 + 10 txs",
+			depTxNum:    10,
+			nonDepTxNum: 10,
+		},
+		{
+			name:        "3 + 3 txs + from",
+			depTxNum:    3,
+			nonDepTxNum: 3,
+			from:        "from",
+		},
+		{
+			name:        "3 + 3 txs + sighTx",
+			depTxNum:    3,
+			nonDepTxNum: 3,
+			signTx:      simpleSigner,
+		},
+		{
+			name:        "3 + 3 txs + from + sighTx",
+			depTxNum:    3,
+			nonDepTxNum: 3,
+			from:        "from",
+			signTx:      simpleSigner,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			_, ethTxs, txBytes := generateTxsAndTxsBytes(t, test.depTxNum, test.nonDepTxNum)
+			txs, err := monomer.AdaptPayloadTxsToCosmosTxs(txBytes, test.signTx, test.from) // Assume that AdaptPayloadTxsToCosmosTxs is correct
+			require.NoError(t, err)
+
+			adaptedTxs, err := monomer.AdaptCosmosTxsToEthTxs(txs)
+			require.NoError(t, err)
+			require.Equal(t, len(ethTxs), len(adaptedTxs))
+			for i := range ethTxs {
+				require.Equal(t, ethTxs[i].Hash(), adaptedTxs[i].Hash(), i)
+			}
+		})
+	}
+}
+
+func generateTxsAndTxsBytes(
+	t *testing.T,
+	depTxNum int,
+	nonDepTxNum int,
+) ([][]byte, ethtypes.Transactions, []hexutil.Bytes) {
+	_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
+	inclusionListTxsBytes := make([][]byte, 0, depTxNum+nonDepTxNum)
+	txs := make(ethtypes.Transactions, 0, depTxNum+nonDepTxNum)
+
+	depositTxBytes, err := depositTx.MarshalBinary()
+	require.NoError(t, err)
+	for range depTxNum {
+		inclusionListTxsBytes = append(inclusionListTxsBytes, depositTxBytes)
+		txs = append(txs, depositTx)
+	}
+
+	cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
+	require.NoError(t, err)
+	for range nonDepTxNum {
+		inclusionListTxsBytes = append(inclusionListTxsBytes, cosmosEthTxBytes)
+		txs = append(txs, cosmosEthTx)
+	}
+
+	txBytes := make([]hexutil.Bytes, 0, depTxNum+nonDepTxNum)
+	for _, tx := range inclusionListTxsBytes {
+		txBytes = append(txBytes, hexutil.Bytes(tx))
+	}
+	return inclusionListTxsBytes, txs, txBytes
 }
