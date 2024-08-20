@@ -20,7 +20,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	"github.com/ethereum-optimism/optimism/indexer/bindings"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -43,7 +42,6 @@ type EventListener interface {
 }
 
 type StackConfig struct {
-	RUConfig      *rollup.Config
 	Operator      L1User
 	Users         []L1User
 	L1Client      *L1Client
@@ -258,7 +256,6 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		L1Portal:      opPortal,
 		L2Client:      l2Client,
 		MonomerClient: monomerClient,
-		RUConfig:      rollupConfig,
 		Operator:      l1users[0],
 		Users:         l1users[1:],
 	}, nil
