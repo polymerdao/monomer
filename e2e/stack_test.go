@@ -87,6 +87,10 @@ func TestE2E(t *testing.T) {
 	monomerClient := stack.MonomerClient
 	appchainClient := stack.L2Client
 
+	b, err := monomerClient.BlockByNumber(ctx, nil)
+	require.NoError(t, err, "monomer block by number")
+	l2blockGasLimit := b.GasLimit()
+
 	l1ChainID, err := l1Client.ChainID(ctx)
 	require.NoError(t, err, "chain id")
 
@@ -103,8 +107,8 @@ func TestE2E(t *testing.T) {
 	gasPrice, err := l1Client.Client.SuggestGasPrice(context.Background())
 	require.NoError(t, err)
 
-	l2GasLimit := stack.RUConfig.Genesis.SystemConfig.GasLimit / 10 // 10% of block gas limit
-	l1GasLimit := l2GasLimit * 2                                    // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+	l2GasLimit := l2blockGasLimit / 10
+	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
 
 	depositTx, err := stack.L1Portal.DepositTransaction(
 		&bind.TransactOpts{
