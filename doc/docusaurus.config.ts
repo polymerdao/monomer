@@ -18,8 +18,7 @@ const config: Config = {
   organizationName: 'polymerdao', // Usually your GitHub org/user name.
   projectName: 'monomer', // Usually your repo name.
 
-  // TODO: Change onBrokenLinks to "throw" when possible
-  onBrokenLinks: 'warn',
+  onBrokenLinks: 'throw',
   onBrokenMarkdownLinks: 'warn',
 
   // Even if you don't use internationalization, you can use this field to set
