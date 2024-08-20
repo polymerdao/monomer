@@ -14,7 +14,6 @@ import (
 	"github.com/cometbft/cometbft/config"
 	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	bfttypes "github.com/cometbft/cometbft/types"
-	"github.com/ethereum-optimism/optimism/indexer/bindings"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -94,10 +93,6 @@ func TestE2E(t *testing.T) {
 	user := stack.Users[0]
 	signer := types.NewEIP155Signer(stack.RUConfig.L1ChainID)
 
-	// op Portal
-	portal, err := bindings.NewOptimismPortal(stack.RUConfig.DepositContractAddress, l1Client)
-	require.NoError(t, err)
-
 	// send user Deposit Tx
 	nonce, err := l1Client.Client.NonceAt(ctx, user.Address, nil)
 	require.NoError(t, err)
@@ -108,7 +103,7 @@ func TestE2E(t *testing.T) {
 	l2GasLimit := stack.RUConfig.Genesis.SystemConfig.GasLimit / 10 // 10% of block gas limit
 	l1GasLimit := l2GasLimit * 2                                    // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
 
-	depositTx, err := portal.DepositTransaction(
+	depositTx, err := stack.L1Portal.DepositTransaction(
 		&bind.TransactOpts{
 			From: user.Address,
 			Signer: func(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
@@ -178,7 +173,7 @@ func TestE2E(t *testing.T) {
 	require.NotNil(t, receipt, "deposit tx receipt")
 	require.NotZero(t, receipt.Status, "deposit tx reverted") // receipt.Status == 0 -> reverted tx
 
-	depositLogs, err := portal.FilterTransactionDeposited(
+	depositLogs, err := stack.L1Portal.FilterTransactionDeposited(
 		&bind.FilterOpts{
 			Start:   0,
 			End:     nil,
