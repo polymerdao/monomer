@@ -139,18 +139,19 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	})
 
 	t.Run("unmarshal binary tx:", func(t *testing.T) {
-		_, depositTx, _ := testutils.GenerateEthTxs(t)
+		_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
 		depositTxBytes, err := depositTx.MarshalBinary()
+		require.NoError(t, err)
+		cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
 		require.NoError(t, err)
 
 		_, err = monomer.AdaptPayloadTxsToCosmosTxs(
 			[]hexutil.Bytes{
 				hexutil.Bytes(depositTxBytes),
+				hexutil.Bytes(cosmosEthTxBytes),
 				hexutil.Bytes("invalid"),
 			},
-			func(tx *sdktx.Tx) error {
-				return errors.New("sign tx error")
-			},
+			nil,
 			"")
 		require.Error(t, err)
 	})
@@ -233,9 +234,6 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 	})
 
 	t.Run("unexpected number of msgs in Eth Cosmos tx error", func(t *testing.T) {
-		nonDepNum := 5
-		inclusionListTxs, _, _ := generateTxsAndTxsBytes(t, 0, nonDepNum)
-
 		sdkTx := sdktx.Tx{
 			Body: &sdktx.TxBody{
 				Messages: []*codectypes.Any{},
@@ -245,24 +243,28 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 		depositSDKMsgBytes, err := sdkTx.Marshal()
 		require.NoError(t, err)
 
-		cosmosTxs := make(bfttypes.Txs, 0, 1+nonDepNum)
-		cosmosTxs = append(cosmosTxs, depositSDKMsgBytes)
+		_, err = monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{depositSDKMsgBytes})
+		require.Error(t, err)
+	})
 
-		for _, cosmosTx := range inclusionListTxs {
-			var tx ethtypes.Transaction
-			err := tx.UnmarshalBinary(cosmosTx)
-			require.NoError(t, err)
-			cosmosTxs = append(cosmosTxs, tx.Data())
+	t.Run("L1 Attributes tx not found error", func(t *testing.T) {
+		msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{})
+		require.NoError(t, err)
+
+		sdkTx := sdktx.Tx{
+			Body: &sdktx.TxBody{
+				Messages: []*codectypes.Any{msgAny},
+			},
 		}
 
-		_, err = monomer.AdaptCosmosTxsToEthTxs(cosmosTxs)
+		depositSDKMsgBytes, err := sdkTx.Marshal()
+		require.NoError(t, err)
+
+		_, err = monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{depositSDKMsgBytes})
 		require.Error(t, err)
 	})
 
 	t.Run("unmarshal MsgL1Txs smsg error", func(t *testing.T) {
-		nonDepNum := 5
-		inclusionListTxs, _, _ := generateTxsAndTxsBytes(t, 0, nonDepNum)
-
 		sdkTx := sdktx.Tx{
 			Body: &sdktx.TxBody{
 				Messages: []*codectypes.Any{
@@ -276,17 +278,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 		depositSDKMsgBytes, err := sdkTx.Marshal()
 		require.NoError(t, err)
 
-		cosmosTxs := make(bfttypes.Txs, 0, 1+nonDepNum)
-		cosmosTxs = append(cosmosTxs, depositSDKMsgBytes)
-
-		for _, cosmosTx := range inclusionListTxs {
-			var tx ethtypes.Transaction
-			err := tx.UnmarshalBinary(cosmosTx)
-			require.NoError(t, err)
-			cosmosTxs = append(cosmosTxs, tx.Data())
-		}
-
-		_, err = monomer.AdaptCosmosTxsToEthTxs(cosmosTxs)
+		_, err = monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{depositSDKMsgBytes})
 		require.Error(t, err)
 	})
 
@@ -308,17 +300,26 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 		depositSDKMsgBytes, err := sdkTx.Marshal()
 		require.NoError(t, err)
 
-		cosmosTxs := make(bfttypes.Txs, 0, 1+nonDepNum)
-		cosmosTxs = append(cosmosTxs, depositSDKMsgBytes)
+		_, err = monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{depositSDKMsgBytes})
+		require.Error(t, err)
+	})
 
-		for _, cosmosTx := range inclusionListTxs {
-			var tx ethtypes.Transaction
-			err := tx.UnmarshalBinary(cosmosTx)
-			require.NoError(t, err)
-			cosmosTxs = append(cosmosTxs, tx.Data())
+	t.Run("unmarshal binary error", func(t *testing.T) {
+		msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{
+			TxBytes: [][]byte{[]byte("invalid")},
+		})
+		require.NoError(t, err)
+
+		sdkTx := sdktx.Tx{
+			Body: &sdktx.TxBody{
+				Messages: []*codectypes.Any{msgAny},
+			},
 		}
 
-		_, err = monomer.AdaptCosmosTxsToEthTxs(cosmosTxs)
+		depositSDKMsgBytes, err := sdkTx.Marshal()
+		require.NoError(t, err)
+
+		_, err = monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{depositSDKMsgBytes})
 		require.Error(t, err)
 	})
 }
