@@ -27,6 +27,10 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		require.Empty(t, txs)
 	})
 
+	simpleSigner := func(_ *sdktx.Tx) error {
+		return nil
+	}
+
 	tests := []struct {
 		name, from            string
 		depTxNum, nonDepTxNum int
@@ -46,6 +50,25 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			name:        "10 + 10 txs",
 			depTxNum:    10,
 			nonDepTxNum: 10,
+		},
+		{
+			name:        "3 + 3 txs + from",
+			depTxNum:    3,
+			nonDepTxNum: 3,
+			from:        "from",
+		},
+		{
+			name:        "3 + 3 txs + sighTx",
+			depTxNum:    3,
+			nonDepTxNum: 3,
+			signTx:      simpleSigner,
+		},
+		{
+			name:        "3 + 3 txs + from + sighTx",
+			depTxNum:    3,
+			nonDepTxNum: 3,
+			from:        "from",
+			signTx:      simpleSigner,
 		},
 	}
 	for _, test := range tests {
