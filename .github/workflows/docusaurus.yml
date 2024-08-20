@@ -12,14 +12,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Read .nvmrc
-        run: echo "NODE_VERSION=$(cat ./doc/.nvmrc)" >> $GITHUB_ENV
-        id: nvm
-
-      - name: Use Node.js ${{ steps.nvm.outputs.NODE_VERSION }}
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: ${{ steps.nvm.outputs.NODE_VERSION }}
+          node-version-file: '.nvmrc'
 
       - name: Set up Yarn
         run: |
