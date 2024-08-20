@@ -42,7 +42,6 @@ type EventListener interface {
 }
 
 type StackConfig struct {
-	L1URL         *e2eurl.URL
 	RUConfig      *rollup.Config
 	Operator      L1User
 	Users         []L1User
@@ -248,7 +247,6 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	return &StackConfig{
-		L1URL:         l1url,
 		L1Client:      l1,
 		L2Client:      l2Client,
 		MonomerClient: monomerClient,
