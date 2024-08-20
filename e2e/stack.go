@@ -185,7 +185,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client, l1HTTPendpoint, err := gethdevnet(env, deployConfig.L1BlockTime, l1genesis)
+	l1RPCclient, l1HTTPendpoint, err := gethdevnet(env, deployConfig.L1BlockTime, l1genesis)
 	if err != nil {
 		return nil, fmt.Errorf("ethdevnet: %v", err)
 	}
@@ -200,7 +200,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("l1 url not reachable: %s", l1url.String())
 	}
 
-	l1Client := NewL1Client(l1client)
+	l1Client := NewL1Client(l1RPCclient)
 
 	latestL1Block, err := l1Client.BlockByNumber(ctx, nil)
 	if err != nil {
