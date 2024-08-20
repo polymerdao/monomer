@@ -267,8 +267,9 @@ func (b *Builder) parseWithdrawalMessages(
 				}
 
 				// Populate the nonce in the tx event attributes.
-				for _, event := range execTxResult.GetEvents() {
-					if event.GetType() == rolluptypes.EventTypeWithdrawalInitiated {
+				for i := range execTxResult.Events {
+					event := &execTxResult.Events[i] // Get a pointer to the event, so we can modify it.
+					if event.Type == rolluptypes.EventTypeWithdrawalInitiated {
 						event.Attributes = append(event.Attributes, abcitypes.EventAttribute{
 							Key:   rolluptypes.AttributeKeyNonce,
 							Value: hexutil.Encode(nonce.Bytes()),
