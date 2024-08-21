@@ -30,7 +30,8 @@ import (
 )
 
 func TestRollup(t *testing.T) {
-	integrationApp, bankKeeper := setupIntegrationApp(t)
+	integrationApp := setupIntegrationApp(t)
+	queryClient := banktypes.NewQueryClient(integrationApp.QueryHelper())
 
 	monomerSigner := "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh"
 	l1AttributesTx, depositTx, _ := monomertestutils.GenerateEthTxs(t)
@@ -43,7 +44,7 @@ func TestRollup(t *testing.T) {
 	var userAddr sdk.AccAddress = depositTx.To().Bytes()
 
 	// query the user's ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), bankKeeper.GetBalance(integrationApp.Context(), userAddr, rolluptypes.ETH).Amount)
+	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, userAddr, integrationApp))
 
 	// send an invalid MsgApplyL1Txs and assert error
 	_, err := integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
@@ -60,7 +61,7 @@ func TestRollup(t *testing.T) {
 	require.NoError(t, err)
 
 	// query the user's ETH balance and assert it's equal to the deposit amount
-	require.Equal(t, depositAmount, bankKeeper.GetBalance(integrationApp.Context(), userAddr, rolluptypes.ETH).Amount.BigInt())
+	require.Equal(t, depositAmount, queryUserETHBalance(t, queryClient, userAddr, integrationApp).BigInt())
 
 	// try to withdraw more than deposited and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
@@ -83,10 +84,10 @@ func TestRollup(t *testing.T) {
 	require.NoError(t, err)
 
 	// query the user's ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), bankKeeper.GetBalance(integrationApp.Context(), userAddr, rolluptypes.ETH).Amount)
+	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, userAddr, integrationApp))
 }
 
-func setupIntegrationApp(t *testing.T) (*integration.App, bankkeeper.BaseKeeper) {
+func setupIntegrationApp(t *testing.T) *integration.App {
 	encodingCfg := moduletestutil.MakeTestEncodingConfig(auth.AppModuleBasic{}, bank.AppModuleBasic{}, rollup.AppModuleBasic{})
 	keys := storetypes.NewKVStoreKeys(authtypes.StoreKey, banktypes.StoreKey, rolluptypes.StoreKey)
 	authority := authtypes.NewModuleAddress("gov").String()
@@ -134,6 +135,16 @@ func setupIntegrationApp(t *testing.T) (*integration.App, bankkeeper.BaseKeeper)
 		},
 	)
 	rolluptypes.RegisterMsgServer(integrationApp.MsgServiceRouter(), rollupkeeper.NewMsgServerImpl(rollupKeeper))
+	banktypes.RegisterQueryServer(integrationApp.QueryHelper(), bankkeeper.NewQuerier(&bankKeeper))
 
-	return integrationApp, bankKeeper
+	return integrationApp
+}
+
+func queryUserETHBalance(t *testing.T, queryClient banktypes.QueryClient, userAddr sdk.AccAddress, app *integration.App) math.Int {
+	resp, err := queryClient.Balance(app.Context(), &banktypes.QueryBalanceRequest{
+		Address: userAddr.String(),
+		Denom:   rolluptypes.ETH,
+	})
+	require.NoError(t, err)
+	return resp.Balance.Amount
 }
