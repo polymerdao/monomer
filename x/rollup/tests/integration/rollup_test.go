@@ -1,4 +1,4 @@
-package rollup_test
+package integration_test
 
 import (
 	"math/big"
