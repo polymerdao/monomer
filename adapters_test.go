@@ -58,13 +58,13 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			from:        "from",
 		},
 		{
-			name:        "3 + 3 txs + sighTx",
+			name:        "3 + 3 txs + signTx",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			signTx:      simpleSigner,
 		},
 		{
-			name:        "3 + 3 txs + from + sighTx",
+			name:        "3 + 3 txs + from + signTx",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
