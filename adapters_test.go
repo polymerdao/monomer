@@ -61,14 +61,14 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 			name:        "converts multiple txs with signer but without from address",
 			depTxNum:    3,
 			nonDepTxNum: 3,
-			signTx:      simpleSigner,
+			signTx:      noopSigner,
 		},
 		{
 			name:        "converts multiple txs with both from address and signer",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
-			signTx:      simpleSigner,
+			signTx:      noopSigner,
 		},
 	}
 	for _, test := range tests {
@@ -170,7 +170,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 		require.Empty(t, txs)
 	})
 
-	simpleSigner := func(_ *sdktx.Tx) error {
+	noopSigner := func(_ *sdktx.Tx) error {
 		return nil
 	}
 
@@ -203,14 +203,14 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 			name:        "correctly converts multiple txs with signer but without from address",
 			depTxNum:    3,
 			nonDepTxNum: 3,
-			signTx:      simpleSigner,
+			signTx:      noopSigner,
 		},
 		{
 			name:        "correctly converts multiple txs with both from address and signer",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
-			signTx:      simpleSigner,
+			signTx:      noopSigner,
 		},
 	}
 	for _, test := range tests {
