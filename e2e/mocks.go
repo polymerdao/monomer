@@ -1,31 +1,39 @@
 package e2e
 
 import (
+	"fmt"
+
 	"github.com/cosmos/cosmos-sdk/client"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
-type mockAccountRetriever struct {
+type MockAccountRetriever struct {
+	Accounts                   map[string]*authtypes.BaseAccount
 	ReturnAccNum, ReturnAccSeq uint64
 }
 
-func (mar mockAccountRetriever) GetAccount(_ client.Context, _ sdktypes.AccAddress) (client.Account, error) { //nolint:gocritic // hugeParam
-	return mockAccount{}, nil
+func (mar MockAccountRetriever) GetAccount(ctx client.Context, addr sdktypes.AccAddress) (client.Account, error) {
+	acc, ok := mar.Accounts[addr.String()]
+	if !ok {
+		return nil, fmt.Errorf("account not found")
+	}
+	return acc, nil
 }
 
-func (mar mockAccountRetriever) GetAccountWithHeight(
+func (mar MockAccountRetriever) GetAccountWithHeight(
 	_ client.Context, //nolint:gocritic // hugeParam
 	_ sdktypes.AccAddress,
 ) (client.Account, int64, error) {
 	return mockAccount{}, 0, nil
 }
 
-func (mar mockAccountRetriever) EnsureExists(_ client.Context, _ sdktypes.AccAddress) error { //nolint:gocritic // hugeParam
+func (mar MockAccountRetriever) EnsureExists(_ client.Context, _ sdktypes.AccAddress) error { //nolint:gocritic // hugeParam
 	return nil
 }
 
-func (mar mockAccountRetriever) GetAccountNumberSequence(
+func (mar MockAccountRetriever) GetAccountNumberSequence(
 	_ client.Context, //nolint:gocritic // hugeParam
 	_ sdktypes.AccAddress,
 ) (uint64, uint64, error) {

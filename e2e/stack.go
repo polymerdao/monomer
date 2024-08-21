@@ -243,7 +243,7 @@ func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	appchainCtx := client.Context{}.
 		WithChainID(chainID.String()).
 		WithClient(sdkclient).
-		WithAccountRetriever(mockAccountRetriever{}).
+		WithAccountRetriever(MockAccountRetriever{}).
 		WithTxConfig(testutil.MakeTestTxConfig()).
 		WithCodec(testutil.MakeTestEncodingConfig().Codec)
 
