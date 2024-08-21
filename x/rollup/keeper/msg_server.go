@@ -28,8 +28,8 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 
 	ctx.Logger().Debug("Processing L1 txs", "txCount", len(msg.TxBytes))
 
-	// process L1 system deposit tx and get L1 block info
-	l1blockInfo, err := k.processL1SystemDepositTx(ctx, msg.TxBytes[0])
+	// process L1 attributes tx and get L1 block info
+	l1blockInfo, err := k.processL1AttributesTx(ctx, msg.TxBytes[0])
 	if err != nil {
 		ctx.Logger().Error("Failed to process L1 system deposit tx", "err", err)
 		return nil, types.WrapError(types.ErrProcessL1SystemDepositTx, "err: %v", err)
@@ -73,7 +73,7 @@ func (k *Keeper) InitiateWithdrawal(
 		return nil, types.WrapError(types.ErrInvalidSender, "failed to create cosmos address for sender: %v; error: %v", msg.Sender, err)
 	}
 
-	if err := k.burnETH(ctx, cosmAddr, msg.Value); err != nil {
+	if err = k.burnETH(ctx, cosmAddr, msg.Value); err != nil {
 		ctx.Logger().Error("Failed to burn ETH", "cosmosAddress", cosmAddr, "evmAddress", msg.Target, "err", err)
 		return nil, types.WrapError(types.ErrBurnETH, "failed to burn ETH for cosmosAddress: %v; err: %v", cosmAddr, err)
 	}
