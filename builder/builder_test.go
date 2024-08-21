@@ -480,6 +480,24 @@ func TestWithdrawalMessages(t *testing.T) {
 	require.Equal(t, 2, builtBlock.Txs.Len(), "Expected the built block to contain 2 transactions: depositTx and withdrawalTx")
 	require.Equal(t, 2, gotBlock.Txs.Len(), "Expected the built block to contain 2 transactions: depositTx and withdrawalTx")
 
+	// Test parseWithdrawalMessages
+	{
+		const nonceKey = "nonce"
+		for _, event := range withdrawalTxResult.Result.Events {
+			if event.Type == "withdrawal_initiated" {
+				require.NotEmpty(t, event.Attributes, "Expected attributes to not be empty")
+				found := false
+				for _, attribute := range event.Attributes {
+					if attribute.Key == nonceKey {
+						found = true
+						break
+					}
+				}
+				require.True(t, found, "Expected to find attribute with key: %q", nonceKey)
+			}
+		}
+	}
+
 	expectedStateRoot := wantBlock.Header.StateRoot
 	gotStateRoot := gotBlock.Header.StateRoot
 	require.Equal(t, expectedStateRoot, gotStateRoot, "Expected the built block to contain state root hash")
