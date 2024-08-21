@@ -111,7 +111,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		})
 	}
 
-	t.Run("unmarshal binary error", func(t *testing.T) {
+	t.Run("invalid attributes transaction", func(t *testing.T) {
 		_, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes("invalid")}, nil, "")
 		require.Error(t, err)
 	})
