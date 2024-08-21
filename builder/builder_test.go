@@ -13,7 +13,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
-	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -347,13 +347,15 @@ func TestWithdrawalMessages(t *testing.T) {
 
 	l1InfoTxETH, depositTxETH, _ := testutils.GenerateEthTxs(t)
 	l1InfoTxBytes, err := l1InfoTxETH.MarshalBinary()
+	require.NoError(t, err)
 	depositTxBytes, err := depositTxETH.MarshalBinary()
+	require.NoError(t, err)
 	privKey := ed25519.GenPrivKey()
 
 	// The client context expects some of the following fields to be non-nil
 	interfaceRegistry := types.NewInterfaceRegistry()
 	marshaller := codec.NewProtoCodec(interfaceRegistry)
-	txConfig := tx.NewTxConfig(marshaller, tx.DefaultSignModes)
+	txConfig := authtx.NewTxConfig(marshaller, authtx.DefaultSignModes)
 
 	clientCtx := &client.Context{
 		TxConfig:          txConfig,

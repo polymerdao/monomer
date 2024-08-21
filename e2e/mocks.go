@@ -14,7 +14,10 @@ type MockAccountRetriever struct {
 	ReturnAccNum, ReturnAccSeq uint64
 }
 
-func (mar MockAccountRetriever) GetAccount(ctx client.Context, addr sdktypes.AccAddress) (client.Account, error) {
+func (mar MockAccountRetriever) GetAccount(
+	_ client.Context, //nolint:gocritic // hugeParam
+	addr sdktypes.AccAddress,
+) (client.Account, error) {
 	acc, ok := mar.Accounts[addr.String()]
 	if !ok {
 		return nil, fmt.Errorf("account not found")
