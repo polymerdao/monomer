@@ -38,33 +38,33 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		signTx                monomer.TxSigner
 	}{
 		{
-			name:     "1 dep tx",
+			name:     "1 deposit tx",
 			depTxNum: 1,
 		},
 		{
-			name:        "1 + 1 txs",
+			name:        "1 deposit, 1 non-deposit txs",
 			depTxNum:    1,
 			nonDepTxNum: 1,
 		},
 		{
-			name:        "10 + 10 txs",
+			name:        "10 deposit, 10 non-deposit  txs",
 			depTxNum:    10,
 			nonDepTxNum: 10,
 		},
 		{
-			name:        "3 + 3 txs + from",
+			name:        "3 deposit, 3 non-deposit txs + from",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
 		},
 		{
-			name:        "3 + 3 txs + signTx",
+			name:        "3 deposit, 3 non-deposit txs + signTx",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			signTx:      simpleSigner,
 		},
 		{
-			name:        "3 + 3 txs + from + signTx",
+			name:        "3 deposit, 3 non-deposit txs, from address, signTx",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
@@ -180,33 +180,33 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 		signTx                monomer.TxSigner
 	}{
 		{
-			name:     "1 dep tx",
+			name:     "1 deposit tx",
 			depTxNum: 1,
 		},
 		{
-			name:        "1 + 1 txs",
+			name:        "1 deposit, 1 non-deposit txs",
 			depTxNum:    1,
 			nonDepTxNum: 1,
 		},
 		{
-			name:        "10 + 10 txs",
+			name:        "10 deposit, 10 non-deposit  txs",
 			depTxNum:    10,
 			nonDepTxNum: 10,
 		},
 		{
-			name:        "3 + 3 txs + from",
+			name:        "3 deposit, 3 non-deposit txs + from",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
 		},
 		{
-			name:        "3 + 3 txs + sighTx",
+			name:        "3 deposit, 3 non-deposit txs + signTx",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			signTx:      simpleSigner,
 		},
 		{
-			name:        "3 + 3 txs + from + sighTx",
+			name:        "3 deposit, 3 non-deposit txs, from address, signTx",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
