@@ -14,6 +14,7 @@ import (
 	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
 	"github.com/cometbft/cometbft/config"
+	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
@@ -27,7 +28,7 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/e2e/url"
+	e2eurl "github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/monomerdb/localdb"
@@ -41,16 +42,18 @@ type EventListener interface {
 }
 
 type StackConfig struct {
-	L1URL *url.URL
-	*rollup.Config
-	Operator L1User
-	Users    []L1User
+	RUConfig      *rollup.Config
+	Operator      L1User
+	Users         []L1User
+	L1Client      *L1Client
+	L2Client      *bftclient.HTTP
+	MonomerClient *MonomerClient
 }
 
-type Stack struct {
-	monomerEngineURL *url.URL
-	monomerCometURL  *url.URL
-	opNodeURL        *url.URL
+type stack struct {
+	monomerEngineURL *e2eurl.URL
+	monomerCometURL  *e2eurl.URL
+	opNodeURL        *e2eurl.URL
 	deployConfigDir  string
 	l1stateDumpDir   string
 	eventListener    EventListener
@@ -62,18 +65,40 @@ type L1User struct {
 	PrivateKey *ecdsa.PrivateKey
 }
 
-// New assumes all ports are available and that all paths exist and are valid.
-func New(
-	anvilURL,
-	monomerEngineURL,
-	monomerCometURL,
-	opNodeURL *url.URL,
-	deployConfigDir string,
-	l1stateDumpDir string,
+// Setup creates and runs a new stack for end-to-end testing.
+//
+// It assumes availability of hard-coded local URLs for the Monomer engine, Comet, and OP node.
+//
+// It returns a StackConfig with L1 and L2 clients, the rollup config, and operator and user accounts.
+func Setup(
+	ctx context.Context,
+	env *environment.Env,
 	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
-) *Stack {
-	return &Stack{
+) (*StackConfig, error) {
+	deployConfigDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/deploy-config")
+	if err != nil {
+		return nil, fmt.Errorf("abs deploy config dir: %v", err)
+	}
+	l1stateDumpDir, err := filepath.Abs("./optimism/.devnet")
+	if err != nil {
+		return nil, fmt.Errorf("abs l1 state dump dir: %v", err)
+	}
+
+	monomerEngineURL, err := e2eurl.ParseString("ws://127.0.0.1:8889")
+	if err != nil {
+		return nil, fmt.Errorf("new monomer url: %v", err)
+	}
+	monomerCometURL, err := e2eurl.ParseString("http://127.0.0.1:8890")
+	if err != nil {
+		return nil, fmt.Errorf("new cometBFT url: %v", err)
+	}
+	opNodeURL, err := e2eurl.ParseString("http://127.0.0.1:8891")
+	if err != nil {
+		return nil, fmt.Errorf("new op-node url: %v", err)
+	}
+
+	stack := stack{
 		monomerEngineURL: monomerEngineURL,
 		monomerCometURL:  monomerCometURL,
 		opNodeURL:        opNodeURL,
@@ -82,9 +107,11 @@ func New(
 		eventListener:    eventListener,
 		prometheusCfg:    prometheusCfg,
 	}
+
+	return stack.run(ctx, env)
 }
 
-func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, error) {
+func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, error) {
 	// configure & run L1
 
 	const networkName = "devnetL1"
@@ -161,7 +188,7 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("ethdevnet: %v", err)
 	}
 
-	l1url, err := url.ParseString(l1HTTPendpoint)
+	l1url, err := e2eurl.ParseString(l1HTTPendpoint)
 	if err != nil {
 		return nil, fmt.Errorf("new l1 url: %v", err)
 	}
@@ -213,15 +240,23 @@ func (s *Stack) Run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("run the op stack: %v", err)
 	}
 
+	// construct L2 client
+	l2Client, err := bftclient.New(s.monomerCometURL.String(), s.monomerCometURL.String())
+	if err != nil {
+		return nil, fmt.Errorf("new Comet client: %v", err)
+	}
+
 	return &StackConfig{
-		L1URL:    l1url,
-		Config:   rollupConfig,
-		Operator: l1users[0],
-		Users:    l1users[1:],
+		L1Client:      l1,
+		L2Client:      l2Client,
+		MonomerClient: monomerClient,
+		RUConfig:      rollupConfig,
+		Operator:      l1users[0],
+		Users:         l1users[1:],
 	}, nil
 }
 
-func (s *Stack) runMonomer(ctx context.Context, env *environment.Env, genesisTime, chainIDU64 uint64) error {
+func (s *stack) runMonomer(ctx context.Context, env *environment.Env, genesisTime, chainIDU64 uint64) error {
 	engineWS, err := net.Listen("tcp", s.monomerEngineURL.Host())
 	if err != nil {
 		return fmt.Errorf("set up monomer engine ws listener: %v", err)
