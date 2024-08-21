@@ -415,6 +415,42 @@ func TestWithdrawalMessages(t *testing.T) {
 	postBuildInfo, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
 	require.NoError(t, err)
 
+	// Test deposit was received
+	{
+		expectedDepositAmount := fmt.Sprintf("%sETH", depositTxETH.Value().String())
+		hash := depositTx[0].Hash()
+		depositTxResult, err := txStore.Get(hash)
+		require.NoError(t, err, "Failed to get deposit transaction result")
+
+		const (
+			eventType              = "coin_received"
+			receiverAttributeIndex = 0
+			valueAttributeIndex    = 1
+			targetEventCount       = 2
+		)
+		var (
+			eventCount          int
+			actualDepositAmount string
+			actualReceiver      string
+		)
+
+		for _, event := range depositTxResult.Result.Events {
+			if event.Type == eventType {
+				eventCount++
+				if eventCount == targetEventCount {
+					// There are 3 attributes - receiver, amount & msg_index
+					// We use the receiver and amount attribute's value
+					actualReceiver = event.Attributes[receiverAttributeIndex].Value
+					actualDepositAmount = event.Attributes[valueAttributeIndex].Value
+					break // Stop once the coin_received event is found
+				}
+			}
+		}
+
+		require.Equal(t, cosmAddr, actualReceiver, "Deposit amount mismatch")
+		require.Equal(t, expectedDepositAmount, actualDepositAmount, "Deposit amount mismatch")
+	}
+
 	withdrawalTxResult, err := txStore.Get(withdrawalTx.Hash())
 	require.NoError(t, err)
 	require.NotNil(t, withdrawalTxResult)
