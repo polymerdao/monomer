@@ -5,10 +5,18 @@ import (
 	"fmt"
 	"testing"
 
+	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cmtpubsub "github.com/cometbft/cometbft/libs/pubsub"
 	bfttypes "github.com/cometbft/cometbft/types"
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
@@ -16,6 +24,8 @@ import (
 	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/builder"
 	"github.com/polymerdao/monomer/contracts"
+	"github.com/polymerdao/monomer/e2e"
+	"github.com/polymerdao/monomer/engine/signer"
 	"github.com/polymerdao/monomer/evm"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/mempool"
@@ -306,4 +316,160 @@ func getAppHashFromEVM(ethState *state.StateDB, header *monomer.Header) (common.
 	}
 
 	return appHash, nil
+}
+
+func TestWithdrawalMessages(t *testing.T) {
+	pool := mempool.New(testutils.NewMemDB(t))
+	blockStore := testutils.NewLocalMemDB(t)
+	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
+	ethstatedb := testutils.NewEthStateDB(t)
+
+	// Chain ID, app and genesis
+	var chainID monomer.ChainID
+	app := testapp.NewTest(t, chainID.String())
+	g := &genesis.Genesis{
+		ChainID:  chainID,
+		AppState: testapp.MakeGenesisAppState(t, app),
+	}
+
+	// Event bus
+	eventBus := bfttypes.NewEventBus()
+	require.NoError(t, eventBus.Start())
+	t.Cleanup(func() {
+		require.NoError(t, eventBus.Stop())
+	})
+	subChannelLen := 3 // TODO assert that this is correct
+	// +1 because we want it to be buffered even when mempool and inclusion list are empty.
+	subscription, err := eventBus.Subscribe(context.Background(), "test", &queryAll{}, subChannelLen)
+	require.NoError(t, err)
+
+	require.NoError(t, g.Commit(context.Background(), app, blockStore, ethstatedb))
+
+	l1InfoTxETH, depositTxETH, _ := testutils.GenerateEthTxs(t)
+	l1InfoTxBytes, err := l1InfoTxETH.MarshalBinary()
+	depositTxBytes, err := depositTxETH.MarshalBinary()
+	privKey := ed25519.GenPrivKey()
+
+	// The client context expects some of the following fields to be non-nil
+	interfaceRegistry := types.NewInterfaceRegistry()
+	marshaller := codec.NewProtoCodec(interfaceRegistry)
+	txConfig := tx.NewTxConfig(marshaller, tx.DefaultSignModes)
+
+	clientCtx := &client.Context{
+		TxConfig:          txConfig,
+		Codec:             marshaller,
+		InterfaceRegistry: interfaceRegistry,
+		SkipConfirm:       true,
+	}
+
+	s := signer.New(clientCtx, privKey)
+	require.NoError(t, err)
+	mockAcc := authtypes.NewBaseAccount(s.AccountAddress(), privKey.PubKey(), 0, 0)
+	// Create a mock AccountRetriever
+	// The client context needs this for the signer
+	mockAccountRetriever := e2e.MockAccountRetriever{
+		Accounts: map[string]*authtypes.BaseAccount{
+			s.AccountAddress().String(): mockAcc,
+		},
+	}
+	clientCtx.AccountRetriever = mockAccountRetriever
+
+	depositTx, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{l1InfoTxBytes, depositTxBytes}, s.Sign, s.AccountAddress().String())
+	require.NoError(t, err)
+
+	cosmAddr := monomer.EvmToCosmos(*depositTxETH.To()) // The recipient of the deposit, will initiate the withdrawal
+	ethAddr := common.HexToAddress("0x12345abcde")
+	withdrawalAmount := depositTxETH.Value()
+	withdrawalTx := testapp.ToWithdrawalTx(
+		t,
+		cosmAddr.String(),
+		ethAddr.String(),
+		math.NewIntFromBigInt(withdrawalAmount),
+	)
+
+	txs := depositTx
+	txs = append(txs, withdrawalTx)
+	b := builder.New(
+		pool,
+		app,
+		blockStore,
+		txStore,
+		eventBus,
+		g.ChainID,
+		ethstatedb,
+	)
+
+	// Prepare the payload
+	payload := &builder.Payload{
+		InjectedTransactions: txs,
+		GasLimit:             1000000000000,
+		Timestamp:            g.Time + 1,
+		NoTxPool:             true,
+	}
+
+	// Build a block with the payload
+	preBuildInfo, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
+	require.NoError(t, err)
+	builtBlock, err := b.Build(context.Background(), payload)
+	require.NoError(t, err)
+	postBuildInfo, err := app.Info(context.Background(), &abcitypes.RequestInfo{})
+	require.NoError(t, err)
+
+	withdrawalTxResult, err := txStore.Get(withdrawalTx.Hash())
+	require.NoError(t, err)
+	require.NotNil(t, withdrawalTxResult)
+	require.Truef(t, withdrawalTxResult.Result.IsOK(), "Expected the withdrawal transaction to be successful, but it failed")
+
+	// Verify block creation
+	genesisBlock, err := blockStore.BlockByHeight(uint64(preBuildInfo.GetLastBlockHeight()))
+	require.NoError(t, err)
+	gotBlock, err := blockStore.HeadBlock()
+	require.NoError(t, err)
+
+	ethStateRoot := gotBlock.Header.StateRoot
+	header := monomer.Header{
+		ChainID:    g.ChainID,
+		Height:     uint64(postBuildInfo.GetLastBlockHeight()),
+		Time:       payload.Timestamp,
+		ParentHash: genesisBlock.Header.Hash,
+		StateRoot:  ethStateRoot,
+		GasLimit:   payload.GasLimit,
+	}
+	wantBlock, err := monomer.MakeBlock(&header, txs)
+	require.NoError(t, err)
+	require.Equal(t, wantBlock, builtBlock)
+	require.Equal(t, wantBlock, gotBlock)
+
+	// We expect two transactions: one combined transaction (l1InfoTx + depositTx) and one withdrawal transaction (withdrawalTx).
+	require.Equal(t, 2, builtBlock.Txs.Len(), "Expected the built block to contain 2 transactions: depositTx and withdrawalTx")
+	require.Equal(t, 2, gotBlock.Txs.Len(), "Expected the built block to contain 2 transactions: depositTx and withdrawalTx")
+
+	expectedStateRoot := wantBlock.Header.StateRoot
+	gotStateRoot := gotBlock.Header.StateRoot
+	require.Equal(t, expectedStateRoot, gotStateRoot, "Expected the built block to contain state root hash")
+
+	for i := range gotBlock.Txs {
+		select {
+		case event, ok := <-subscription.Out():
+			if !ok {
+				require.FailNow(t, "event channel closed unexpectedly")
+			}
+			data := event.Data()
+			require.IsType(t, bfttypes.EventDataTx{}, data)
+			e, ok := data.(bfttypes.EventDataTx)
+			require.True(t, ok)
+			// Deposit transaction
+			if i == 0 {
+				require.Equal(t, e.GetResult().Events[0].Attributes[0].Value, "/rollup.v1.MsgApplyL1Txs")
+			}
+			// Withdrawal transaction
+			if i == 1 {
+				require.Equal(t, e.GetResult().Events[0].Attributes[0].Value, "/rollup.v1.MsgInitiateWithdrawal")
+			}
+
+		case <-subscription.Canceled():
+			require.FailNow(t, "subscription channel closed unexpectedly")
+		}
+		require.NoError(t, subscription.Err())
+	}
 }
