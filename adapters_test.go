@@ -28,7 +28,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		require.Empty(t, txs)
 	})
 
-	simpleSigner := func(_ *sdktx.Tx) error {
+	noopSigner := func(_ *sdktx.Tx) error {
 		return nil
 	}
 
