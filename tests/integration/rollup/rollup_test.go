@@ -22,7 +22,7 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ethereum/go-ethereum/common"
-	rolluptestutils "github.com/polymerdao/monomer/testutils"
+	monomertestutils "github.com/polymerdao/monomer/testutils"
 	"github.com/polymerdao/monomer/x/rollup"
 	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
@@ -33,11 +33,11 @@ func TestRollup(t *testing.T) {
 	integrationApp, bankKeeper := setupIntegrationApp(t)
 
 	monomerSigner := "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh"
-	l1AttributesTx, depositTx, _ := rolluptestutils.GenerateEthTxs(t)
+	l1AttributesTx, depositTx, _ := monomertestutils.GenerateEthTxs(t)
 	l1WithdrawalAddr := common.HexToAddress("0x12345").String()
 
-	l1AttributesTxBz := rolluptestutils.TxToBytes(t, l1AttributesTx)
-	depositTxBz := rolluptestutils.TxToBytes(t, depositTx)
+	l1AttributesTxBz := monomertestutils.TxToBytes(t, l1AttributesTx)
+	depositTxBz := monomertestutils.TxToBytes(t, depositTx)
 
 	depositAmount := depositTx.Value()
 	var userAddr sdk.AccAddress = depositTx.To().Bytes()
