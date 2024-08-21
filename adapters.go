@@ -6,7 +6,9 @@ import (
 
 	bfttypes "github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
@@ -131,4 +133,9 @@ func AdaptNonDepositCosmosTxToEthTx(cosmosTx bfttypes.Tx) *ethtypes.Transaction 
 		// TODO maybe fill in other fields?
 		Data: cosmosTx,
 	})
+}
+
+// EvmToCosmos converts an EVM address to a sdk.AccAddress
+func EvmToCosmos(addr common.Address) types.AccAddress {
+	return addr.Bytes()
 }
