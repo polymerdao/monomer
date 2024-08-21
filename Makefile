@@ -51,6 +51,10 @@ install-go-test-coverage:
 install-abi-gen:
 	go install github.com/ethereum/go-ethereum/cmd/abigen@v1.10.25
 
+.PHONY: install-mockgen
+install-mockgen:
+	go install github.com/golang/mock/mockgen@v1.6.0
+
 .PHONY: install-foundry
 install-foundry:
 	${SCRIPTS_PATH}/install-foundry.sh
@@ -58,6 +62,10 @@ install-foundry:
 .PHONY: gen-bindings
 gen-bindings:
 	${SCRIPTS_PATH}/generate-bindings.sh
+
+.PHONY: gen-mocks
+gen-mocks:
+	mockgen -source=x/rollup/types/expected_keepers.go -package testutil -destination x/rollup/testutil/expected_keepers_mocks.go
 
 $(COVER_OUT):
 	go test -short ./... -coverprofile=$@ -covermode=atomic -coverpkg=./...
