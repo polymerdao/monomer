@@ -6,12 +6,15 @@ import (
 	"slices"
 	"testing"
 
+	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
+	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/polymerdao/monomer/testapp/x/testmodule/types"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -68,6 +71,35 @@ func ToTx(t *testing.T, k, v string) []byte {
 	}
 	txBytes := make([]byte, tx.Size())
 	_, err = tx.MarshalTo(txBytes)
+	require.NoError(t, err)
+	return txBytes
+}
+
+// TODO extract the shared code with ToTx into a separate helper func
+func ToWithdrawalTx(t *testing.T, cosmosAddr string, ethAddr string, amount math.Int) bfttypes.Tx {
+	withdrawalMsg := rolluptypes.MsgInitiateWithdrawal{
+		Sender:   cosmosAddr,
+		Target:   ethAddr,
+		Value:    amount,
+		GasLimit: []byte{0xff, 0xff, 0xff, 0xff, 0xff},
+		Data:     []byte{},
+	}
+
+	// Wrap the message in an Any
+	msgAny, err := codectypes.NewAnyWithValue(&withdrawalMsg)
+	require.NoError(t, err)
+
+	// Create the transaction
+	tx := &sdktx.Tx{
+		Body: &sdktx.TxBody{
+			Messages: []*codectypes.Any{msgAny},
+		},
+		AuthInfo: &sdktx.AuthInfo{
+			Fee: &sdktx.Fee{},
+		},
+	}
+
+	txBytes, err := tx.Marshal()
 	require.NoError(t, err)
 	return txBytes
 }
