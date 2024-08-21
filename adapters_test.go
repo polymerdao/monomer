@@ -22,7 +22,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		require.Empty(t, txs)
 	})
 
-	t.Run("0 txd", func(t *testing.T) {
+	t.Run("0 txs", func(t *testing.T) {
 		txs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{}, nil, "")
 		require.NoError(t, err)
 		require.Empty(t, txs)
