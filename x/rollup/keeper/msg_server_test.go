@@ -20,14 +20,10 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 	// The only constraint for a contract creation tx is that it must be a non-system DepositTx with no To field
 	contractCreationTx := gethtypes.NewTx(&gethtypes.DepositTx{})
 
-	l1AttributesTxBz, err := l1AttributesTx.MarshalBinary()
-	s.Require().NoError(err)
-	depositTxBz, err := depositTx.MarshalBinary()
-	s.Require().NoError(err)
-	cosmosEthTxBz, err := cosmosEthTx.MarshalBinary()
-	s.Require().NoError(err)
-	contractCreationTxBz, err := contractCreationTx.MarshalBinary()
-	s.Require().NoError(err)
+	l1AttributesTxBz := testutils.TxToBytes(s.T(), l1AttributesTx)
+	depositTxBz := testutils.TxToBytes(s.T(), depositTx)
+	cosmosEthTxBz := testutils.TxToBytes(s.T(), cosmosEthTx)
+	contractCreationTxBz := testutils.TxToBytes(s.T(), contractCreationTx)
 	invalidTxBz := []byte("invalid tx bytes")
 
 	tests := map[string]struct {
@@ -98,8 +94,7 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 			}
 			s.mockMintETH()
 
-			var resp *types.MsgApplyL1TxsResponse
-			resp, err = keeper.NewMsgServerImpl(s.rollupKeeper).ApplyL1Txs(s.ctx, &types.MsgApplyL1Txs{
+			resp, err := keeper.NewMsgServerImpl(s.rollupKeeper).ApplyL1Txs(s.ctx, &types.MsgApplyL1Txs{
 				TxBytes: test.txBytes,
 			})
 
