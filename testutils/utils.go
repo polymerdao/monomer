@@ -65,17 +65,11 @@ func NewLocalMemDB(t *testing.T) *localdb.DB {
 // GenerateEthTxs generates an L1 attributes tx, deposit tx, and cosmos tx packed in an Ethereum transaction.
 // The transactions are not meant to be executed.
 func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transaction, *gethtypes.Transaction) {
-	timestamp := uint64(0)
-	l1Block := gethtypes.NewBlock(&gethtypes.Header{
-		BaseFee:    big.NewInt(10),
-		Difficulty: common.Big0,
-		Number:     big.NewInt(0),
-		Time:       timestamp,
-	}, nil, nil, nil, trie.NewStackTrie(nil))
+	l1Block := GenerateL1Block()
 	l1InfoRawTx, err := derive.L1InfoDeposit(&rollup.Config{
 		Genesis:   rollup.Genesis{L2: eth.BlockID{Number: 0}},
 		L2ChainID: big.NewInt(1234),
-	}, eth.SystemConfig{}, 0, eth.BlockToInfo(l1Block), timestamp)
+	}, eth.SystemConfig{}, 0, eth.BlockToInfo(l1Block), l1Block.Time())
 	require.NoError(t, err)
 	l1InfoTx := gethtypes.NewTx(l1InfoRawTx)
 
@@ -130,4 +124,13 @@ func GenerateBlockWithParentAndTxs(t *testing.T, parent *monomer.Header, cosmosT
 	block, err := monomer.MakeBlock(h, append(cosmosTxsFromEthTxs(t, l1InfoTx, nil, nil), cosmosTxs...))
 	require.NoError(t, err)
 	return block
+}
+
+func GenerateL1Block() *gethtypes.Block {
+	return gethtypes.NewBlock(&gethtypes.Header{
+		BaseFee:    big.NewInt(10),
+		Difficulty: common.Big0,
+		Number:     big.NewInt(0),
+		Time:       uint64(0),
+	}, nil, nil, nil, trie.NewStackTrie(nil))
 }

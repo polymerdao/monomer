@@ -24,34 +24,35 @@ func (k *Keeper) setL1BlockInfo(ctx sdk.Context, info derive.L1BlockInfo) error 
 	if err != nil {
 		return types.WrapError(err, "marshal L1 block info")
 	}
-	if err := k.storeService.OpenKVStore(ctx).Set([]byte(types.KeyL1BlockInfo), infoBytes); err != nil {
+	if err = k.storeService.OpenKVStore(ctx).Set([]byte(types.KeyL1BlockInfo), infoBytes); err != nil {
 		return types.WrapError(err, "set")
 	}
 	return nil
 }
 
+// TODO: include the logic to also store the L1 block info by blockhash in setL1BlockInfo and remove setL1BlockHistory
 // setL1BlockHistory sets the L1 block info to the app state, with the key being the blockhash, so we can look it up easily later.
 func (k *Keeper) setL1BlockHistory(ctx context.Context, info *derive.L1BlockInfo) error {
 	infoBytes, err := json.Marshal(info)
 	if err != nil {
 		return types.WrapError(err, "marshal L1 block info")
 	}
-	if err := k.storeService.OpenKVStore(ctx).Set(info.BlockHash.Bytes(), infoBytes); err != nil {
+	if err = k.storeService.OpenKVStore(ctx).Set(info.BlockHash.Bytes(), infoBytes); err != nil {
 		return types.WrapError(err, "set")
 	}
 	return nil
 }
 
-// processL1SystemDepositTx processes the L1 Attributes deposit tx and returns the L1 block info.
-func (k *Keeper) processL1SystemDepositTx(ctx sdk.Context, txBytes []byte) (*derive.L1BlockInfo, error) { //nolint:gocritic // hugeParam
+// processL1AttributesTx processes the L1 Attributes tx and returns the L1 block info.
+func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive.L1BlockInfo, error) { //nolint:gocritic // hugeParam
 	var tx ethtypes.Transaction
 	if err := tx.UnmarshalBinary(txBytes); err != nil {
-		ctx.Logger().Error("Failed to unmarshal system deposit transaction", "index", 0, "err", err, "txBytes", txBytes)
-		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to unmarshal system deposit transaction: %v", err)
+		ctx.Logger().Error("Failed to unmarshal L1 attributes transaction", "index", 0, "err", err, "txBytes", txBytes)
+		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to unmarshal L1 attributes transaction: %v", err)
 	}
 	if !tx.IsDepositTx() {
-		ctx.Logger().Error("First L1 tx must be a system deposit tx", "type", tx.Type())
-		return nil, types.WrapError(types.ErrInvalidL1Txs, "first L1 tx must be a system deposit tx, but got type %d", tx.Type())
+		ctx.Logger().Error("First L1 tx must be a L1 attributes tx", "type", tx.Type())
+		return nil, types.WrapError(types.ErrInvalidL1Txs, "first L1 tx must be a L1 attributes tx, but got type %d", tx.Type())
 	}
 	l1blockInfo, err := derive.L1BlockInfoFromBytes(k.rollupCfg, 0, tx.Data())
 	if err != nil {
@@ -106,6 +107,8 @@ func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.In
 	if err := k.bankkeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, addr, sdk.NewCoins(coin)); err != nil {
 		return fmt.Errorf("failed to send deposit coins from rollup module to user account %v: %v", addr, err)
 	}
+
+	// TODO: only emit sdk.EventTypeMessage once per message
 	ctx.EventManager().EmitEvents(sdk.Events{
 		sdk.NewEvent(
 			sdk.EventTypeMessage,
