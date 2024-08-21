@@ -16,13 +16,13 @@ import (
 )
 
 func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
-	t.Run("nil tx", func(t *testing.T) {
+	t.Run("returns empty slice when input txs is nil", func(t *testing.T) {
 		txs, err := monomer.AdaptPayloadTxsToCosmosTxs(nil, nil, "")
 		require.NoError(t, err)
 		require.Empty(t, txs)
 	})
 
-	t.Run("0 txs", func(t *testing.T) {
+	t.Run("returns empty slice when input txs is empty", func(t *testing.T) {
 		txs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{}, nil, "")
 		require.NoError(t, err)
 		require.Empty(t, txs)
@@ -38,33 +38,33 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		signTx                monomer.TxSigner
 	}{
 		{
-			name:     "1 deposit tx",
+			name:     "converts single deposit tx without signer or from address",
 			depTxNum: 1,
 		},
 		{
-			name:        "1 deposit, 1 non-deposit txs",
+			name:        "converts one deposit and one non-deposit tx without signer or from address",
 			depTxNum:    1,
 			nonDepTxNum: 1,
 		},
 		{
-			name:        "10 deposit, 10 non-deposit  txs",
+			name:        "converts multiple deposit and non-deposit txs without signer or from address",
 			depTxNum:    10,
 			nonDepTxNum: 10,
 		},
 		{
-			name:        "3 deposit, 3 non-deposit txs + from",
+			name:        "converts multiple txs with from address but without signer",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
 		},
 		{
-			name:        "3 deposit, 3 non-deposit txs + signTx",
+			name:        "converts multiple txs with signer but without from address",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			signTx:      simpleSigner,
 		},
 		{
-			name:        "3 deposit, 3 non-deposit txs, from address, signTx",
+			name:        "converts multiple txs with both from address and signer",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
@@ -111,12 +111,12 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		})
 	}
 
-	t.Run("invalid attributes transaction", func(t *testing.T) {
+	t.Run("returns error when input tx contains invalid binary data", func(t *testing.T) {
 		_, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes("invalid")}, nil, "")
 		require.Error(t, err)
 	})
 
-	t.Run("L1 attributes tx not found error", func(t *testing.T) {
+	t.Run("returns error when no deposit txs are present", func(t *testing.T) {
 		_, _, cosmosEthTx := testutils.GenerateEthTxs(t)
 		cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
 		require.NoError(t, err)
@@ -124,7 +124,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("sign tx error", func(t *testing.T) {
+	t.Run("returns error when signing tx fails", func(t *testing.T) {
 		_, depositTx, _ := testutils.GenerateEthTxs(t)
 		depositTxBytes, err := depositTx.MarshalBinary()
 		require.NoError(t, err)
@@ -138,7 +138,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("unmarshal binary tx:", func(t *testing.T) {
+	t.Run("returns error when unable to unmarshal binary tx data", func(t *testing.T) {
 		_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
 		depositTxBytes, err := depositTx.MarshalBinary()
 		require.NoError(t, err)
@@ -157,14 +157,14 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	})
 }
 
-func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsToCosmosTxs is correct
-	t.Run("nil tx", func(t *testing.T) {
+func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
+	t.Run("returns empty slice when input txs is nil", func(t *testing.T) {
 		txs, err := monomer.AdaptCosmosTxsToEthTxs(nil)
 		require.NoError(t, err)
 		require.Empty(t, txs)
 	})
 
-	t.Run("0 txd", func(t *testing.T) {
+	t.Run("returns empty slice when input txs is empty", func(t *testing.T) {
 		txs, err := monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{})
 		require.NoError(t, err)
 		require.Empty(t, txs)
@@ -180,33 +180,33 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 		signTx                monomer.TxSigner
 	}{
 		{
-			name:     "1 deposit tx",
+			name:     "correctly converts a single deposit tx without signer or from address",
 			depTxNum: 1,
 		},
 		{
-			name:        "1 deposit, 1 non-deposit txs",
+			name:        "correctly converts one deposit and one non-deposit tx without signer or from address",
 			depTxNum:    1,
 			nonDepTxNum: 1,
 		},
 		{
-			name:        "10 deposit, 10 non-deposit  txs",
+			name:        "correctly converts multiple deposit and non-deposit txs without signer or from address",
 			depTxNum:    10,
 			nonDepTxNum: 10,
 		},
 		{
-			name:        "3 deposit, 3 non-deposit txs + from",
+			name:        "correctly converts multiple txs with from address but without signer",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
 		},
 		{
-			name:        "3 deposit, 3 non-deposit txs + signTx",
+			name:        "correctly converts multiple txs with signer but without from address",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			signTx:      simpleSigner,
 		},
 		{
-			name:        "3 deposit, 3 non-deposit txs, from address, signTx",
+			name:        "correctly converts multiple txs with both from address and signer",
 			depTxNum:    3,
 			nonDepTxNum: 3,
 			from:        "from",
@@ -228,12 +228,12 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 		})
 	}
 
-	t.Run("unmarshal cosmos tx error", func(t *testing.T) {
+	t.Run("returns error when input contains invalid binary data", func(t *testing.T) {
 		_, err := monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{[]byte("invalid")})
 		require.Error(t, err)
 	})
 
-	t.Run("unexpected number of msgs in Eth Cosmos tx error", func(t *testing.T) {
+	t.Run("returns error when unexpected number of messages in Cosmos tx", func(t *testing.T) {
 		sdkTx := sdktx.Tx{
 			Body: &sdktx.TxBody{
 				Messages: []*codectypes.Any{},
@@ -247,7 +247,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 		require.Error(t, err)
 	})
 
-	t.Run("L1 Attributes tx not found error", func(t *testing.T) {
+	t.Run("returns error when L1 Attributes tx is not found", func(t *testing.T) {
 		msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{})
 		require.NoError(t, err)
 
@@ -264,7 +264,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 		require.Error(t, err)
 	})
 
-	t.Run("unmarshal MsgL1Txs smsg error", func(t *testing.T) {
+	t.Run("returns error when unable to unmarshal MsgL1Txs message", func(t *testing.T) {
 		sdkTx := sdktx.Tx{
 			Body: &sdktx.TxBody{
 				Messages: []*codectypes.Any{
@@ -282,7 +282,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 		require.Error(t, err)
 	})
 
-	t.Run("MsgL1Tx contains non-deposit tx error", func(t *testing.T) {
+	t.Run("returns error when MsgL1Tx contains only non-deposit txs", func(t *testing.T) {
 		nonDepNum := 5
 		txBytes, _, _ := generateTxsAndTxsBytes(t, 0, nonDepNum)
 
@@ -304,7 +304,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) { // Assume that AdaptPayloadTxsTo
 		require.Error(t, err)
 	})
 
-	t.Run("unmarshal binary error", func(t *testing.T) {
+	t.Run("returns error when unable to unmarshal binary data within MsgL1Tx", func(t *testing.T) {
 		msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{
 			TxBytes: [][]byte{[]byte("invalid")},
 		})
