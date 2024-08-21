@@ -80,6 +80,12 @@ func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transactio
 	return l1InfoTx, depositTx, cosmosEthTx
 }
 
+func TxToBytes(t *testing.T, tx *gethtypes.Transaction) []byte {
+	txBytes, err := tx.MarshalBinary()
+	require.NoError(t, err)
+	return txBytes
+}
+
 func cosmosTxsFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depositTxs, cosmosEthTxs []*gethtypes.Transaction) bfttypes.Txs {
 	l1InfoTxBytes, err := l1InfoTx.MarshalBinary()
 	require.NoError(t, err)
