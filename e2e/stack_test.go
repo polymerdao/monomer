@@ -9,7 +9,6 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
-	"time"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/config"
@@ -121,8 +120,9 @@ func TestE2E(t *testing.T) {
 func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
 	targetHeight := uint64(5)
 
-	// todo: replace with a more precise timing mechanism
-	time.Sleep(5 * time.Second) // wait for some blocks to be processed
+	// wait for some blocks to be processed
+	err := stack.WaitL2(int(targetHeight))
+	require.NoError(t, err)
 
 	for i := uint64(2); i < targetHeight; i++ {
 		block, err := stack.MonomerClient.BlockByNumber(stack.Ctx, new(big.Int).SetUint64(i))
@@ -154,8 +154,9 @@ func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
 	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
 	t.Log("Monomer can reject malformed cometbft txs")
 
-	// todo: replace with a more precise timing mechanism
-	time.Sleep(5 * time.Second) // wait for tx to be processed
+	// wait for tx to be processed
+	err = stack.WaitL2(1)
+	require.NoError(t, err)
 
 	getTx, err := stack.L2Client.Tx(stack.Ctx, bftTx.Hash(), false)
 
@@ -219,8 +220,9 @@ func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 	)
 	require.NoError(t, err, "deposit tx")
 
-	// todo: replace with a more precise timing mechanism
-	time.Sleep(5 * time.Second)
+	// wait for tx to be processed
+	err = stack.WaitL2(1)
+	require.NoError(t, err)
 
 	// inspect L1 for deposit tx receipt and emitted TransactionDeposited event
 	receipt, err := l1Client.Client.TransactionReceipt(stack.Ctx, depositTx.Hash())

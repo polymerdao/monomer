@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"net"
 	"os"
 	"path/filepath"
@@ -24,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/triedb"
@@ -49,6 +51,8 @@ type StackConfig struct {
 	L1Portal      *bindings.OptimismPortal
 	L2Client      *bftclient.HTTP
 	MonomerClient *MonomerClient
+	WaitL1        func(numBlocks int) error
+	WaitL2        func(numBlocks int) error
 }
 
 type stack struct {
@@ -252,9 +256,42 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("new Comet client: %v", err)
 	}
 
+	wait := func(numBlocks, layer int) error {
+		var client interface {
+			BlockByNumber(context.Context, *big.Int) (*ethtypes.Block, error)
+		}
+		if layer == 1 {
+			client = l1Client
+		} else {
+			client = monomerClient
+		}
+
+		currentBlock, err := client.BlockByNumber(ctx, nil)
+		if err != nil {
+			return fmt.Errorf("get the latest L%d block: %v", layer, err)
+		}
+		for {
+			latestBlock, err := client.BlockByNumber(ctx, nil)
+			if err != nil {
+				return fmt.Errorf("get the latest L%d block: %v", layer, err)
+			}
+			if latestBlock.Number().Int64() >= currentBlock.Number().Int64()+int64(numBlocks) {
+				break
+			}
+			time.Sleep(250 * time.Millisecond)
+		}
+		return nil
+	}
+
 	return &StackConfig{
-		Ctx:           ctx,
-		L1Client:      l1Client,
+		Ctx:      ctx,
+		L1Client: l1Client,
+		WaitL1: func(numBlocks int) error {
+			return wait(numBlocks, 1)
+		},
+		WaitL2: func(numBlocks int) error {
+			return wait(numBlocks, 2)
+		},
 		L1Portal:      opPortal,
 		L2Client:      l2Client,
 		MonomerClient: monomerClient,
