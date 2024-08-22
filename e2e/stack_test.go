@@ -99,7 +99,7 @@ func TestE2E(t *testing.T) {
 	// instantiate L1 user, tx signer.
 	user := stack.Users[0]
 	l1signer := types.NewEIP155Signer(l1ChainID)
-	
+
 	// send user Deposit Tx
 	nonce, err := l1Client.Client.NonceAt(ctx, user.Address, nil)
 	require.NoError(t, err)
