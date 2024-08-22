@@ -268,7 +268,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 
 		currentBlock, err := client.BlockByNumber(ctx, nil)
 		if err != nil {
-			return fmt.Errorf("get the latest L%d block: %v", layer, err)
+			return fmt.Errorf("get the current L%d block: %v", layer, err)
 		}
 		for {
 			latestBlock, err := client.BlockByNumber(ctx, nil)
