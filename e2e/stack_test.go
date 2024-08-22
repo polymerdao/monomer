@@ -119,14 +119,13 @@ func TestE2E(t *testing.T) {
 }
 
 func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
-	ctx := context.Background()
 	targetHeight := uint64(5)
 
 	// todo: replace with a more precise timing mechanism
 	time.Sleep(5 * time.Second) // wait for some blocks to be processed
 
 	for i := uint64(2); i < targetHeight; i++ {
-		block, err := stack.MonomerClient.BlockByNumber(ctx, new(big.Int).SetUint64(i))
+		block, err := stack.MonomerClient.BlockByNumber(stack.Ctx, new(big.Int).SetUint64(i))
 		require.NoError(t, err)
 		txs := block.Transactions()
 		require.GreaterOrEqual(t, len(txs), 1, "expected at least 1 tx in block")
@@ -140,18 +139,17 @@ func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
 }
 
 func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
-	ctx := context.Background()
 	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
 
-	putTx, err := stack.L2Client.BroadcastTxAsync(ctx, txBytes)
+	putTx, err := stack.L2Client.BroadcastTxAsync(stack.Ctx, txBytes)
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
 	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash does not match local hash")
 	t.Log("Monomer can ingest cometbft txs")
 
 	badPutTx := []byte("malformed")
-	badPut, err := stack.L2Client.BroadcastTxAsync(ctx, badPutTx)
+	badPut, err := stack.L2Client.BroadcastTxAsync(stack.Ctx, badPutTx)
 	require.NoError(t, err) // no API error - failure encoded in response
 	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
 	t.Log("Monomer can reject malformed cometbft txs")
@@ -159,14 +157,14 @@ func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
 	// todo: replace with a more precise timing mechanism
 	time.Sleep(5 * time.Second) // wait for tx to be processed
 
-	getTx, err := stack.L2Client.Tx(ctx, bftTx.Hash(), false)
+	getTx, err := stack.L2Client.Tx(stack.Ctx, bftTx.Hash(), false)
 
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, getTx.TxResult.Code, "txResult.Code is not OK")
 	require.Equal(t, bftTx, getTx.Tx, "txBytes do not match")
 	t.Log("Monomer can serve txs by hash")
 
-	txBlock, err := stack.MonomerClient.BlockByNumber(ctx, big.NewInt(getTx.Height))
+	txBlock, err := stack.MonomerClient.BlockByNumber(stack.Ctx, big.NewInt(getTx.Height))
 	require.NoError(t, err)
 	require.Len(t, txBlock.Transactions(), 2) // 1 deposit tx + 1 cometbft tx
 }
@@ -174,13 +172,12 @@ func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
 func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
 	monomerClient := stack.MonomerClient
-	ctx := context.Background()
 
-	b, err := monomerClient.BlockByNumber(ctx, nil)
+	b, err := monomerClient.BlockByNumber(stack.Ctx, nil)
 	require.NoError(t, err, "monomer block by number")
 	l2blockGasLimit := b.GasLimit()
 
-	l1ChainID, err := l1Client.ChainID(ctx)
+	l1ChainID, err := l1Client.ChainID(stack.Ctx)
 	require.NoError(t, err, "chain id")
 
 	// instantiate L1 user, tx signer.
@@ -188,7 +185,7 @@ func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 	l1signer := types.NewEIP155Signer(l1ChainID)
 
 	// send user Deposit Tx
-	nonce, err := l1Client.Client.NonceAt(ctx, user.Address, nil)
+	nonce, err := l1Client.Client.NonceAt(stack.Ctx, user.Address, nil)
 	require.NoError(t, err)
 
 	gasPrice, err := l1Client.Client.SuggestGasPrice(context.Background())
@@ -211,7 +208,7 @@ func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 			GasPrice: big.NewInt(gasPrice.Int64() * 2),
 			GasLimit: l1GasLimit,
 			Value:    big.NewInt(oneEth),
-			Context:  ctx,
+			Context:  stack.Ctx,
 			NoSend:   false,
 		},
 		user.Address,
@@ -226,7 +223,7 @@ func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 	time.Sleep(5 * time.Second)
 
 	// inspect L1 for deposit tx receipt and emitted TransactionDeposited event
-	receipt, err := l1Client.Client.TransactionReceipt(ctx, depositTx.Hash())
+	receipt, err := l1Client.Client.TransactionReceipt(stack.Ctx, depositTx.Hash())
 	require.NoError(t, err, "deposit tx receipt")
 	require.NotNil(t, receipt, "deposit tx receipt")
 	require.NotZero(t, receipt.Status, "deposit tx reverted") // receipt.Status == 0 -> reverted tx
@@ -235,7 +232,7 @@ func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 		&bind.FilterOpts{
 			Start:   0,
 			End:     nil,
-			Context: ctx,
+			Context: stack.Ctx,
 		},
 		nil, // from any address
 		nil, // to any address

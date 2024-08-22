@@ -42,6 +42,7 @@ type EventListener interface {
 }
 
 type StackConfig struct {
+	Ctx           context.Context
 	Operator      L1User
 	Users         []L1User
 	L1Client      *L1Client
@@ -252,6 +253,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	return &StackConfig{
+		Ctx:           ctx,
 		L1Client:      l1Client,
 		L1Portal:      opPortal,
 		L2Client:      l2Client,
