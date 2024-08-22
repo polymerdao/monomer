@@ -22,12 +22,36 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx TxSigner, from st
 		return bfttypes.Txs{}, nil
 	}
 
-	// Count number of deposit txs.
+	numDepositTxs, err := countDepositTransactions(ethTxs)
+	if err != nil {
+		return nil, fmt.Errorf("count deposit transactions: %v", err)
+	}
+
+	depositTx, err := packDepositTxsToCosmosTx(ethTxs[:numDepositTxs], from)
+	if err != nil {
+		return nil, fmt.Errorf("pack deposit txs: %v", err)
+	}
+
+	if signTx != nil {
+		if err := signTx(depositTx); err != nil {
+			return nil, fmt.Errorf("sign tx: %v", err)
+		}
+	}
+
+	cosmosTxs, err := convertToCosmosTxs(depositTx, ethTxs[numDepositTxs:])
+	if err != nil {
+		return nil, fmt.Errorf("convert to cosmos txs: %v", err)
+	}
+
+	return cosmosTxs, nil
+}
+
+func countDepositTransactions(ethTxs []hexutil.Bytes) (int, error) {
 	var numDepositTxs int
 	for _, txBytes := range ethTxs {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
-			return nil, fmt.Errorf("unmarshal binary: %v", err)
+			return 0, fmt.Errorf("unmarshal binary: %v", err)
 		}
 		if tx.IsDepositTx() {
 			numDepositTxs++
@@ -36,12 +60,15 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx TxSigner, from st
 		}
 	}
 	if numDepositTxs == 0 {
-		return nil, errL1AttributesNotFound
+		return 0, errL1AttributesNotFound
 	}
 
-	// Pack deposit txs into an SDK Msg.
-	var depositTxsBytes [][]byte
-	for _, depositTx := range ethTxs[:numDepositTxs] {
+	return numDepositTxs, nil
+}
+
+func packDepositTxsToCosmosTx(depositTxs []hexutil.Bytes, from string) (*sdktx.Tx, error) {
+	depositTxsBytes := make([][]byte, 0, len(depositTxs))
+	for _, depositTx := range depositTxs {
 		depositTxsBytes = append(depositTxsBytes, depositTx)
 	}
 	msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{
@@ -51,26 +78,24 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx TxSigner, from st
 	if err != nil {
 		return nil, fmt.Errorf("new any with value: %v", err)
 	}
-	depositTx := sdktx.Tx{
+	return &sdktx.Tx{
 		Body: &sdktx.TxBody{
 			Messages: []*codectypes.Any{msgAny},
 		},
-	}
+	}, nil
+}
 
-	if signTx != nil {
-		if err := signTx(&depositTx); err != nil {
-			return nil, fmt.Errorf("sign tx: %v", err)
-		}
-	}
-
+func convertToCosmosTxs(depositTx *sdktx.Tx, nonDepositTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 	depositSDKMsgBytes, err := depositTx.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("marshal tx: %v", err)
 	}
 
 	// Unpack Cosmos txs from ethTxs.
-	cosmosTxs := bfttypes.ToTxs([][]byte{depositSDKMsgBytes})
-	for _, cosmosTx := range ethTxs[numDepositTxs:] {
+	cosmosTxs := make(bfttypes.Txs, 0, 1+len(nonDepositTxs))
+	cosmosTxs = append(cosmosTxs, depositSDKMsgBytes)
+
+	for _, cosmosTx := range nonDepositTxs {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(cosmosTx); err != nil {
 			return nil, fmt.Errorf("unmarshal binary tx: %v", err)
@@ -87,10 +112,20 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	}
 	txsBytes := cosmosTxs.ToSliceOfBytes()
 
-	var txs ethtypes.Transactions
+	ethTxsBytes, err := getEthTxsBytes(txsBytes[0])
+	if err != nil {
+		return nil, fmt.Errorf("get eth txs bytes: %v", err)
+	}
 
-	// Unpack deposits from the MsgL1Txs msg.
-	cosmosEthTxBytes := txsBytes[0]
+	txs, err := mergeEthAndCosmosTxs(ethTxsBytes, txsBytes[1:])
+	if err != nil {
+		return nil, fmt.Errorf("merge eth and cosmos txs: %v", err)
+	}
+
+	return txs, nil
+}
+
+func getEthTxsBytes(cosmosEthTxBytes []byte) ([][]byte, error) {
 	cosmosEthTx := new(sdktx.Tx)
 	if err := cosmosEthTx.Unmarshal(cosmosEthTxBytes); err != nil {
 		return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
@@ -107,6 +142,11 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	if len(ethTxsBytes) == 0 {
 		return nil, errL1AttributesNotFound
 	}
+	return ethTxsBytes, nil
+}
+
+func mergeEthAndCosmosTxs(ethTxsBytes, txsBytes [][]byte) (ethtypes.Transactions, error) {
+	txs := make(ethtypes.Transactions, 0, len(ethTxsBytes)+len(txsBytes))
 	for _, txBytes := range ethTxsBytes {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
@@ -119,7 +159,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	}
 
 	// Pack Cosmos txs into Ethereum txs.
-	for _, txBytes := range txsBytes[1:] {
+	for _, txBytes := range txsBytes {
 		txs = append(txs, AdaptNonDepositCosmosTxToEthTx(txBytes))
 	}
 
