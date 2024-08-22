@@ -278,7 +278,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 			if latestBlock.Number().Int64() >= currentBlock.Number().Int64()+int64(numBlocks) {
 				break
 			}
-			time.Sleep(250 * time.Millisecond)
+			time.Sleep(250 * time.Millisecond) //nolint:mnd
 		}
 		return nil
 	}
