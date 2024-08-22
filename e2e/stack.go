@@ -284,19 +284,19 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	return &StackConfig{
-		Ctx:      ctx,
-		WaitL1: func(numBlocks int) error {
-			return wait(numBlocks, 1)
-		},
-		WaitL2: func(numBlocks int) error {
-			return wait(numBlocks, 2)
-		},
+		Ctx:           ctx,
 		L1Client:      l1Client,
 		L1Portal:      opPortal,
 		L2Client:      l2Client,
 		MonomerClient: monomerClient,
 		Operator:      l1users[0],
 		Users:         l1users[1:],
+		WaitL1: func(numBlocks int) error {
+			return wait(numBlocks, 1)
+		},
+		WaitL2: func(numBlocks int) error {
+			return wait(numBlocks, 2)
+		},
 	}, nil
 }
 
