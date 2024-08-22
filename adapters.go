@@ -29,7 +29,7 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx txSigner, from st
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
 			return nil, fmt.Errorf("unmarshal binary: %v", err)
 		}
-		if tx.IsDepositTx() {
+		if tx.IsDepositTx() && isL1AttributesTx(&tx) {
 			numDepositTxs++
 		} else {
 			break // Assume deposit transactions must come first.
