@@ -18,8 +18,8 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
+	"github.com/ethereum-optimism/optimism/indexer/bindings"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -42,10 +42,10 @@ type EventListener interface {
 }
 
 type StackConfig struct {
-	RUConfig      *rollup.Config
 	Operator      L1User
 	Users         []L1User
 	L1Client      *L1Client
+	L1Portal      *bindings.OptimismPortal
 	L2Client      *bftclient.HTTP
 	MonomerClient *MonomerClient
 }
@@ -183,7 +183,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("build l1 developer genesis: %v", err)
 	}
 
-	l1client, l1HTTPendpoint, err := gethdevnet(env, deployConfig.L1BlockTime, l1genesis)
+	l1RPCclient, l1HTTPendpoint, err := gethdevnet(env, deployConfig.L1BlockTime, l1genesis)
 	if err != nil {
 		return nil, fmt.Errorf("ethdevnet: %v", err)
 	}
@@ -198,9 +198,9 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("l1 url not reachable: %s", l1url.String())
 	}
 
-	l1 := NewL1Client(l1client)
+	l1Client := NewL1Client(l1RPCclient)
 
-	latestL1Block, err := l1.BlockByNumber(ctx, nil)
+	latestL1Block, err := l1Client.BlockByNumber(ctx, nil)
 	if err != nil {
 		return nil, fmt.Errorf("get the latest l1 block: %v", err)
 	}
@@ -227,6 +227,11 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("new rollup config: %v", err)
 	}
 
+	opPortal, err := bindings.NewOptimismPortal(rollupConfig.DepositContractAddress, l1Client)
+	if err != nil {
+		return nil, fmt.Errorf("new optimism portal: %v", err)
+	}
+
 	opStack := NewOPStack(
 		l1url,
 		s.monomerEngineURL,
@@ -247,10 +252,10 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	return &StackConfig{
-		L1Client:      l1,
+		L1Client:      l1Client,
+		L1Portal:      opPortal,
 		L2Client:      l2Client,
 		MonomerClient: monomerClient,
-		RUConfig:      rollupConfig,
 		Operator:      l1users[0],
 		Users:         l1users[1:],
 	}, nil
