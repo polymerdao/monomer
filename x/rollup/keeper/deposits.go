@@ -62,8 +62,11 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive
 	return l1blockInfo, nil
 }
 
-// processL1UserDepositTxs processes the L1 user deposit txs and mints ETH to the user's cosmos address.
+// processL1UserDepositTxs processes the L1 user deposit txs, mints ETH to the user's cosmos address,
+// and emits the minted ETH events.
 func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) error { //nolint:gocritic // hugeParam
+	events := sdk.Events{}
+
 	for i := 1; i < len(txs); i++ {
 		txBytes := txs[i]
 		var tx ethtypes.Transaction
@@ -89,27 +92,29 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) error { 
 		}
 		cosmAddr := evmToCosmos(*to)
 		mintAmount := sdkmath.NewIntFromBigInt(tx.Value())
-		err := k.mintETH(ctx, cosmAddr, mintAmount)
+		txEvents, err := k.mintETH(ctx, cosmAddr, mintAmount)
 		if err != nil {
 			ctx.Logger().Error("Failed to mint ETH", "evmAddress", to, "cosmosAddress", cosmAddr, "err", err)
 			return types.WrapError(types.ErrMintETH, "failed to mint ETH for cosmosAddress: %v; err: %v", cosmAddr, err)
 		}
+		events = append(events, txEvents...)
 	}
+
+	ctx.EventManager().EmitEvents(events)
 	return nil
 }
 
-// mintETH mints ETH to an account where the amount is in wei.
-func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.Int) error { //nolint:gocritic // hugeParam
+// mintETH mints ETH to an account where the amount is in wei. It returns associated events.
+func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.Int) (sdk.Events, error) { //nolint:gocritic // hugeParam
 	coin := sdk.NewCoin(types.ETH, amount)
 	if err := k.bankkeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(coin)); err != nil {
-		return fmt.Errorf("failed to mint deposit coins to the rollup module: %v", err)
+		return nil, fmt.Errorf("failed to mint deposit coins to the rollup module: %v", err)
 	}
 	if err := k.bankkeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, addr, sdk.NewCoins(coin)); err != nil {
-		return fmt.Errorf("failed to send deposit coins from rollup module to user account %v: %v", addr, err)
+		return nil, fmt.Errorf("failed to send deposit coins from rollup module to user account %v: %v", addr, err)
 	}
 
-	// TODO: only emit sdk.EventTypeMessage once per message
-	ctx.EventManager().EmitEvents(sdk.Events{
+	return sdk.Events{
 		sdk.NewEvent(
 			sdk.EventTypeMessage,
 			sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
@@ -120,8 +125,7 @@ func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.In
 			sdk.NewAttribute(types.AttributeKeyToCosmosAddress, addr.String()),
 			sdk.NewAttribute(types.AttributeKeyValue, hexutil.Encode(amount.BigInt().Bytes())),
 		),
-	})
-	return nil
+	}, nil
 }
 
 // evmToCosmos converts an EVM address to a sdk.AccAddress
