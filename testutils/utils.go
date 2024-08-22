@@ -8,6 +8,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
+	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -64,17 +65,11 @@ func NewLocalMemDB(t *testing.T) *localdb.DB {
 // GenerateEthTxs generates an L1 attributes tx, deposit tx, and cosmos tx packed in an Ethereum transaction.
 // The transactions are not meant to be executed.
 func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transaction, *gethtypes.Transaction) {
-	timestamp := uint64(0)
-	l1Block := gethtypes.NewBlock(&gethtypes.Header{
-		BaseFee:    big.NewInt(10),
-		Difficulty: common.Big0,
-		Number:     big.NewInt(0),
-		Time:       timestamp,
-	}, nil, nil, nil, trie.NewStackTrie(nil))
+	l1Block := GenerateL1Block()
 	l1InfoRawTx, err := derive.L1InfoDeposit(&rollup.Config{
 		Genesis:   rollup.Genesis{L2: eth.BlockID{Number: 0}},
 		L2ChainID: big.NewInt(1234),
-	}, eth.SystemConfig{}, 0, eth.BlockToInfo(l1Block), timestamp)
+	}, eth.SystemConfig{}, 0, eth.BlockToInfo(l1Block), l1Block.Time())
 	require.NoError(t, err)
 	l1InfoTx := gethtypes.NewTx(l1InfoRawTx)
 
@@ -85,7 +80,13 @@ func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transactio
 	return l1InfoTx, depositTx, cosmosEthTx
 }
 
-func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depositTxs, cosmosEthTxs []*gethtypes.Transaction) *monomer.Block {
+func TxToBytes(t *testing.T, tx *gethtypes.Transaction) []byte {
+	txBytes, err := tx.MarshalBinary()
+	require.NoError(t, err)
+	return txBytes
+}
+
+func cosmosTxsFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depositTxs, cosmosEthTxs []*gethtypes.Transaction) bfttypes.Txs {
 	l1InfoTxBytes, err := l1InfoTx.MarshalBinary()
 	require.NoError(t, err)
 	ethTxBytes := []hexutil.Bytes{l1InfoTxBytes}
@@ -101,6 +102,11 @@ func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depo
 	}
 	cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(ethTxBytes, nil, "")
 	require.NoError(t, err)
+	return cosmosTxs
+}
+
+func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depositTxs, cosmosEthTxs []*gethtypes.Transaction) *monomer.Block {
+	cosmosTxs := cosmosTxsFromEthTxs(t, l1InfoTx, depositTxs, cosmosEthTxs)
 	block, err := monomer.MakeBlock(&monomer.Header{}, cosmosTxs)
 	require.NoError(t, err)
 	return block
@@ -110,4 +116,27 @@ func GenerateBlockFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depo
 func GenerateBlock(t *testing.T) *monomer.Block {
 	l1InfoTx, depositTx, cosmosEthTx := GenerateEthTxs(t)
 	return GenerateBlockFromEthTxs(t, l1InfoTx, []*gethtypes.Transaction{depositTx}, []*gethtypes.Transaction{cosmosEthTx})
+}
+
+// GenerateBlockWithParentAndTxs generates a child block of parent with the cosmosTxs appended to the end of its transaction list.
+// The genesis block is created if parent is nil.
+func GenerateBlockWithParentAndTxs(t *testing.T, parent *monomer.Header, cosmosTxs ...bfttypes.Tx) *monomer.Block {
+	l1InfoTx, _, _ := GenerateEthTxs(t)
+	h := &monomer.Header{}
+	if parent != nil {
+		h.ParentHash = parent.Hash
+		h.Height = parent.Height + 1
+	}
+	block, err := monomer.MakeBlock(h, append(cosmosTxsFromEthTxs(t, l1InfoTx, nil, nil), cosmosTxs...))
+	require.NoError(t, err)
+	return block
+}
+
+func GenerateL1Block() *gethtypes.Block {
+	return gethtypes.NewBlock(&gethtypes.Header{
+		BaseFee:    big.NewInt(10),
+		Difficulty: common.Big0,
+		Number:     big.NewInt(0),
+		Time:       uint64(0),
+	}, nil, nil, nil, trie.NewStackTrie(nil))
 }

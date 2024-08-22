@@ -9,7 +9,6 @@ import (
 	appv1alpha1 "cosmossdk.io/api/cosmos/app/v1alpha1"
 	authmodulev1 "cosmossdk.io/api/cosmos/auth/module/v1"
 	bankmodulev1 "cosmossdk.io/api/cosmos/bank/module/v1"
-	mintmodulev1 "cosmossdk.io/api/cosmos/mint/module/v1"
 	stakingmodulev1 "cosmossdk.io/api/cosmos/staking/module/v1"
 	txconfigv1 "cosmossdk.io/api/cosmos/tx/config/v1"
 	"cosmossdk.io/core/appconfig"
@@ -18,11 +17,11 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/baseapp"
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/runtime"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	_ "github.com/cosmos/cosmos-sdk/x/auth"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	_ "github.com/cosmos/cosmos-sdk/x/auth/tx"
@@ -32,9 +31,6 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	_ "github.com/cosmos/cosmos-sdk/x/mint"
-	mintkeeper "github.com/cosmos/cosmos-sdk/x/mint/keeper"
-	minttypes "github.com/cosmos/cosmos-sdk/x/mint/types"
 	_ "github.com/cosmos/cosmos-sdk/x/staking"
 	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
 	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
@@ -89,7 +85,6 @@ var modules = []string{
 	banktypes.ModuleName,
 	stakingtypes.ModuleName,
 	govtypes.ModuleName,
-	minttypes.ModuleName,
 	testmodule.ModuleName,
 	rolluptypes.ModuleName,
 }
@@ -116,8 +111,8 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 							Account: authtypes.FeeCollectorName,
 						},
 						{
-							Account:     minttypes.ModuleName,
-							Permissions: []string{authtypes.Minter},
+							Account:     rolluptypes.ModuleName,
+							Permissions: []string{authtypes.Minter, authtypes.Burner},
 						},
 						{
 							Account:     stakingtypes.BondedPoolName,
@@ -148,10 +143,6 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 				}),
 			},
 			{
-				Name:   minttypes.ModuleName,
-				Config: appconfig.WrapAny(&mintmodulev1.Module{}),
-			},
-			{
 				Name:   testmodule.ModuleName,
 				Config: appconfig.WrapAny(&testappmodulev1.Module{}),
 			},
@@ -171,7 +162,6 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 		accountKeeper    authkeeper.AccountKeeper
 		bankKeeper       bankkeeper.Keeper
 		stakingKeeper    *stakingkeeper.Keeper
-		mintKeeper       mintkeeper.Keeper
 		rollupKeeper     *rollupkeeper.Keeper
 		testmoduleKeeper *testmodulekeeper.Keeper
 	)
@@ -184,7 +174,6 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 		&accountKeeper,
 		&bankKeeper,
 		&stakingKeeper,
-		&mintKeeper,
 		&rollupKeeper,
 		&testmoduleKeeper,
 	); err != nil {
