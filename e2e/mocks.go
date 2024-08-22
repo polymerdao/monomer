@@ -6,11 +6,14 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 )
 
 type MockAccountRetriever struct {
-	Accounts                   map[string]*authtypes.BaseAccount
+	// When SequencerOnly flag is set, the MAR returns a mock account
+	// with incrementing sequence number, no matter what address
+	// is requested.
+	SequencerOnly              bool
+	Accounts                   map[string]*client.Account
 	ReturnAccNum, ReturnAccSeq uint64
 }
 
@@ -18,11 +21,15 @@ func (mar MockAccountRetriever) GetAccount(
 	_ client.Context, //nolint:gocritic // hugeParam
 	addr sdktypes.AccAddress,
 ) (client.Account, error) {
+	if mar.SequencerOnly {
+		return mockAccount{}, nil
+	}
+
 	acc, ok := mar.Accounts[addr.String()]
 	if !ok {
 		return nil, fmt.Errorf("account not found")
 	}
-	return acc, nil
+	return *acc, nil
 }
 
 func (mar MockAccountRetriever) GetAccountWithHeight(

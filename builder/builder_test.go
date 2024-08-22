@@ -366,12 +366,12 @@ func TestWithdrawalMessages(t *testing.T) {
 
 	s := signer.New(clientCtx, privKey)
 	require.NoError(t, err)
-	mockAcc := authtypes.NewBaseAccount(s.AccountAddress(), privKey.PubKey(), 0, 0)
+	mockAcc := client.Account(authtypes.NewBaseAccount(s.AccountAddress(), privKey.PubKey(), 0, 0))
 	// Create a mock AccountRetriever
 	// The client context needs this for the signer
 	mockAccountRetriever := e2e.MockAccountRetriever{
-		Accounts: map[string]*authtypes.BaseAccount{
-			s.AccountAddress().String(): mockAcc,
+		Accounts: map[string]*client.Account{
+			s.AccountAddress().String(): &mockAcc,
 		},
 	}
 	clientCtx.AccountRetriever = mockAccountRetriever
