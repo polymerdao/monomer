@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -38,6 +39,24 @@ func openLogFile(t *testing.T, env *environment.Env, name string) *os.File {
 	require.NoError(t, err)
 	env.DeferErr("close log file: "+filename, file.Close)
 	return file
+}
+
+var e2eTests = []struct {
+	name string
+	run  func(t *testing.T, stack *e2e.StackConfig)
+}{
+	{
+		name: "L1 Deposits",
+		run:  depositE2E,
+	},
+	{
+		name: "CometBFT Txs",
+		run:  cometBFTtx,
+	},
+	{
+		name: "AttributesTX",
+		run:  containsAttributesTx,
+	},
 }
 
 func TestE2E(t *testing.T) {
@@ -83,9 +102,79 @@ func TestE2E(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	// Run tests concurrently, against the same stack.
+	runningTests := sync.WaitGroup{}
+	runningTests.Add(len(e2eTests))
+
+	for _, test := range e2eTests {
+		t.Run(test.name, func(t *testing.T) {
+			go func() {
+				defer runningTests.Done()
+				test.run(t, stack)
+			}()
+		})
+	}
+
+	runningTests.Wait()
+}
+
+func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
+	ctx := context.Background()
+	targetHeight := uint64(5)
+
+	// todo: replace with a more precise timing mechanism
+	time.Sleep(5 * time.Second) // wait for some blocks to be processed
+
+	for i := uint64(2); i < targetHeight; i++ {
+		block, err := stack.MonomerClient.BlockByNumber(ctx, new(big.Int).SetUint64(i))
+		require.NoError(t, err)
+		txs := block.Transactions()
+		require.GreaterOrEqual(t, len(txs), 1, "expected at least 1 tx in block")
+		if tx := txs[0]; !tx.IsDepositTx() {
+			txBytes, err := tx.MarshalJSON()
+			require.NoError(t, err)
+			require.Fail(t, fmt.Sprintf("expected tx to be deposit tx: %s", txBytes))
+		}
+	}
+	t.Log("Monomer blocks contain the l1 attributes deposit tx")
+}
+
+func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
+	ctx := context.Background()
+	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
+	bftTx := bfttypes.Tx(txBytes)
+
+	putTx, err := stack.L2Client.BroadcastTxAsync(ctx, txBytes)
+	require.NoError(t, err)
+	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
+	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash does not match local hash")
+	t.Log("Monomer can ingest cometbft txs")
+
+	badPutTx := []byte("malformed")
+	badPut, err := stack.L2Client.BroadcastTxAsync(ctx, badPutTx)
+	require.NoError(t, err) // no API error - failure encoded in response
+	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
+	t.Log("Monomer can reject malformed cometbft txs")
+
+	// todo: replace with a more precise timing mechanism
+	time.Sleep(5 * time.Second) // wait for tx to be processed
+
+	getTx, err := stack.L2Client.Tx(ctx, bftTx.Hash(), false)
+
+	require.NoError(t, err)
+	require.Equal(t, abcitypes.CodeTypeOK, getTx.TxResult.Code, "txResult.Code is not OK")
+	require.Equal(t, bftTx, getTx.Tx, "txBytes do not match")
+	t.Log("Monomer can serve txs by hash")
+
+	txBlock, err := stack.MonomerClient.BlockByNumber(ctx, big.NewInt(getTx.Height))
+	require.NoError(t, err)
+	require.Len(t, txBlock.Transactions(), 2) // 1 deposit tx + 1 cometbft tx
+}
+
+func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
 	monomerClient := stack.MonomerClient
-	appchainClient := stack.L2Client
+	ctx := context.Background()
 
 	b, err := monomerClient.BlockByNumber(ctx, nil)
 	require.NoError(t, err, "monomer block by number")
@@ -93,8 +182,6 @@ func TestE2E(t *testing.T) {
 
 	l1ChainID, err := l1Client.ChainID(ctx)
 	require.NoError(t, err, "chain id")
-
-	const targetHeight = 5
 
 	// instantiate L1 user, tx signer.
 	user := stack.Users[0]
@@ -135,44 +222,8 @@ func TestE2E(t *testing.T) {
 	)
 	require.NoError(t, err, "deposit tx")
 
-	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
-	bftTx := bfttypes.Tx(txBytes)
-
-	putTx, err := appchainClient.BroadcastTxAsync(ctx, txBytes)
-	require.NoError(t, err)
-	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
-	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash does not match local hash")
-	t.Log("Monomer can ingest cometbft txs")
-
-	badPutTx := []byte("malformed")
-	badPut, err := appchainClient.BroadcastTxAsync(ctx, badPutTx)
-	require.NoError(t, err) // no API error - failure encoded in response
-	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
-	t.Log("Monomer can reject malformed cometbft txs")
-
-	checkTicker := time.NewTicker(250 * time.Millisecond)
-	defer checkTicker.Stop()
-	for range checkTicker.C {
-		block, err := monomerClient.BlockByNumber(ctx, nil)
-		require.NoError(t, err)
-		if block.NumberU64() >= targetHeight {
-			break
-		}
-	}
-	t.Log("Monomer can sync")
-
-	getTx, err := appchainClient.Tx(ctx, bftTx.Hash(), false)
-
-	require.NoError(t, err)
-	require.Equal(t, abcitypes.CodeTypeOK, getTx.TxResult.Code, "txResult.Code is not OK")
-	require.Equal(t, bftTx, getTx.Tx, "txBytes do not match")
-	t.Log("Monomer can serve txs by hash")
-
-	requireEthIsMinted(t, appchainClient)
-
-	txBlock, err := monomerClient.BlockByNumber(ctx, big.NewInt(getTx.Height))
-	require.NoError(t, err)
-	require.Len(t, txBlock.Transactions(), 2)
+	// todo: replace with a more precise timing mechanism
+	time.Sleep(5 * time.Second)
 
 	// inspect L1 for deposit tx receipt and emitted TransactionDeposited event
 	receipt, err := l1Client.Client.TransactionReceipt(ctx, depositTx.Hash())
@@ -196,18 +247,7 @@ func TestE2E(t *testing.T) {
 	}
 	require.Equal(t, depositLogs.Event.From, user.Address) // user deposit has emitted L1 event1
 
-	for i := uint64(2); i < targetHeight; i++ {
-		block, err := monomerClient.BlockByNumber(ctx, new(big.Int).SetUint64(i))
-		require.NoError(t, err)
-		txs := block.Transactions()
-		require.GreaterOrEqual(t, len(txs), 1, "expected at least 1 tx in block")
-		if tx := txs[0]; !tx.IsDepositTx() {
-			txBytes, err := tx.MarshalJSON()
-			require.NoError(t, err)
-			require.Fail(t, fmt.Sprintf("expected tx to be deposit tx: %s", txBytes))
-		}
-	}
-	t.Log("Monomer blocks contain the l1 attributes deposit tx")
+	requireEthIsMinted(t, stack.L2Client)
 }
 
 func requireEthIsMinted(t *testing.T, appchainClient *bftclient.HTTP) {
