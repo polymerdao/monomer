@@ -129,12 +129,9 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		depositTxBytes, err := depositTx.MarshalBinary()
 		require.NoError(t, err)
 
-		_, err = monomer.AdaptPayloadTxsToCosmosTxs(
-			[]hexutil.Bytes{hexutil.Bytes(depositTxBytes)},
-			func(tx *sdktx.Tx) error {
+		_, err = monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes(depositTxBytes)}, func(_ *sdktx.Tx) error {
 				return errors.New("sign tx error")
-			},
-			"")
+			}, "")
 		require.Error(t, err)
 	})
 
