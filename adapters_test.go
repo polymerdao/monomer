@@ -142,14 +142,7 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 		cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
 		require.NoError(t, err)
 
-		_, err = monomer.AdaptPayloadTxsToCosmosTxs(
-			[]hexutil.Bytes{
-				hexutil.Bytes(depositTxBytes),
-				hexutil.Bytes(cosmosEthTxBytes),
-				hexutil.Bytes("invalid"),
-			},
-			nil,
-			"")
+		_, err = monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes(depositTxBytes), hexutil.Bytes(cosmosEthTxBytes), hexutil.Bytes("invalid")}, nil, "")
 		require.Error(t, err)
 	})
 }
