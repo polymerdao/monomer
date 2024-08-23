@@ -51,7 +51,7 @@ cd rollchain
 
 ### Import `x/rollup` and `x/testmodule`
 
-Now we can import [`x/rollup`](/docs/learn/the-rollup-module) in `app/app.go`. While we're at it, let's also import `x/testmodule` (this
+Now we can import [`x/rollup`](/learn/the-rollup-module) in `app/app.go`. While we're at it, let's also import `x/testmodule` (this
 will [initialize a non-empty validator set](https://github.com/polymerdao/monomer/blob/c98eccb49bf857829cadee899359e60fc36e6745/testapp/x/testmodule/module.go#L82) for us so we don't have to do it manually). When you're ready to deploy your application, you can remove `x/testmodule` and configure your own validator set. Add the following packages to the import statement in `app/app.go`:
 ```go
 import (
