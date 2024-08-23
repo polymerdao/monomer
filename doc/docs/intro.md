@@ -20,3 +20,4 @@ Monomer replaces the CometBFT consensus layer.
 :::note[Architecture] 
 ![Architecture](/img/architecture.png)
 :::
+
