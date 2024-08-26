@@ -52,10 +52,14 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 	ctx.Logger().Info("Save L1 block history info", "l1blockHistoryInfo", string(lo.Must(json.Marshal(l1blockInfo))))
 
 	// process L1 user deposit txs
-	if err = k.processL1UserDepositTxs(ctx, msg.TxBytes); err != nil {
+	events, err := k.processL1UserDepositTxs(ctx, msg.TxBytes)
+
+	if err != nil {
 		ctx.Logger().Error("Failed to process L1 user deposit txs", "err", err)
 		return nil, types.WrapError(types.ErrProcessL1UserDepositTxs, "err: %v", err)
 	}
+
+	ctx.EventManager().EmitEvents(events)
 
 	return &types.MsgApplyL1TxsResponse{}, nil
 }
