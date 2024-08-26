@@ -67,6 +67,7 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive
 func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Events, error) { //nolint:gocritic // hugeParam
 	events := sdk.Events{}
 
+	// skip the first tx - it is the L1 attributes tx
 	for i := 1; i < len(txs); i++ {
 		txBytes := txs[i]
 		var tx ethtypes.Transaction
