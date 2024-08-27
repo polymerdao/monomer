@@ -32,6 +32,13 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 		shouldError        bool
 		expectedEventTypes []string
 	}{
+		"successful message with no user deposit txs": {
+			txBytes:     [][]byte{l1AttributesTxBz},
+			shouldError: false,
+			expectedEventTypes: []string{
+				sdk.EventTypeMessage,
+			},
+		},
 		"successful message with single user deposit tx": {
 			txBytes:     [][]byte{l1AttributesTxBz, depositTxBz},
 			shouldError: false,
