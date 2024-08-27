@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/config"
@@ -104,6 +105,8 @@ func TestE2E(t *testing.T) {
 	// Run tests concurrently, against the same stack.
 	runningTests := sync.WaitGroup{}
 	runningTests.Add(len(e2eTests))
+
+	time.Sleep(15 * time.Second) // watching for rollbacks
 
 	for _, test := range e2eTests {
 		t.Run(test.name, func(t *testing.T) {

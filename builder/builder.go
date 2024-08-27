@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"time"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
@@ -66,6 +67,8 @@ func New(
 //   - all hashes exist in the block store.
 //   - finalized.Height <= safe.Height <= head.Height
 func (b *Builder) Rollback(ctx context.Context, unsafe, safe, finalized common.Hash) error {
+	ts(fmt.Sprintf("Rolling back from %s to %s, with finalized %s\n", unsafe.String(), safe.String(), finalized.String()))
+
 	currentHeight, err := b.blockStore.Height()
 	if err != nil {
 		return fmt.Errorf("get height: %v", err)
@@ -218,6 +221,8 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		}
 	}
 
+	ts(fmt.Sprintf("Block built: %d", block.Header.Height))
+
 	// TODO publish other things like new blocks.
 	return block, nil
 }
@@ -316,4 +321,14 @@ func (b *Builder) storeWithdrawalMsgInEVM(
 	}
 
 	return messageNonce, nil
+}
+
+var start time.Time
+
+func ts(s string) {
+	if start == (time.Time{}) {
+		start = time.Now()
+	}
+
+	fmt.Printf("[%d] %s\n", time.Since(start).Milliseconds(), s)
 }
