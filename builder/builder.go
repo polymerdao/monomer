@@ -209,17 +209,51 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	if err := b.txStore.Add(txResults); err != nil {
 		return nil, fmt.Errorf("add tx results: %v", err)
 	}
+
 	// Publish events.
+	if err := b.publishEvents(txResults, block, resp); err != nil {
+		return nil, fmt.Errorf("publish events: %v", err)
+	}
+
+	return block, nil
+}
+
+func (b *Builder) publishEvents(txResults []*abcitypes.TxResult, block *monomer.Block, resp *abcitypes.ResponseFinalizeBlock) error {
+	numTxs := block.Txs.Len()
+	// Initial capacity for the block events slice is conservatively set to the number of txs in the block. This will
+	// dynamically expand as necessary as block events are added to it.
+	blockEvents := make([]abcitypes.Event, 0, numTxs)
 	for _, txResult := range txResults {
 		if err := b.eventBus.PublishEventTx(bfttypes.EventDataTx{
 			TxResult: *txResult,
 		}); err != nil {
-			return nil, fmt.Errorf("publish event tx: %v", err)
+			return fmt.Errorf("publish event tx: %v", err)
 		}
+		blockEvents = append(blockEvents, txResult.Result.Events...)
 	}
 
-	// TODO publish other things like new blocks.
-	return block, nil
+	if err := b.eventBus.PublishEventNewBlockEvents(bfttypes.EventDataNewBlockEvents{
+		Height: int64(block.Header.Height),
+		Events: blockEvents,
+		NumTxs: int64(numTxs),
+	}); err != nil {
+		return fmt.Errorf("publish event new block events: %v", err)
+	}
+
+	if err := b.eventBus.PublishEventNewBlock(bfttypes.EventDataNewBlock{
+		Block:               block.ToCometLikeBlock(),
+		ResultFinalizeBlock: *resp,
+	}); err != nil {
+		return fmt.Errorf("publish event new block: %v", err)
+	}
+
+	if err := b.eventBus.PublishEventNewBlockHeader(bfttypes.EventDataNewBlockHeader{
+		Header: *block.Header.ToComet(),
+	}); err != nil {
+		return fmt.Errorf("publish event new block header: %v", err)
+	}
+
+	return nil
 }
 
 // storeAppHashInEVM stores the updated cosmos app hash in the monomer EVM state db. This is used for proving withdrawals.
