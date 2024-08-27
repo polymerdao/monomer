@@ -53,7 +53,6 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 
 	// process L1 user deposit txs
 	mintEvents, err := k.processL1UserDepositTxs(ctx, msg.TxBytes)
-
 	if err != nil {
 		ctx.Logger().Error("Failed to process L1 user deposit txs", "err", err)
 		return nil, types.WrapError(types.ErrProcessL1UserDepositTxs, "err: %v", err)
@@ -65,7 +64,8 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 				sdk.NewEvent(
 					sdk.EventTypeMessage,
 					sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
-				)},
+				),
+			},
 			mintEvents...),
 	)
 
