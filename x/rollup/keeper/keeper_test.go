@@ -22,6 +22,7 @@ type KeeperTestSuite struct {
 	rollupKeeper *keeper.Keeper
 	bankKeeper   *rolluptestutil.MockBankKeeper
 	rollupStore  storetypes.KVStore
+	eventManger  sdk.EventManagerI
 }
 
 func TestKeeperTestSuite(t *testing.T) {
@@ -40,7 +41,9 @@ func (s *KeeperTestSuite) SetupSubTest() {
 		runtime.NewKVStoreService(storeKey),
 		s.bankKeeper,
 	)
-	s.rollupStore = sdk.UnwrapSDKContext(s.ctx).KVStore(storeKey)
+	sdkCtx := sdk.UnwrapSDKContext(s.ctx)
+	s.rollupStore = sdkCtx.KVStore(storeKey)
+	s.eventManger = sdkCtx.EventManager()
 }
 
 func (s *KeeperTestSuite) mockBurnETH() {
