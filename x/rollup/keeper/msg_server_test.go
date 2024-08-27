@@ -207,7 +207,7 @@ func (s *KeeperTestSuite) TestInitiateWithdrawal() {
 					types.EventTypeWithdrawalInitiated,
 					types.EventTypeBurnETH,
 				}
-				for i, event := range sdk.UnwrapSDKContext(s.ctx).EventManager().Events() {
+				for i, event := range s.eventManger.Events() {
 					s.Require().Equal(expectedEventTypes[i], event.Type)
 				}
 			}
