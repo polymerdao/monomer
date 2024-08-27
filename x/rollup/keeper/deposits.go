@@ -116,10 +116,6 @@ func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.In
 
 	return sdk.Events{
 		sdk.NewEvent(
-			sdk.EventTypeMessage,
-			sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
-		),
-		sdk.NewEvent(
 			types.EventTypeMintETH,
 			sdk.NewAttribute(types.AttributeKeyL1DepositTxType, types.L1UserDepositTxType),
 			sdk.NewAttribute(types.AttributeKeyToCosmosAddress, addr.String()),

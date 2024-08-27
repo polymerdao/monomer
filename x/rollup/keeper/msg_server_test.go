@@ -53,7 +53,6 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 			expectedEventTypes: []string{
 				sdk.EventTypeMessage,
 				types.EventTypeMintETH,
-				sdk.EventTypeMessage,
 				types.EventTypeMintETH,
 			},
 		},
