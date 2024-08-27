@@ -58,16 +58,7 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 		return nil, types.WrapError(types.ErrProcessL1UserDepositTxs, "err: %v", err)
 	}
 
-	ctx.EventManager().EmitEvents(
-		append(
-			sdk.Events{
-				sdk.NewEvent(
-					sdk.EventTypeMessage,
-					sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
-				),
-			},
-			mintEvents...),
-	)
+	k.EmitEvents(goCtx, mintEvents)
 
 	return &types.MsgApplyL1TxsResponse{}, nil
 }
@@ -91,11 +82,7 @@ func (k *Keeper) InitiateWithdrawal(
 	}
 
 	withdrawalValueHex := hexutil.Encode(msg.Value.BigInt().Bytes())
-	ctx.EventManager().EmitEvents(sdk.Events{
-		sdk.NewEvent(
-			sdk.EventTypeMessage,
-			sdk.NewAttribute(sdk.AttributeKeyModule, types.ModuleName),
-		),
+	k.EmitEvents(ctx, sdk.Events{
 		sdk.NewEvent(
 			types.EventTypeWithdrawalInitiated,
 			sdk.NewAttribute(types.AttributeKeySender, msg.Sender),
