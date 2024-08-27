@@ -27,9 +27,10 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 	invalidTxBz := []byte("invalid tx bytes")
 
 	tests := map[string]struct {
-		txBytes     [][]byte
-		setupMocks  func()
-		shouldError bool
+		txBytes            [][]byte
+		setupMocks         func()
+		shouldError        bool
+		expectedEventTypes []string
 	}{
 		"successful message with single user deposit tx": {
 			txBytes:     [][]byte{l1AttributesTxBz, depositTxBz},
@@ -105,7 +106,10 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 				s.Require().NoError(err)
 				s.Require().NotNil(resp)
 
-				// TODO: Verify that the expected event types are emitted
+				// Verify that the expected event types are emitted
+				for i, event := range s.eventManger.Events() {
+					s.Require().Equal(test.expectedEventTypes[i], event.Type)
+				}
 
 				// Verify that the l1 block info and l1 block history are saved to the store
 				expectedBlockInfo := eth.BlockToInfo(testutils.GenerateL1Block())
