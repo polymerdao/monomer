@@ -20,14 +20,23 @@ func IsL1AttributesTx(tx *ethtypes.Transaction) bool {
 	}
 
 	rollupCfg := chaincfg.Mainnet // TODO: Can we get this?
-	l1BlockInfo, err := derive.L1BlockInfoFromBytes(rollupCfg, uint64(tx.Time().Unix()), tx.Data())
+	timestamp := uint64(tx.Time().Unix())
+
+	_, err := derive.L1BlockInfoFromBytes(rollupCfg, timestamp, tx.Data())
 	if err != nil {
 		return false
 	}
-	isEcotone := l1BlockInfo.BlobBaseFee != nil
+
+	isSystemTransaction := true
+	gas := uint64(150_000_000) //nolint:mnd
+	if rollupCfg.IsRegolith(timestamp) {
+		isSystemTransaction = false
+		gas = derive.RegolithSystemTxGas
+	}
+
 	return tx.To().Cmp(derive.L1BlockAddress) == 0 &&
 		tx.Value().Cmp(big.NewInt(0)) == 0 &&
-		tx.Gas() == derive.RegolithSystemTxGas &&
-		tx.IsSystemTx() != isEcotone
+		tx.Gas() == gas &&
+		tx.IsSystemTx() == isSystemTransaction
 	// TODO: Can we check From field?
 }
