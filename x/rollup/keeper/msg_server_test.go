@@ -35,10 +35,20 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 		"successful message with single user deposit tx": {
 			txBytes:     [][]byte{l1AttributesTxBz, depositTxBz},
 			shouldError: false,
+			expectedEventTypes: []string{
+				sdk.EventTypeMessage,
+				types.EventTypeMintETH,
+			},
 		},
 		"successful message with multiple user deposit txs": {
 			txBytes:     [][]byte{l1AttributesTxBz, depositTxBz, depositTxBz},
 			shouldError: false,
+			expectedEventTypes: []string{
+				sdk.EventTypeMessage,
+				types.EventTypeMintETH,
+				sdk.EventTypeMessage,
+				types.EventTypeMintETH,
+			},
 		},
 		"invalid l1 attributes tx bytes": {
 			txBytes:     [][]byte{invalidTxBz, depositTxBz},
