@@ -24,19 +24,26 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx txSigner, from st
 
 	// Count number of deposit txs.
 	var numDepositTxs int
+	var l1AttributesTxs int
 	for _, txBytes := range ethTxs {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
 			return nil, fmt.Errorf("unmarshal binary: %v", err)
 		}
-		if tx.IsDepositTx() && isL1AttributesTx(&tx) {
+		if tx.IsDepositTx() {
 			numDepositTxs++
+			if IsL1AttributesTx(&tx) {
+				l1AttributesTxs++
+			}
 		} else {
 			break // Assume deposit transactions must come first.
 		}
 	}
-	if numDepositTxs == 0 {
+	if l1AttributesTxs == 0 {
 		return nil, errL1AttributesNotFound
+	}
+	if l1AttributesTxs > 1 {
+		return nil, errors.New("more than one L1 attributes tx found")
 	}
 
 	// Pack deposit txs into an SDK Msg.
