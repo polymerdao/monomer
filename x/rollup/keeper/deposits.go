@@ -65,7 +65,7 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive
 // processL1UserDepositTxs processes the L1 user deposit txs, mints ETH to the user's cosmos address,
 // and returns associated events.
 func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Events, error) { //nolint:gocritic // hugeParam
-	events := sdk.Events{}
+	mintEvents := sdk.Events{}
 
 	// skip the first tx - it is the L1 attributes tx
 	for i := 1; i < len(txs); i++ {
@@ -93,19 +93,19 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Eve
 		}
 		cosmAddr := evmToCosmos(*to)
 		mintAmount := sdkmath.NewIntFromBigInt(tx.Value())
-		txEvents, err := k.mintETH(ctx, cosmAddr, mintAmount)
+		mintEvent, err := k.mintETH(ctx, cosmAddr, mintAmount)
 		if err != nil {
 			ctx.Logger().Error("Failed to mint ETH", "evmAddress", to, "cosmosAddress", cosmAddr, "err", err)
 			return nil, types.WrapError(types.ErrMintETH, "failed to mint ETH for cosmosAddress: %v; err: %v", cosmAddr, err)
 		}
-		events = append(events, txEvents...)
+		mintEvents = append(mintEvents, *mintEvent)
 	}
 
-	return events, nil
+	return mintEvents, nil
 }
 
-// mintETH mints ETH to an account where the amount is in wei. It returns associated events.
-func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.Int) (sdk.Events, error) { //nolint:gocritic // hugeParam
+// mintETH mints ETH to an account where the amount is in wei and returns the associated event.
+func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.Int) (*sdk.Event, error) { //nolint:gocritic // hugeParam
 	coin := sdk.NewCoin(types.ETH, amount)
 	if err := k.bankkeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(coin)); err != nil {
 		return nil, fmt.Errorf("failed to mint deposit coins to the rollup module: %v", err)
@@ -114,14 +114,14 @@ func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.In
 		return nil, fmt.Errorf("failed to send deposit coins from rollup module to user account %v: %v", addr, err)
 	}
 
-	return sdk.Events{
-		sdk.NewEvent(
-			types.EventTypeMintETH,
-			sdk.NewAttribute(types.AttributeKeyL1DepositTxType, types.L1UserDepositTxType),
-			sdk.NewAttribute(types.AttributeKeyToCosmosAddress, addr.String()),
-			sdk.NewAttribute(types.AttributeKeyValue, hexutil.Encode(amount.BigInt().Bytes())),
-		),
-	}, nil
+	mintEvent := sdk.NewEvent(
+		types.EventTypeMintETH,
+		sdk.NewAttribute(types.AttributeKeyL1DepositTxType, types.L1UserDepositTxType),
+		sdk.NewAttribute(types.AttributeKeyToCosmosAddress, addr.String()),
+		sdk.NewAttribute(types.AttributeKeyValue, hexutil.Encode(amount.BigInt().Bytes())),
+	)
+
+	return &mintEvent, nil
 }
 
 // evmToCosmos converts an EVM address to a sdk.AccAddress
