@@ -4,13 +4,14 @@ import (
 	"math/big"
 	"math/rand"
 	"testing"
+	"time"
 
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
-	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
@@ -66,10 +67,7 @@ func NewLocalMemDB(t *testing.T) *localdb.DB {
 // The transactions are not meant to be executed.
 func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transaction, *gethtypes.Transaction) {
 	l1Block := GenerateL1Block()
-	l1InfoRawTx, err := derive.L1InfoDeposit(&rollup.Config{
-		Genesis:   rollup.Genesis{L2: eth.BlockID{Number: 0}},
-		L2ChainID: big.NewInt(1234),
-	}, eth.SystemConfig{}, 0, eth.BlockToInfo(l1Block), l1Block.Time())
+	l1InfoRawTx, err := derive.L1InfoDeposit(chaincfg.Mainnet, eth.SystemConfig{}, 0, eth.BlockToInfo(l1Block), l1Block.Time())
 	require.NoError(t, err)
 	l1InfoTx := gethtypes.NewTx(l1InfoRawTx)
 
@@ -137,6 +135,6 @@ func GenerateL1Block() *gethtypes.Block {
 		BaseFee:    big.NewInt(10),
 		Difficulty: common.Big0,
 		Number:     big.NewInt(0),
-		Time:       uint64(0),
+		Time:       uint64(time.Now().Unix()),
 	}, nil, nil, nil, trie.NewStackTrie(nil))
 }
