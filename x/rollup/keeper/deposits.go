@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
 )
@@ -54,7 +55,7 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive
 		ctx.Logger().Error("First L1 tx must be a L1 attributes tx", "type", tx.Type())
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "first L1 tx must be a L1 attributes tx, but got type %d", tx.Type())
 	}
-	l1blockInfo, err := derive.L1BlockInfoFromBytes(k.rollupCfg, 0, tx.Data())
+	l1blockInfo, err := derive.L1BlockInfoFromBytes(k.rollupCfg, uint64(tx.Time().Unix()), tx.Data())
 	if err != nil {
 		ctx.Logger().Error("Failed to derive L1 block info from L1 Info Deposit tx", "err", err, "txBytes", txBytes)
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to derive L1 block info from L1 Info Deposit tx: %v", err)
@@ -75,7 +76,7 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) error { 
 			ctx.Logger().Error("L1 tx must be a user deposit tx", "index", i, "type", tx.Type())
 			return types.WrapError(types.ErrInvalidL1Txs, "L1 tx must be a user deposit tx, index:%d, type:%d", i, tx.Type())
 		}
-		if tx.IsSystemTx() {
+		if monomer.IsL1AttributesTx(&tx) {
 			ctx.Logger().Error("L1 tx must be a user deposit tx", "type", tx.Type())
 			return types.WrapError(types.ErrInvalidL1Txs, "L1 tx must be a user deposit tx, type %d", tx.Type())
 		}

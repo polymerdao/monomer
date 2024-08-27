@@ -3,6 +3,7 @@ package keeper
 import (
 	"cosmossdk.io/core/store"
 	"github.com/cosmos/cosmos-sdk/codec"
+	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/polymerdao/monomer/x/rollup/types"
 )
@@ -24,6 +25,6 @@ func NewKeeper(
 		cdc:          cdc,
 		storeService: storeService,
 		bankkeeper:   bankKeeper,
-		rollupCfg:    &rollup.Config{},
+		rollupCfg:    chaincfg.Mainnet, // TODO: make this configurable?
 	}
 }
