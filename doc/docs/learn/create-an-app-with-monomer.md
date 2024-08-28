@@ -151,7 +151,7 @@ command hook that handles the integration between Monomer and the Cosmos SDK:
 
 import (
     // ...
-    "github.com/polymerdao/monomer/integrations" // <-- add this line
+    "github.com/polymerdao/monomer/integrations" // <-- add this line, run `go mod tidy`
     // ...
 )
 
