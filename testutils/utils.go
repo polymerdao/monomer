@@ -10,6 +10,8 @@ import (
 	cometdb "github.com/cometbft/cometbft-db"
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -100,7 +102,7 @@ func cosmosTxsFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depositT
 		require.NoError(t, err)
 		ethTxBytes = append(ethTxBytes, cosmosEthTxBytes)
 	}
-	cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(ethTxBytes, nil, "")
+	cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(ethTxBytes, generateSignTx, sdk.AccAddress("addr").String())
 	require.NoError(t, err)
 	return cosmosTxs
 }
@@ -139,4 +141,11 @@ func GenerateL1Block() *gethtypes.Block {
 		Number:     big.NewInt(0),
 		Time:       uint64(0),
 	}, nil, nil, nil, trie.NewStackTrie(nil))
+}
+
+func generateSignTx(tx *sdktx.Tx) error {
+	tx.AuthInfo = &sdktx.AuthInfo{
+		Fee: &sdktx.Fee{},
+	}
+	return nil
 }
