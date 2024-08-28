@@ -91,6 +91,8 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 		return fmt.Errorf("make block: %v", err)
 	}
 
+	fmt.Println("Genesis block hash:", block.Header.Hash.String())
+
 	if err := blockStore.AppendBlock(block); err != nil {
 		return fmt.Errorf("append block: %v", err)
 	}
