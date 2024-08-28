@@ -139,7 +139,7 @@ func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
 }
 
 func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
-	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
+	txBytes := testapp.ToTestTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
 
 	putTx, err := stack.L2Client.BroadcastTxAsync(stack.Ctx, txBytes)
