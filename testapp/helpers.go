@@ -6,6 +6,7 @@ import (
 	"slices"
 	"testing"
 
+	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -13,6 +14,7 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/polymerdao/monomer/testapp/x/testmodule/types"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -57,6 +59,16 @@ func ToTestTx(t *testing.T, k, v string) []byte {
 		FromAddress: "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
 		Key:         k,
 		Value:       v,
+	})
+}
+
+func ToWithdrawalTx(t *testing.T, cosmosAddr string, ethAddr string, amount math.Int) []byte {
+	return toTx(t, &rolluptypes.MsgInitiateWithdrawal{
+		Sender:   cosmosAddr,
+		Target:   ethAddr,
+		Value:    amount,
+		GasLimit: []byte{0xff, 0xff, 0xff, 0xff, 0xff},
+		Data:     []byte{},
 	})
 }
 
