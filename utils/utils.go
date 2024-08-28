@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"io"
 
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/go-multierror"
 )
 
@@ -20,4 +22,9 @@ func WrapCloseErr(err error, closer io.Closer) error {
 		return multierror.Append(err, closeErr)
 	}
 	return nil
+}
+
+// EvmToCosmosAddress converts an EVM address to a sdktypes.AccAddress
+func EvmToCosmosAddress(addr common.Address) sdktypes.AccAddress {
+	return addr.Bytes()
 }

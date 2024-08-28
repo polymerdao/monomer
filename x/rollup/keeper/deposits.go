@@ -8,9 +8,9 @@ import (
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/polymerdao/monomer/utils"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
 )
@@ -91,7 +91,7 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Eve
 			ctx.Logger().Error("Contract creation txs are not supported", "index", i)
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "Contract creation txs are not supported, index:%d", i)
 		}
-		cosmAddr := evmToCosmos(*to)
+		cosmAddr := utils.EvmToCosmosAddress(*to)
 		mintAmount := sdkmath.NewIntFromBigInt(tx.Value())
 		mintEvent, err := k.mintETH(ctx, cosmAddr, mintAmount)
 		if err != nil {
@@ -122,9 +122,4 @@ func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.In
 	)
 
 	return &mintEvent, nil
-}
-
-// evmToCosmos converts an EVM address to a sdk.AccAddress
-func evmToCosmos(addr common.Address) sdk.AccAddress {
-	return addr.Bytes()
 }
