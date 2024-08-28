@@ -221,7 +221,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		}
 	}
 
-	ts(fmt.Sprintf("Block built: %d", block.Header.Height))
+	ts(fmt.Sprintf("Block built: %d, %s", block.Header.Height, block.Header.Hash.String()))
 
 	// TODO publish other things like new blocks.
 	return block, nil
