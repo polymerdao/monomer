@@ -11,7 +11,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
 	"github.com/polymerdao/monomer/testutils"
-	"github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/polymerdao/monomer/x/rollup/types"
 )
 
@@ -111,7 +110,7 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 			}
 			s.mockMintETH()
 
-			resp, err := keeper.NewMsgServerImpl(s.rollupKeeper).ApplyL1Txs(s.ctx, &types.MsgApplyL1Txs{
+			resp, err := s.rollupKeeper.ApplyL1Txs(s.ctx, &types.MsgApplyL1Txs{
 				TxBytes: test.txBytes,
 			})
 
@@ -188,7 +187,7 @@ func (s *KeeperTestSuite) TestInitiateWithdrawal() {
 			}
 			s.mockBurnETH()
 
-			resp, err := keeper.NewMsgServerImpl(s.rollupKeeper).InitiateWithdrawal(s.ctx, &types.MsgInitiateWithdrawal{
+			resp, err := s.rollupKeeper.InitiateWithdrawal(s.ctx, &types.MsgInitiateWithdrawal{
 				Sender: test.sender,
 				Target: l1Target,
 				Value:  withdrawalAmount,
