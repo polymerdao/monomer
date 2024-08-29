@@ -10,6 +10,8 @@ import (
 	"github.com/samber/lo"
 )
 
+var _ types.MsgServer = &Keeper{}
+
 // ApplyL1Txs implements types.MsgServer.
 func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*types.MsgApplyL1TxsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
