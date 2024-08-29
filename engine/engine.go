@@ -86,6 +86,17 @@ func handleHeaderError(err error, blockType string) error {
 	return engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
 }
 
+func (e *EngineAPI) validateHeader(blockHash common.Hash, headHeader *monomer.Header, blockType string) error {
+	if finalizedHeader, err := e.blockStore.HeaderByHash(blockHash); err != nil {
+		return handleHeaderError(err, blockType)
+	} else if finalizedHeader.Height > headHeader.Height {
+		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s at height %d comes after head block at height %d",
+			blockType, finalizedHeader.Height, headHeader.Height))
+	}
+
+	return nil
+}
+
 func (e *EngineAPI) ForkchoiceUpdatedV3(
 	ctx context.Context,
 	fcs eth.ForkchoiceState, //nolint:gocritic
@@ -112,18 +123,13 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	//   Client software MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash
 	//   is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not
 	//   belong to the chain defined by forkchoiceState.headBlockHash.
-	if safeHeader, err := e.blockStore.HeaderByHash(fcs.SafeBlockHash); err != nil {
-		return nil, handleHeaderError(err, "safe block")
-	} else if safeHeader.Height > headHeader.Height {
-		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf("safe block at height %d comes after head block at height %d",
-			safeHeader.Height, headHeader.Height))
+	err = e.validateHeader(fcs.SafeBlockHash, headHeader, "safe block")
+	if err != nil {
+		return nil, err
 	}
-	if finalizedHeader, err := e.blockStore.HeaderByHash(fcs.FinalizedBlockHash); err != nil {
-		return nil, handleHeaderError(err, "finalized block")
-	} else if finalizedHeader.Height > headHeader.Height {
-		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf(
-			"finalized block at height %d comes after head block at height %d", finalizedHeader.Height,
-			headHeader.Height))
+	err = e.validateHeader(fcs.FinalizedBlockHash, headHeader, "finalized block")
+	if err != nil {
+		return nil, err
 	}
 
 	// It is possible for reorgs to occur on unsafe block consolidation when the batcher's txs don't land on L1 in time.
