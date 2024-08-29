@@ -95,11 +95,11 @@ func handleHeaderError(err error, bt blockType) error {
 }
 
 func (e *EngineAPI) validateHeader(blockHash common.Hash, headHeader *monomer.Header, bt blockType) error {
-	if finalizedHeader, err := e.blockStore.HeaderByHash(blockHash); err != nil {
+	if header, err := e.blockStore.HeaderByHash(blockHash); err != nil {
 		return handleHeaderError(err, bt)
-	} else if finalizedHeader.Height > headHeader.Height {
+	} else if header.Height > headHeader.Height {
 		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s at height %d comes after head block at height %d",
-			bt, finalizedHeader.Height, headHeader.Height))
+			bt, header.Height, headHeader.Height))
 	}
 
 	return nil
