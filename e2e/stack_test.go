@@ -208,12 +208,12 @@ func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 			Nonce:    big.NewInt(int64(nonce)),
 			GasPrice: big.NewInt(gasPrice.Int64() * 2),
 			GasLimit: l1GasLimit,
-			Value:    big.NewInt(oneEth),
+			Value:    big.NewInt(oneEth), // L1 tx value is one eth
 			Context:  stack.Ctx,
 			NoSend:   false,
 		},
 		user.Address,
-		big.NewInt(oneEth/2), // the "minting order" for L2
+		big.NewInt(5*oneEth), // 5 eth "minting order" for L2 - this is fraudulent
 		l2GasLimit,
 		false,    // _isCreation
 		[]byte{}, // no data
@@ -268,6 +268,9 @@ func requireEthIsMinted(t *testing.T, appchainClient *bftclient.HTTP) {
 		&perPage,
 		orderBy,
 	)
+
+	events := result.Txs[0].TxResult.Events
+	t.Logf("%+v", events[len(events)-1])
 
 	require.NoError(t, err, "search transactions")
 
