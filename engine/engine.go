@@ -20,6 +20,14 @@ import (
 	"github.com/polymerdao/monomer/monomerdb"
 )
 
+type blockType string
+
+const (
+	headBlock      blockType = "head block"
+	safeBlock      blockType = "safe block"
+	finalizedBlock blockType = "finalized block"
+)
+
 type DB interface {
 	HeaderByHash(hash common.Hash) (*monomer.Header, error)
 	Height() (uint64, error)
@@ -79,19 +87,19 @@ func (e *EngineAPI) ForkchoiceUpdatedV2(
 	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
 
-func handleHeaderError(err error, blockType string) error {
+func handleHeaderError(err error, bt blockType) error {
 	if errors.Is(err, monomerdb.ErrNotFound) {
-		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s not found", blockType))
+		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s not found", bt))
 	}
 	return engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
 }
 
-func (e *EngineAPI) validateHeader(blockHash common.Hash, headHeader *monomer.Header, blockType string) error {
+func (e *EngineAPI) validateHeader(blockHash common.Hash, headHeader *monomer.Header, bt blockType) error {
 	if finalizedHeader, err := e.blockStore.HeaderByHash(blockHash); err != nil {
-		return handleHeaderError(err, blockType)
+		return handleHeaderError(err, bt)
 	} else if finalizedHeader.Height > headHeader.Height {
 		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s at height %d comes after head block at height %d",
-			blockType, finalizedHeader.Height, headHeader.Height))
+			bt, finalizedHeader.Height, headHeader.Height))
 	}
 
 	return nil
@@ -116,18 +124,18 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	//   forkchoiceState.headBlockHash...
 	headHeader, err := e.blockStore.HeaderByHash(fcs.HeadBlockHash)
 	if err != nil {
-		return nil, handleHeaderError(err, "head block")
+		return nil, handleHeaderError(err, headBlock)
 	}
 
 	// Engine API spec:
 	//   Client software MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash
 	//   is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not
 	//   belong to the chain defined by forkchoiceState.headBlockHash.
-	err = e.validateHeader(fcs.SafeBlockHash, headHeader, "safe block")
+	err = e.validateHeader(fcs.SafeBlockHash, headHeader, safeBlock)
 	if err != nil {
 		return nil, err
 	}
-	err = e.validateHeader(fcs.FinalizedBlockHash, headHeader, "finalized block")
+	err = e.validateHeader(fcs.FinalizedBlockHash, headHeader, finalizedBlock)
 	if err != nil {
 		return nil, err
 	}
