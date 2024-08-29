@@ -14,7 +14,7 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
-	"github.com/polymerdao/monomer/gen/rollup/module/v1"
+	modulev1 "github.com/polymerdao/monomer/gen/rollup/module/v1"
 	"github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/spf13/cobra"
@@ -148,7 +148,7 @@ func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 // RegisterServices registers a GRPC query service to respond to the
 // module-specific GRPC queries.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
-	types.RegisterMsgServer(cfg.MsgServer(), keeper.NewMsgServerImpl(am.keeper))
+	types.RegisterMsgServer(cfg.MsgServer(), am.keeper)
 }
 
 // RegisterInvariants registers the capability module's invariants.

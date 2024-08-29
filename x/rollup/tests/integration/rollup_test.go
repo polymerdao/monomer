@@ -134,7 +134,7 @@ func setupIntegrationApp(t *testing.T) *integration.App {
 			rolluptypes.ModuleName: rollupModule,
 		},
 	)
-	rolluptypes.RegisterMsgServer(integrationApp.MsgServiceRouter(), rollupkeeper.NewMsgServerImpl(rollupKeeper))
+	rolluptypes.RegisterMsgServer(integrationApp.MsgServiceRouter(), rollupKeeper)
 	banktypes.RegisterQueryServer(integrationApp.QueryHelper(), bankkeeper.NewQuerier(&bankKeeper))
 
 	return integrationApp
