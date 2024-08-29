@@ -131,12 +131,10 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	//   Client software MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash
 	//   is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not
 	//   belong to the chain defined by forkchoiceState.headBlockHash.
-	err = e.validateHeader(fcs.SafeBlockHash, headHeader, safeBlock)
-	if err != nil {
+	if err := e.validateHeader(fcs.SafeBlockHash, headHeader, safeBlock); err != nil {
 		return nil, err
 	}
-	err = e.validateHeader(fcs.FinalizedBlockHash, headHeader, finalizedBlock)
-	if err != nil {
+	if err := e.validateHeader(fcs.FinalizedBlockHash, headHeader, finalizedBlock); err != nil {
 		return nil, err
 	}
 
