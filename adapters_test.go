@@ -196,17 +196,13 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 	})
 }
 
-func signTxHelper(t *testing.T, sdkTx *tx.Tx, signTx monomer.TxSigner) *tx.Tx {
-	if signTx == nil {
-		return sdkTx
-	}
-	err := signTx(sdkTx)
-	require.NoError(t, err)
-	return sdkTx
-}
-
 func generateDepositSDKMsgBytes(t *testing.T, msg *codectypes.Any, signTx monomer.TxSigner) []byte {
-	depositSDKMsgBytes, err := signTxHelper(t, &tx.Tx{Body: &tx.TxBody{Messages: []*codectypes.Any{msg}}}, signTx).Marshal()
+	sdkTx := &tx.Tx{Body: &tx.TxBody{Messages: []*codectypes.Any{msg}}}
+	if signTx != nil {
+		err := signTx(sdkTx)
+		require.NoError(t, err)
+	}
+	depositSDKMsgBytes, err := sdkTx.Marshal()
 	require.NoError(t, err)
 	return depositSDKMsgBytes
 }
