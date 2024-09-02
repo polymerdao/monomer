@@ -112,7 +112,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	}
 	txsBytes := cosmosTxs.ToSliceOfBytes()
 
-	ethTxsBytes, err := getEthTxsBytes(txsBytes[0])
+	ethTxsBytes, err := getDepositTxsBytes(txsBytes[0])
 	if err != nil {
 		return nil, fmt.Errorf("get eth txs bytes: %v", err)
 	}
@@ -125,7 +125,7 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 	return txs, nil
 }
 
-func getEthTxsBytes(cosmosEthTxBytes []byte) ([][]byte, error) {
+func getDepositTxsBytes(cosmosEthTxBytes []byte) ([][]byte, error) {
 	cosmosEthTx := new(sdktx.Tx)
 	if err := cosmosEthTx.Unmarshal(cosmosEthTxBytes); err != nil {
 		return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
