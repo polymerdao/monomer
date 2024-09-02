@@ -190,9 +190,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 	})
 
 	t.Run("returns error when unable to unmarshal binary data within MsgL1Tx", func(t *testing.T) {
-		msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{
-			TxBytes: [][]byte{[]byte("invalid")},
-		})
+		msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{TxBytes: [][]byte{[]byte("invalid")}})
 		require.NoError(t, err)
 		depositSDKMsgBytes := generateDepositSDKMsgBytes(t, msgAny, nil)
 		_, err = monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{depositSDKMsgBytes})
