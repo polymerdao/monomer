@@ -38,10 +38,20 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx TxSigner, from st
 		}
 	}
 
-	cosmosTxs, err := convertToCosmosTxs(depositTx, ethTxs[numDepositTxs:])
+	depositSDKMsgBytes, err := depositTx.Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("marshal tx: %v", err)
+	}
+
+	cosmosTxs := make(bfttypes.Txs, 0, 1+numDepositTxs)
+	cosmosTxs = append(cosmosTxs, depositSDKMsgBytes)
+
+	cosmosNonDepositTxs, err := convertToCosmosNonDepositTxs(ethTxs[numDepositTxs:])
 	if err != nil {
 		return nil, fmt.Errorf("convert to cosmos txs: %v", err)
 	}
+
+	cosmosTxs = append(cosmosTxs, cosmosNonDepositTxs...)
 
 	return cosmosTxs, nil
 }
@@ -85,15 +95,9 @@ func packDepositTxsToCosmosTx(depositTxs []hexutil.Bytes, from string) (*sdktx.T
 	}, nil
 }
 
-func convertToCosmosTxs(depositTx *sdktx.Tx, nonDepositTxs []hexutil.Bytes) (bfttypes.Txs, error) {
-	depositSDKMsgBytes, err := depositTx.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("marshal tx: %v", err)
-	}
-
+func convertToCosmosNonDepositTxs(nonDepositTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 	// Unpack Cosmos txs from ethTxs.
-	cosmosTxs := make(bfttypes.Txs, 0, 1+len(nonDepositTxs))
-	cosmosTxs = append(cosmosTxs, depositSDKMsgBytes)
+	cosmosTxs := make(bfttypes.Txs, 0, len(nonDepositTxs))
 
 	for _, cosmosTx := range nonDepositTxs {
 		var tx ethtypes.Transaction
