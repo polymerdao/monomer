@@ -98,10 +98,8 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	}
 
 	_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
-	depositTxBytes, err := depositTx.MarshalBinary()
-	require.NoError(t, err)
-	cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
-	require.NoError(t, err)
+	depositTxBytes := testutils.TxToBytes(t, depositTx)
+	cosmosEthTxBytes := testutils.TxToBytes(t, cosmosEthTx)
 	invalidData := hexutil.Bytes("invalid")
 
 	t.Run("returns error when input tx contains invalid binary data", func(t *testing.T) {
@@ -110,19 +108,19 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	})
 
 	t.Run("returns error when no deposit txs are present", func(t *testing.T) {
-		_, err = monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{cosmosEthTxBytes}, nil, "")
+		_, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{cosmosEthTxBytes}, nil, "")
 		require.Error(t, err)
 	})
 
 	t.Run("returns error when signing tx fails", func(t *testing.T) {
-		_, err = monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes(depositTxBytes)}, func(_ *tx.Tx) error {
+		_, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes(depositTxBytes)}, func(_ *tx.Tx) error {
 			return errors.New("sign tx error")
 		}, "")
 		require.Error(t, err)
 	})
 
 	t.Run("returns error when unable to unmarshal binary tx data", func(t *testing.T) {
-		_, err = monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes(depositTxBytes), hexutil.Bytes(cosmosEthTxBytes), invalidData}, nil, "")
+		_, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes(depositTxBytes), hexutil.Bytes(cosmosEthTxBytes), invalidData}, nil, "")
 		require.Error(t, err)
 	})
 }
@@ -227,10 +225,8 @@ func generateTxsAndTxsBytes(
 	nonDepTxNum int,
 ) ([][]byte, ethtypes.Transactions, []hexutil.Bytes) {
 	_, depositTx, cosmosEthTx := testutils.GenerateEthTxs(t)
-	depositTxBytes, err := depositTx.MarshalBinary()
-	require.NoError(t, err)
-	cosmosEthTxBytes, err := cosmosEthTx.MarshalBinary()
-	require.NoError(t, err)
+	depositTxBytes := testutils.TxToBytes(t, depositTx)
+	cosmosEthTxBytes := testutils.TxToBytes(t, cosmosEthTx)
 
 	return append(repeat(depositTxBytes, depTxNum), repeat(cosmosEthTxBytes, nonDepTxNum)...),
 		append(repeat(depositTx, depTxNum), repeat(cosmosEthTx, nonDepTxNum)...),
