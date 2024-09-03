@@ -62,13 +62,20 @@ func NewEngineAPI(
 	}
 }
 
+func (e *EngineAPI) checkTimestamp(timestamp uint64) error {
+	if timestamp >= *chaincfg.Mainnet.EcotoneTime {
+		return engine.UnsupportedFork.With(fmt.Errorf("forkChoiceUpdate called post-cancun"))
+	}
+	return nil
+}
+
 func (e *EngineAPI) ForkchoiceUpdatedV1(
 	ctx context.Context,
 	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
-	if pa != nil && pa.Timestamp >= hexutil.Uint64(*chaincfg.Mainnet.EcotoneTime) {
-		return nil, engine.UnsupportedFork.With(fmt.Errorf("forkChoiceUpdateV1 called post-cancun"))
+	if err := e.checkTimestamp(uint64(pa.Timestamp)); err != nil {
+		return nil, err
 	}
 	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
@@ -78,8 +85,8 @@ func (e *EngineAPI) ForkchoiceUpdatedV2(
 	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
-	if pa != nil && pa.Timestamp >= hexutil.Uint64(*chaincfg.Mainnet.EcotoneTime) {
-		return nil, engine.UnsupportedFork.With(fmt.Errorf("forkChoiceUpdateV2 called post-cancun"))
+	if err := e.checkTimestamp(uint64(pa.Timestamp)); err != nil {
+		return nil, err
 	}
 	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
