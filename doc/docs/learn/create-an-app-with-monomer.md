@@ -184,8 +184,9 @@ func initRootCmd(
 ```
 
 ## Building the Application
-Before we can build our application, we need to add the following replace directives in `go.mod` and then run `go mod
-tidy`: 
+To resolve some breaking changes in minor versions, we need the following replace directives. Add them to `go.mod`, then run `go mod
+tidy`.
+
 ```go
 github.com/ethereum/go-ethereum => github.com/joshklop/op-geth v0.0.0-20240515205036-e3b990384a74
 github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20240814165419-c6b91fa9f263
