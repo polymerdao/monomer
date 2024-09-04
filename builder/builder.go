@@ -66,6 +66,7 @@ func New(
 //   - all hashes exist in the block store.
 //   - finalized.Height <= safe.Height <= head.Height
 func (b *Builder) Rollback(ctx context.Context, unsafe, safe, finalized common.Hash) error {
+	fmt.Println("rollback!!")
 	currentHeight, err := b.blockStore.Height()
 	if err != nil {
 		return fmt.Errorf("get height: %v", err)

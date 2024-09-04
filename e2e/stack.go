@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"math/big"
 	"net"
 	"os"
@@ -21,12 +23,19 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	"github.com/ethereum-optimism/optimism/indexer/bindings"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	nodemetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	opserviceclient "github.com/ethereum-optimism/optimism/op-service/client"
+	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/polymerdao/monomer"
@@ -51,6 +60,9 @@ type StackConfig struct {
 	L1Portal      *bindings.OptimismPortal
 	L2Client      *bftclient.HTTP
 	MonomerClient *MonomerClient
+	stack         *stack
+	l1RPCClient   *rpc.Client
+	rollupConfig  *rollup.Config
 	WaitL1        func(numBlocks int) error
 	WaitL2        func(numBlocks int) error
 }
@@ -117,30 +129,6 @@ func Setup(
 }
 
 func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, error) {
-	// configure & run L1
-
-	const networkName = "devnetL1"
-	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join(s.l1stateDumpDir, "addresses.json"))
-	if err != nil {
-		return nil, fmt.Errorf("new l1 deployments: %v", err)
-	}
-	deployConfig, err := opgenesis.NewDeployConfigWithNetwork(networkName, s.deployConfigDir)
-	if err != nil {
-		return nil, fmt.Errorf("new deploy config: %v", err)
-	}
-	deployConfig.SetDeployments(l1Deployments)
-	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
-	deployConfig.L1UseClique = false // Allows node to produce blocks without addition config. Clique is a PoA config.
-	// SequencerWindowSize is usually set to something in the hundreds or thousands.
-	// That means we don't ever perform unsafe block consolidation (i.e., the safe head never advances) before the test is complete.
-	// To force this edge case to occur in the test, we decrease the SWS.
-	deployConfig.SequencerWindowSize = 4
-	// Set low ChannelTimeout to ensure the batcher opens and closes a channel in the same block to avoid reorgs in
-	// unsafe block consolidation. Note that at the time of this writing, we're still seeing reorgs, so this likely isn't the silver bullet.
-	deployConfig.ChannelTimeout = 1
-	deployConfig.L1BlockTime = 2
-	deployConfig.L2BlockTime = 1
-
 	var auxState auxDump
 
 	l1StateJSON, err := os.ReadFile(filepath.Join(s.l1stateDumpDir, "allocs-l1.json"))
@@ -183,6 +171,31 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		})
 	}
 
+	// configure & run L1
+
+	const networkName = "devnetL1"
+	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join(s.l1stateDumpDir, "addresses.json"))
+	if err != nil {
+		return nil, fmt.Errorf("new l1 deployments: %v", err)
+	}
+	deployConfig, err := opgenesis.NewDeployConfigWithNetwork(networkName, s.deployConfigDir)
+	if err != nil {
+		return nil, fmt.Errorf("new deploy config: %v", err)
+	}
+	deployConfig.SetDeployments(l1Deployments)
+	deployConfig.BatchSenderAddress = l1users[0].Address
+	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
+	deployConfig.L1UseClique = false // Allows node to produce blocks without addition config. Clique is a PoA config.
+	// SequencerWindowSize is usually set to something in the hundreds or thousands.
+	// That means we don't ever perform unsafe block consolidation (i.e., the safe head never advances) before the test is complete.
+	// To force this edge case to occur in the test, we decrease the SWS.
+	deployConfig.SequencerWindowSize = 4
+	// Set low ChannelTimeout to ensure the batcher opens and closes a channel in the same block to avoid reorgs in
+	// unsafe block consolidation. Note that at the time of this writing, we're still seeing reorgs, so this likely isn't the silver bullet.
+	deployConfig.ChannelTimeout = 3
+	deployConfig.L1BlockTime = 2
+	deployConfig.L2BlockTime = 1
+
 	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, l1state, l1Deployments)
 	if err != nil {
 		return nil, fmt.Errorf("build l1 developer genesis: %v", err)
@@ -204,6 +217,12 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	l1Client := NewL1Client(l1RPCclient)
+
+	for {
+		if _, err := l1Client.BlockByNumber(ctx, new(big.Int).SetUint64(1)); err == nil {
+			break
+		}
+	}
 
 	latestL1Block, err := l1Client.BlockByNumber(ctx, nil)
 	if err != nil {
@@ -291,6 +310,9 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		MonomerClient: monomerClient,
 		Operator:      l1users[0],
 		Users:         l1users[1:],
+		stack:         s,
+		rollupConfig:  rollupConfig,
+		l1RPCClient:   l1RPCclient,
 		WaitL1: func(numBlocks int) error {
 			return wait(numBlocks, 1)
 		},
@@ -363,4 +385,141 @@ func (s *stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		return fmt.Errorf("run monomer: %v", err)
 	}
 	return nil
+}
+
+func (s *StackConfig) Derive() error {
+	monomerRPCClient, err := rpc.DialContext(s.Ctx, s.stack.monomerEngineURL.String())
+	if err != nil {
+		return fmt.Errorf("dial monomer: %v", err)
+	}
+	logger := log.New()
+	l2Client, err := sources.NewL2Client(
+		opserviceclient.NewBaseRPCClient(monomerRPCClient),
+		logger,
+		nil,
+		sources.L2ClientDefaultConfig(s.rollupConfig, true),
+	)
+	l1Client, err := sources.NewL1Client(
+		opserviceclient.NewBaseRPCClient(s.l1RPCClient),
+		logger,
+		nil,
+		sources.L1ClientDefaultConfig(s.rollupConfig, true, sources.RPCKindBasic),
+	)
+	if err != nil {
+		return fmt.Errorf("new l1 client: %v", err)
+	}
+	dataSourceFactory := derive.NewDataSourceFactory(logger, s.rollupConfig, l1Client, nil, nil)
+	attributesBuilder := derive.NewFetchingAttributesBuilder(s.rollupConfig, l1Client, l2Client)
+
+	l1Traversal := derive.NewL1Traversal(logger, s.rollupConfig, l1Client)
+	l1Retrieval := derive.NewL1Retrieval(logger, dataSourceFactory, l1Traversal)
+	frameQueue := derive.NewFrameQueue(logger, l1Retrieval)
+	channelBank := derive.NewChannelBank(logger, s.rollupConfig, frameQueue, l1Client, nodemetrics.NoopMetrics)
+	channelInReader := derive.NewChannelInReader(s.rollupConfig, logger, channelBank, nodemetrics.NoopMetrics)
+	bqMiddleware := &batchQueueMiddleware{
+		prev: channelInReader,
+	}
+	batchQueue := derive.NewBatchQueue(logger, s.rollupConfig, bqMiddleware, l2Client)
+	attributesQueue := derive.NewAttributesQueue(logger, s.rollupConfig, attributesBuilder, batchQueue)
+	eq := &engineQueue{
+		attributesQueue: attributesQueue,
+		engine:          l2Client,
+		rollupConfig:    s.rollupConfig,
+		safeHead:        1,
+	}
+	origin, err := l1Client.L1BlockRefByNumber(context.Background(), 1)
+	if err != nil {
+		return fmt.Errorf("get genesis block ref by number: %v", err)
+	}
+	for _, stage := range []derive.ResettableStage{
+		eq,
+		l1Traversal,
+		l1Retrieval,
+		frameQueue,
+		channelBank,
+		channelInReader,
+		bqMiddleware,
+		batchQueue,
+		attributesQueue,
+	} {
+		if err := stage.Reset(context.Background(), origin, s.rollupConfig.Genesis.SystemConfig); err != nil && !errors.Is(err, io.EOF) {
+			return fmt.Errorf("reset stage <stage>: %v", err)
+		}
+	}
+
+	for l1Traversal.Origin().Number <= s.rollupConfig.SeqWindowSize+2 {
+		if err := eq.Step(); errors.Is(err, io.EOF) {
+			if err = l1Traversal.AdvanceL1Block(context.Background()); err != nil {
+				return fmt.Errorf("advance L1 block: %v", err)
+			}
+		} else if !errors.Is(err, derive.NotEnoughData) {
+			return fmt.Errorf("step engine queue: %v", err)
+		}
+	}
+	return nil
+}
+
+// we're going to need to mock the engine queue
+// perhaps we should mock the attributes queue instead?
+
+type engineQueue struct {
+	attributesQueue derive.NextAttributesProvider
+	safeHead        uint64
+	engine          derive.L2Source
+	rollupConfig    *rollup.Config
+}
+
+func (eq *engineQueue) Step() error {
+	safeHead, err := eq.engine.L2BlockRefByNumber(context.Background(), eq.safeHead)
+	if err != nil {
+		return fmt.Errorf("l2 block ref by number: %v", err)
+	}
+	next, err := eq.attributesQueue.NextAttributes(context.Background(), safeHead)
+	if errors.Is(err, io.EOF) {
+		return io.EOF // sometimes we need err == io.EOF; unfortunately, they don't use errors.Is properly all the time.
+	} else if err != nil {
+		return fmt.Errorf("next attributes: %v", err)
+	}
+	attributesBytes, err := json.MarshalIndent(next.Attributes(), "", "  ")
+	if err != nil {
+		return fmt.Errorf("marshal attributes: %v", err)
+	}
+	fmt.Println(string(attributesBytes))
+	eq.safeHead++
+	return derive.NotEnoughData
+}
+
+func (eq engineQueue) Reset(ctx context.Context, base opeth.L1BlockRef, baseCfg opeth.SystemConfig) error {
+	return nil
+}
+
+type batchQueueMiddleware struct {
+	prev derive.NextBatchProvider
+}
+
+var _ derive.NextBatchProvider = (*batchQueueMiddleware)(nil)
+
+func (bq batchQueueMiddleware) Reset(ctx context.Context, base opeth.L1BlockRef, baseCfg opeth.SystemConfig) error {
+	return nil
+}
+
+func (bq *batchQueueMiddleware) Origin() opeth.L1BlockRef {
+	return bq.prev.Origin()
+}
+
+func (bq *batchQueueMiddleware) NextBatch(ctx context.Context) (derive.Batch, error) {
+	batch, err := bq.prev.NextBatch(ctx)
+	if err != nil {
+		fmt.Println("heeeeeeeeeeeeeeeeeerrrrrrrreeeeee")
+		return nil, err
+	}
+	singularBatch, ok := batch.(*derive.SingularBatch)
+	if !ok {
+		panic("not singular batch")
+	}
+	fmt.Println("batch")
+	fmt.Printf("\tepoch num: %d\n", singularBatch.EpochNum)
+	fmt.Printf("\ttimestamp: %d\n", singularBatch.Timestamp)
+	fmt.Printf("\ttransactions: %s\n", singularBatch.Transactions)
+	return batch, nil
 }

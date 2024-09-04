@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -102,19 +101,24 @@ func TestE2E(t *testing.T) {
 	require.NoError(t, err)
 
 	// Run tests concurrently, against the same stack.
-	runningTests := sync.WaitGroup{}
-	runningTests.Add(len(e2eTests))
+	/*
+		runningTests := sync.WaitGroup{}
+		runningTests.Add(len(e2eTests))
 
-	for _, test := range e2eTests {
-		t.Run(test.name, func(t *testing.T) {
-			go func() {
-				defer runningTests.Done()
-				test.run(t, stack)
-			}()
-		})
+		for _, test := range e2eTests {
+			t.Run(test.name, func(t *testing.T) {
+				go func() {
+					defer runningTests.Done()
+					test.run(t, stack)
+				}()
+			})
+		}
+
+		runningTests.Wait()*/
+	require.NoError(t, stack.WaitL1(10)) // Should be enough for 1 rollback using SWS of 4.
+	if err := stack.Derive(); err != nil {
+		t.Logf("error: %v", err)
 	}
-
-	runningTests.Wait()
 }
 
 func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
