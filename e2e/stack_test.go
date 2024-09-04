@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/config"
@@ -55,6 +56,10 @@ var e2eTests = []struct {
 	{
 		name: "AttributesTX",
 		run:  containsAttributesTx,
+	},
+	{
+		name: "No Rollbacks",
+		run:  checkForRollbacks,
 	},
 }
 
@@ -115,6 +120,26 @@ func TestE2E(t *testing.T) {
 	}
 
 	runningTests.Wait()
+}
+
+func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
+	lastBlock, err := stack.MonomerClient.BlockByNumber(stack.Ctx, nil)
+	require.NoError(t, err)
+	for {
+		currentBlock, err := stack.MonomerClient.BlockByNumber(stack.Ctx, nil)
+		require.NoError(t, err)
+		// Ensure that the current monomer block height isn't less than the last checked monomer block height.
+		if currentBlock.Number().Int64() < lastBlock.Number().Int64() {
+			require.Fail(t, "monomer has rolled back")
+		}
+		// End the test once the target monomer block height is reached
+		if currentBlock.Number().Int64() >= int64(15) {
+			break
+		}
+		lastBlock = currentBlock
+		time.Sleep(250 * time.Millisecond)
+	}
+	t.Log("No Monomer rollbacks detected")
 }
 
 func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
