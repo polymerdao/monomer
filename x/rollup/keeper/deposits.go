@@ -1,7 +1,6 @@
 package keeper
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -25,20 +24,7 @@ func (k *Keeper) setL1BlockInfo(ctx sdk.Context, info derive.L1BlockInfo) error 
 		return types.WrapError(err, "marshal L1 block info")
 	}
 	if err = k.storeService.OpenKVStore(ctx).Set([]byte(types.KeyL1BlockInfo), infoBytes); err != nil {
-		return types.WrapError(err, "set")
-	}
-	return nil
-}
-
-// TODO: include the logic to also store the L1 block info by blockhash in setL1BlockInfo and remove setL1BlockHistory
-// setL1BlockHistory sets the L1 block info to the app state, with the key being the blockhash, so we can look it up easily later.
-func (k *Keeper) setL1BlockHistory(ctx context.Context, info *derive.L1BlockInfo) error {
-	infoBytes, err := json.Marshal(info)
-	if err != nil {
-		return types.WrapError(err, "marshal L1 block info")
-	}
-	if err = k.storeService.OpenKVStore(ctx).Set(info.BlockHash.Bytes(), infoBytes); err != nil {
-		return types.WrapError(err, "set")
+		return types.WrapError(err, "set latest L1 block info")
 	}
 	return nil
 }

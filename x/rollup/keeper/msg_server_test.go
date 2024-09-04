@@ -129,10 +129,7 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 				// Verify that the l1 block info and l1 block history are saved to the store
 				expectedBlockInfo := eth.BlockToInfo(testutils.GenerateL1Block())
 				l1BlockInfoBz := s.rollupStore.Get([]byte(types.KeyL1BlockInfo))
-				historicalL1BlockInfoBz := s.rollupStore.Get(expectedBlockInfo.Hash().Bytes())
 				s.Require().NotNil(l1BlockInfoBz)
-				s.Require().NotNil(historicalL1BlockInfoBz)
-				s.Require().Equal(l1BlockInfoBz, historicalL1BlockInfoBz)
 
 				var l1BlockInfo *derive.L1BlockInfo
 				err = json.Unmarshal(l1BlockInfoBz, &l1BlockInfo)
