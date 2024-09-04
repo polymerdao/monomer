@@ -183,6 +183,8 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		})
 	}
 
+	deployConfig.BatchSenderAddress = l1users[0].Address
+
 	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, l1state, l1Deployments)
 	if err != nil {
 		return nil, fmt.Errorf("build l1 developer genesis: %v", err)
