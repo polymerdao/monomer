@@ -228,10 +228,9 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 		L1Client:         l1Client,
 		EndpointProvider: endpointProvider,
 		ChannelConfig: batcher.ChannelConfig{
-			SeqWindowSize:      op.rollupConfig.SeqWindowSize,
-			ChannelTimeout:     op.rollupConfig.ChannelTimeout,
-			MaxChannelDuration: 1,
-			SubSafetyMargin:    4,
+			SeqWindowSize:   op.rollupConfig.SeqWindowSize,
+			ChannelTimeout:  op.rollupConfig.ChannelTimeout,
+			SubSafetyMargin: op.rollupConfig.SeqWindowSize / 2,
 			// MaxFrameSize field value is copied from:
 			//nolint:lll
 			// https://github.com/ethereum-optimism/optimism/blob/5b13bad9883fa5737af67ba3ee700aaa8737f686/op-batcher/batcher/channel_config_test.go#L19

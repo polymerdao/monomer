@@ -131,13 +131,10 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	deployConfig.SetDeployments(l1Deployments)
 	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
 	deployConfig.L1UseClique = false // Allows node to produce blocks without addition config. Clique is a PoA config.
-	// SequencerWindowSize is usually set to something in the hundreds or thousands.
-	// That means we don't ever perform unsafe block consolidation (i.e., the safe head never advances) before the test is complete.
-	// To force this edge case to occur in the test, we decrease the SWS.
+	// Set a shorter Sequencer Window Size to force unsafe block consolidation to happen more often.
+	// A verifier (and the sequencer when it's determining the safe head) will have to read the entire sequencer window
+	// before advancing in the worst case. For the sake of tests running quickly, we minimize that worst case to 4 blocks.
 	deployConfig.SequencerWindowSize = 4
-	// Set low ChannelTimeout to ensure the batcher opens and closes a channel in the same block to avoid reorgs in
-	// unsafe block consolidation. Note that at the time of this writing, we're still seeing reorgs, so this likely isn't the silver bullet.
-	deployConfig.ChannelTimeout = 1
 	deployConfig.L1BlockTime = 2
 	deployConfig.L2BlockTime = 1
 
