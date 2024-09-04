@@ -2,7 +2,7 @@ package e2e
 
 import (
 	"fmt"
-	"path/filepath"
+	"os"
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/fakebeacon"
@@ -14,7 +14,7 @@ import (
 )
 
 func gethdevnet(env *environment.Env, blockTime uint64, genesis *core.Genesis) (*rpc.Client, string, error) {
-	blobsDirectory := filepath.Join("artifacts", "blobs")
+	blobsDirectory := os.TempDir()
 
 	beacon := fakebeacon.NewBeacon(nil, blobsDirectory, genesis.Timestamp, blockTime)
 	myClock := clock.NewAdvancingClock(time.Second) // Arbitrary working duration. Eventually consumed by geth lifecycle instances.
