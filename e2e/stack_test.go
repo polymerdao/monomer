@@ -221,8 +221,10 @@ func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err, "deposit tx")
 
 	// wait for tx to be processed
-	err = stack.WaitL2(1)
-	require.NoError(t, err)
+	// 1 L1 block to process the tx on L1 +
+	// 1 L2 block to process the tx on L2
+	require.NoError(t, stack.WaitL1(1))
+	require.NoError(t, stack.WaitL2(1))
 
 	// inspect L1 for deposit tx receipt and emitted TransactionDeposited event
 	receipt, err := l1Client.Client.TransactionReceipt(stack.Ctx, depositTx.Hash())
@@ -268,9 +270,8 @@ func requireEthIsMinted(t *testing.T, appchainClient *bftclient.HTTP) {
 		&perPage,
 		orderBy,
 	)
-
 	require.NoError(t, err, "search transactions")
-
+	require.NotNil(t, result)
 	require.NotEmpty(t, result.Txs, "mint_eth event not found")
 	t.Log("Monomer can mint_eth from L1 user deposits")
 }
