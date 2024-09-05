@@ -506,6 +506,8 @@ func checkDepositTxResult(t *testing.T, txStore txstore.TxStore, depositTx bftty
 	require.Equal(t, expectedDepositAmount, actualDepositAmount, "Deposit amount mismatch")
 }
 
+// getEventData retrieves event data from the subscription channel. The event data is retrieved in the order
+// that it was published with the event bus.
 func getEventData[T any](t *testing.T, subscription bfttypes.Subscription) T {
 	select {
 	case event, ok := <-subscription.Out():
