@@ -243,6 +243,9 @@ func (b *Builder) publishEvents(txResults []*abcitypes.TxResult, block *monomer.
 	if err := b.eventBus.PublishEventNewBlock(bfttypes.EventDataNewBlock{
 		Block:               block.ToCometLikeBlock(),
 		ResultFinalizeBlock: *resp,
+		BlockID: bfttypes.BlockID{
+			Hash: block.Header.Hash.Bytes(),
+		},
 	}); err != nil {
 		return fmt.Errorf("publish event new block: %v", err)
 	}
