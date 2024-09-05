@@ -8,6 +8,7 @@ import (
 
 	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
+	"github.com/cometbft/cometbft/libs/bytes"
 	cmtpubsub "github.com/cometbft/cometbft/libs/pubsub"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/common"
@@ -95,8 +96,8 @@ func TestBuild(t *testing.T) {
 
 	for description, test := range tests {
 		t.Run(description, func(t *testing.T) {
-			// +1 because we want it to be buffered even when mempool and inclusion list are empty.
-			subChannelLen := len(test.mempool) + len(test.inclusionList) + 1
+			// +4 because there are 3 block events and we want it to be buffered by 1 even when mempool and inclusion list are empty.
+			subChannelLen := len(test.mempool) + len(test.inclusionList) + 4
 			env, subscription := setupTestEnvironmentAndSubscribe(t, subChannelLen)
 
 			inclusionListTxs := append([][]byte{testutils.GenerateBlock(t).Txs[0]}, testapp.ToTxs(t, test.inclusionList)...)
@@ -167,6 +168,7 @@ func TestBuild(t *testing.T) {
 			require.Equal(t, appHash[:], postBuildInfo.GetLastBlockAppHash())
 
 			// Tx store and event bus.
+			wantBlockEvents := make([]abcitypes.Event, 0, len(wantBlock.Txs))
 			for i, tx := range wantBlock.Txs {
 				// Tx store.
 				got, err := env.txStore.Get(tx.Hash())
@@ -174,9 +176,24 @@ func TestBuild(t *testing.T) {
 				checkTxResult(t, got, wantBlock, i, tx)
 
 				// Event bus.
-				eventData := getEventData(t, subscription)
-				checkTxResult(t, &eventData.TxResult, wantBlock, i, tx)
+				eventDataTx := getEventData[bfttypes.EventDataTx](t, subscription)
+				checkTxResult(t, &eventDataTx.TxResult, wantBlock, i, tx)
+
+				wantBlockEvents = append(wantBlockEvents, eventDataTx.Result.Events...)
 			}
+
+			eventDataNewBlockEvents := getEventData[bfttypes.EventDataNewBlockEvents](t, subscription)
+			require.Equal(t, int64(wantBlock.Header.Height), eventDataNewBlockEvents.Height)
+			require.Equal(t, int64(len(wantBlock.Txs)), eventDataNewBlockEvents.NumTxs)
+			require.Equal(t, wantBlockEvents, eventDataNewBlockEvents.Events)
+
+			eventDataNewBlock := getEventData[bfttypes.EventDataNewBlock](t, subscription)
+			require.Equal(t, wantBlock.ToCometLikeBlock(), eventDataNewBlock.Block)
+			require.Equal(t, bytes.HexBytes(wantBlock.Header.Hash.Bytes()), eventDataNewBlock.BlockID.Hash)
+
+			eventDataNewBlockHeader := getEventData[bfttypes.EventDataNewBlockHeader](t, subscription)
+			require.Equal(t, *wantBlock.Header.ToComet(), eventDataNewBlockHeader.Header)
+
 			require.NoError(t, subscription.Err())
 		})
 	}
@@ -265,8 +282,8 @@ func getAppHashFromEVM(ethState *state.StateDB, header *monomer.Header) (common.
 }
 
 func TestBuildRollupTxs(t *testing.T) {
-	// 3 for L1 attribute, deposit, and withdrawal txs, plus 1 as buffer
-	subChannelLen := 4
+	// 3 for block events, 2 for deposit and withdrawal txs, plus 1 as buffer
+	subChannelLen := 6
 	env, subscription := setupTestEnvironmentAndSubscribe(t, subChannelLen)
 	generatedBlock := testutils.GenerateBlock(t)
 
@@ -355,7 +372,7 @@ func TestBuildRollupTxs(t *testing.T) {
 	}
 
 	for _, expectedEvent := range expectedEvents {
-		eventData := getEventData(t, subscription)
+		eventData := getEventData[bfttypes.EventDataTx](t, subscription)
 		require.Equal(t, expectedEvent, eventData.Result.Events[0].Attributes[0].Value,
 			"Unexpected event type")
 	}
@@ -489,15 +506,18 @@ func checkDepositTxResult(t *testing.T, txStore txstore.TxStore, depositTx bftty
 	require.Equal(t, expectedDepositAmount, actualDepositAmount, "Deposit amount mismatch")
 }
 
-func getEventData(t *testing.T, subscription bfttypes.Subscription) bfttypes.EventDataTx {
+// getEventData retrieves event data from the subscription channel. The event data is retrieved in the order
+// that it was published with the event bus.
+func getEventData[T any](t *testing.T, subscription bfttypes.Subscription) T {
+	var eventType T
 	select {
 	case event, ok := <-subscription.Out():
 		require.True(t, ok, "Event channel closed unexpectedly")
-		data, ok := event.Data().(bfttypes.EventDataTx)
-		require.True(t, ok, "Expected EventDataTx type")
+		data, ok := event.Data().(T)
+		require.True(t, ok, "Expected %T type", eventType)
 		return data
 	case <-subscription.Canceled():
 		require.FailNow(t, "Subscription channel closed unexpectedly")
-		return bfttypes.EventDataTx{} // This line will never be reached due to FailNow, but it's needed for compilation
+		return eventType // This line will never be reached due to FailNow, but it's needed for compilation
 	}
 }
