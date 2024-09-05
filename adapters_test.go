@@ -178,7 +178,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("returns error when MsgL1Tx contains only non-deposit txs", func(t *testing.T) {
+	t.Run("returns error when MsgApplyL1Tx contains only non-deposit txs", func(t *testing.T) {
 		txBytes, _, _ := generateTxsAndTxsBytes(t, 0, 5)
 		msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{TxBytes: txBytes})
 		require.NoError(t, err)
@@ -187,7 +187,7 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 		require.Error(t, err)
 	})
 
-	t.Run("returns error when unable to unmarshal binary data within MsgL1Tx", func(t *testing.T) {
+	t.Run("returns error when unable to unmarshal binary data within MsgApplyL1Tx", func(t *testing.T) {
 		msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{TxBytes: [][]byte{[]byte("invalid")}})
 		require.NoError(t, err)
 		depositSDKMsgBytes := generateDepositSDKMsgBytes(t, msgAny, nil)
