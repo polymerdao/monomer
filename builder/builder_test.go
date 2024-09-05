@@ -509,14 +509,15 @@ func checkDepositTxResult(t *testing.T, txStore txstore.TxStore, depositTx bftty
 // getEventData retrieves event data from the subscription channel. The event data is retrieved in the order
 // that it was published with the event bus.
 func getEventData[T any](t *testing.T, subscription bfttypes.Subscription) T {
+	var eventType T
 	select {
 	case event, ok := <-subscription.Out():
 		require.True(t, ok, "Event channel closed unexpectedly")
 		data, ok := event.Data().(T)
-		require.True(t, ok, "Expected %T type", *new(T))
+		require.True(t, ok, "Expected %T type", eventType)
 		return data
 	case <-subscription.Canceled():
 		require.FailNow(t, "Subscription channel closed unexpectedly")
-		return *new(T) // This line will never be reached due to FailNow, but it's needed for compilation
+		return eventType // This line will never be reached due to FailNow, but it's needed for compilation
 	}
 }
