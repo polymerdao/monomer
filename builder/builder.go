@@ -227,7 +227,7 @@ func (b *Builder) publishEvents(txResults []*abcitypes.TxResult, block *monomer.
 		if err := b.eventBus.PublishEventTx(bfttypes.EventDataTx{
 			TxResult: *txResult,
 		}); err != nil {
-			return fmt.Errorf("publish event tx: %v", err)
+			return fmt.Errorf("publish tx event: %v", err)
 		}
 		blockEvents = append(blockEvents, txResult.Result.Events...)
 	}
@@ -237,7 +237,7 @@ func (b *Builder) publishEvents(txResults []*abcitypes.TxResult, block *monomer.
 		Events: blockEvents,
 		NumTxs: int64(numTxs),
 	}); err != nil {
-		return fmt.Errorf("publish event new block events: %v", err)
+		return fmt.Errorf("publish new block events event: %v", err)
 	}
 
 	if err := b.eventBus.PublishEventNewBlock(bfttypes.EventDataNewBlock{
@@ -247,13 +247,13 @@ func (b *Builder) publishEvents(txResults []*abcitypes.TxResult, block *monomer.
 			Hash: block.Header.Hash.Bytes(),
 		},
 	}); err != nil {
-		return fmt.Errorf("publish event new block: %v", err)
+		return fmt.Errorf("publish new block event: %v", err)
 	}
 
 	if err := b.eventBus.PublishEventNewBlockHeader(bfttypes.EventDataNewBlockHeader{
 		Header: *block.Header.ToComet(),
 	}); err != nil {
-		return fmt.Errorf("publish event new block header: %v", err)
+		return fmt.Errorf("publish new block header event: %v", err)
 	}
 
 	return nil
