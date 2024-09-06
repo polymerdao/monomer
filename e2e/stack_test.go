@@ -123,23 +123,47 @@ func TestE2E(t *testing.T) {
 }
 
 func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
-	lastBlock, err := stack.MonomerClient.BlockByNumber(stack.Ctx, nil)
+	// Subscribe to new block header events
+	const subscriber = "rollbackChecker"
+	eventChan, err := stack.L2Client.Subscribe(stack.Ctx, subscriber, bfttypes.QueryForEvent(bfttypes.EventNewBlockHeader).String())
 	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, stack.L2Client.UnsubscribeAll(context.Background(), subscriber))
+	}()
+
+	l1BlockTicker := time.NewTicker(250 * time.Millisecond)
+	defer l1BlockTicker.Stop()
+
+	var lastBlockHeight int64
+
 	for {
-		currentBlock, err := stack.MonomerClient.BlockByNumber(stack.Ctx, nil)
-		require.NoError(t, err)
-		// Ensure that the current monomer block height isn't less than the last checked monomer block height.
-		if currentBlock.Number().Int64() < lastBlock.Number().Int64() {
-			require.Fail(t, "monomer has rolled back")
+		select {
+		// Check new block header events for rollbacks
+		case event := <-eventChan:
+			eventNewBlockHeader, ok := event.Data.(bfttypes.EventDataNewBlockHeader)
+			require.True(t, ok)
+			currentHeight := eventNewBlockHeader.Header.Height
+
+			// Ensure that the current block height is not less than the last checked height
+			if lastBlockHeight > 0 && currentHeight < lastBlockHeight {
+				require.FailNow(t, "monomer has rolled back")
+			}
+			lastBlockHeight = currentHeight
+
+		// End the test once a sequencing epoch has passed.
+		case <-l1BlockTicker.C:
+			l1Block, err := stack.L1Client.BlockByNumber(stack.Ctx, nil)
+			require.NoError(t, err)
+			if l1Block.Number().Uint64() >= stack.SequencerWindowSize+1 {
+				t.Log("No Monomer rollbacks detected")
+				return
+			}
+
+		// Timeout if no events are received within 5 seconds
+		case <-time.After(10 * time.Second):
+			require.FailNow(t, "timeout waiting for block events")
 		}
-		// End the test once the target monomer block height is reached
-		if currentBlock.Number().Int64() >= int64(15) {
-			break
-		}
-		lastBlock = currentBlock
-		time.Sleep(250 * time.Millisecond)
 	}
-	t.Log("No Monomer rollbacks detected")
 }
 
 func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
