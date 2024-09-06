@@ -128,7 +128,7 @@ func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
 	eventChan, err := stack.L2Client.Subscribe(stack.Ctx, subscriber, bfttypes.QueryForEvent(bfttypes.EventNewBlockHeader).String())
 	require.NoError(t, err)
 	defer func() {
-		require.NoError(t, stack.L2Client.UnsubscribeAll(context.Background(), subscriber))
+		require.NoError(t, stack.L2Client.UnsubscribeAll(stack.Ctx, subscriber))
 	}()
 
 	l1BlockTicker := time.NewTicker(250 * time.Millisecond)
