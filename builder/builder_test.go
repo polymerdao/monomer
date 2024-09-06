@@ -168,7 +168,7 @@ func TestBuild(t *testing.T) {
 			require.Equal(t, appHash[:], postBuildInfo.GetLastBlockAppHash())
 
 			// Tx store and event bus.
-			wantBlockEvents := make([]abcitypes.Event, 0, len(wantBlock.Txs))
+			expectedTxResults := make([]*abcitypes.ExecTxResult, 0, len(wantBlock.Txs))
 			for i, tx := range wantBlock.Txs {
 				// Tx store.
 				got, err := env.txStore.Get(tx.Hash())
@@ -179,17 +179,21 @@ func TestBuild(t *testing.T) {
 				eventDataTx := getEventData[bfttypes.EventDataTx](t, subscription)
 				checkTxResult(t, &eventDataTx.TxResult, wantBlock, i, tx)
 
-				wantBlockEvents = append(wantBlockEvents, eventDataTx.Result.Events...)
+				expectedTxResults = append(expectedTxResults, &eventDataTx.TxResult.Result)
 			}
 
+			var expectedBlockEvents []abcitypes.Event
 			eventDataNewBlockEvents := getEventData[bfttypes.EventDataNewBlockEvents](t, subscription)
 			require.Equal(t, int64(wantBlock.Header.Height), eventDataNewBlockEvents.Height)
 			require.Equal(t, int64(len(wantBlock.Txs)), eventDataNewBlockEvents.NumTxs)
-			require.Equal(t, wantBlockEvents, eventDataNewBlockEvents.Events)
+			require.Equal(t, expectedBlockEvents, eventDataNewBlockEvents.Events)
 
 			eventDataNewBlock := getEventData[bfttypes.EventDataNewBlock](t, subscription)
 			require.Equal(t, wantBlock.ToCometLikeBlock(), eventDataNewBlock.Block)
 			require.Equal(t, bytes.HexBytes(wantBlock.Header.Hash.Bytes()), eventDataNewBlock.BlockID.Hash)
+			require.Equal(t, expectedBlockEvents, eventDataNewBlock.ResultFinalizeBlock.Events)
+			require.Equal(t, expectedTxResults, eventDataNewBlock.ResultFinalizeBlock.TxResults)
+			require.Equal(t, postBuildInfo.GetLastBlockAppHash(), eventDataNewBlock.ResultFinalizeBlock.AppHash)
 
 			eventDataNewBlockHeader := getEventData[bfttypes.EventDataNewBlockHeader](t, subscription)
 			require.Equal(t, *wantBlock.Header.ToComet(), eventDataNewBlockHeader.Header)
