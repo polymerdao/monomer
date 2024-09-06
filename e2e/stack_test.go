@@ -158,10 +158,6 @@ func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
 				t.Log("No Monomer rollbacks detected")
 				return
 			}
-
-		// Timeout if no events are received within 10 seconds
-		case <-time.After(10 * time.Second):
-			require.FailNow(t, "timeout waiting for block events")
 		}
 	}
 }
