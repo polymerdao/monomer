@@ -71,6 +71,11 @@ func TestE2E(t *testing.T) {
 	if err := os.Mkdir(artifactsDirectoryName, 0o755); !errors.Is(err, os.ErrExist) {
 		require.NoError(t, err)
 	}
+
+	// Unfortunately, geth and parts of the OP Stack occasionally use the root logger.
+	// We capture the root logger's output in a separate file.
+	log.SetDefault(log.NewLogger(log.NewTerminalHandler(openLogFile(t, env, "root-logger"), false)))
+
 	opLogger := log.NewTerminalHandler(openLogFile(t, env, "op"), false)
 
 	prometheusCfg := &config.InstrumentationConfig{
