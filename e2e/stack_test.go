@@ -4,21 +4,17 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
-	"os"
-	"path/filepath"
-	"sync"
-	"testing"
-	"time"
-
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/config"
 	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	bfttypes "github.com/cometbft/cometbft/types"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/node"
@@ -26,6 +22,11 @@ import (
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slog"
+	"math/big"
+	"os"
+	"path/filepath"
+	"sync"
+	"testing"
 )
 
 const (
@@ -123,42 +124,39 @@ func TestE2E(t *testing.T) {
 }
 
 func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
-	// Subscribe to new block header events
+	// Subscribe to new block events
 	const subscriber = "rollbackChecker"
-	eventChan, err := stack.L2Client.Subscribe(stack.Ctx, subscriber, bfttypes.QueryForEvent(bfttypes.EventNewBlockHeader).String())
+	eventChan, err := stack.L2Client.Subscribe(stack.Ctx, subscriber, bfttypes.QueryForEvent(bfttypes.EventNewBlock).String())
 	require.NoError(t, err)
 	defer func() {
 		require.NoError(t, stack.L2Client.UnsubscribeAll(stack.Ctx, subscriber))
 	}()
 
-	l1BlockTicker := time.NewTicker(250 * time.Millisecond)
-	defer l1BlockTicker.Stop()
-
 	var lastBlockHeight int64
 
-	for {
-		select {
-		// Check new block header events for rollbacks
-		case event := <-eventChan:
-			eventNewBlockHeader, ok := event.Data.(bfttypes.EventDataNewBlockHeader)
-			require.True(t, ok)
-			currentHeight := eventNewBlockHeader.Header.Height
+	// Check new block events for rollbacks
+	for event := range eventChan {
+		eventNewBlock, ok := event.Data.(bfttypes.EventDataNewBlock)
+		require.True(t, ok)
+		currentHeight := eventNewBlock.Block.Header.Height
 
-			// Skip the rollback check if lastBlockHeight is not initialized yet
-			if lastBlockHeight > 0 {
-				// Ensure that the current block height is the last checked height + 1
-				require.Equal(t, currentHeight, lastBlockHeight+1, "monomer has rolled back")
-			}
-			lastBlockHeight = currentHeight
+		// Skip the rollback check if lastBlockHeight is not initialized yet
+		if lastBlockHeight > 0 {
+			// Ensure that the current block height is the last checked height + 1
+			require.Equal(t, currentHeight, lastBlockHeight+1, "monomer has rolled back")
+		}
+		lastBlockHeight = currentHeight
 
-		// End the test once a sequencing epoch has passed.
-		case <-l1BlockTicker.C:
-			l1Block, err := stack.L1Client.BlockByNumber(stack.Ctx, nil)
-			require.NoError(t, err)
-			if l1Block.Number().Uint64() >= stack.SequencerWindowSize+1 {
-				t.Log("No Monomer rollbacks detected")
-				return
-			}
+		// Get the L1 block info from the first tx in the block
+		ethTxs, err := monomer.AdaptCosmosTxsToEthTxs(eventNewBlock.Block.Txs)
+		require.NoError(t, err)
+		l1BlockInfo, err := derive.L1BlockInfoFromBytes(&rollup.Config{}, uint64(eventNewBlock.Block.Time.Unix()), ethTxs[0].Data())
+		require.NoError(t, err)
+
+		// End the test once a sequencing window has passed.
+		if l1BlockInfo.Number >= stack.SequencerWindowSize+1 {
+			t.Log("No Monomer rollbacks detected")
+			return
 		}
 	}
 }
