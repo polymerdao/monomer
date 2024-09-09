@@ -8,9 +8,11 @@ import (
 	"math/big"
 	"time"
 
+	hdwallet "github.com/ethereum-optimism/go-ethereum-hdwallet"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	opbatchermetrics "github.com/ethereum-optimism/optimism/op-batcher/metrics"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	opnodemetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
 	opnode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -22,6 +24,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
+	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -89,33 +92,28 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 		return errors.New("stack operator balance is 0")
 	}
 
-	// Use the same tx manager config for the op-proposer and op-batcher.
+	// Since the L2OutputOracle contract is deployed on L1 through allocs-l1.json, we need to use the proposer private
+	// key that corresponds to the PROPOSER constant to sign the proposer transactions.
+	// https://github.com/ethereum-optimism/optimism/blob/5b13bad/packages/contracts-bedrock/src/L1/L2OutputOracle.sol#L197
+	wallet, err := hdwallet.NewFromMnemonic(e2eutils.DefaultMnemonicConfig.Mnemonic)
+	if err != nil {
+		return fmt.Errorf("create wallet with op e2e mnemonic: %w", err)
+	}
+	proposerPrivKey, err := wallet.PrivateKey(accounts.Account{URL: accounts.URL{Path: e2eutils.DefaultMnemonicConfig.Proposer}})
+	if err != nil {
+		return fmt.Errorf("get proposer private key: %w", err)
+	}
+
 	l1ChainID, err := l1.ChainID(ctx)
 	if err != nil {
 		return fmt.Errorf("get l1 chain id: %v", err)
 	}
-	txManagerConfig := &txmgr.Config{
-		Backend: l1,
-		ChainID: l1ChainID,
-		// https://github.com/ethereum-optimism/optimism/blob/5b13bad9883fa5737af67ba3ee700aaa8737f686/op-e2e/setup.go#L83-L93
-		NumConfirmations:          1,
-		SafeAbortNonceTooLowCount: 3,
-		FeeLimitMultiplier:        5,
-		ResubmissionTimeout:       3 * time.Second,
-		ReceiptQueryInterval:      50 * time.Millisecond,
-		NetworkTimeout:            2 * time.Second,
-		TxNotInMempoolTimeout:     2 * time.Minute,
-		Signer: func(ctx context.Context, address common.Address, tx *ethtypes.Transaction) (*ethtypes.Transaction, error) {
-			return opcrypto.PrivateKeySignerFn(op.privKey, l1ChainID)(address, tx)
-		},
-		From: crypto.PubkeyToAddress(op.privKey.PublicKey),
-	}
 
-	if err := op.runProposer(ctx, env, l1, txManagerConfig); err != nil {
+	if err := op.runProposer(ctx, env, l1, op.newTxManagerConfig(l1, l1ChainID, proposerPrivKey)); err != nil {
 		return err
 	}
 
-	if err := op.runBatcher(ctx, env, l1, txManagerConfig); err != nil {
+	if err := op.runBatcher(ctx, env, l1, op.newTxManagerConfig(l1, l1ChainID, op.privKey)); err != nil {
 		return err
 	}
 	return nil
@@ -253,6 +251,25 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 		return batchSubmitter.StopBatchSubmitting(ctx)
 	})
 	return nil
+}
+
+func (op *OPStack) newTxManagerConfig(l1 txmgr.ETHBackend, l1ChainID *big.Int, key *ecdsa.PrivateKey) *txmgr.Config {
+	return &txmgr.Config{
+		Backend: l1,
+		ChainID: l1ChainID,
+		// https://github.com/ethereum-optimism/optimism/blob/5b13bad9883fa5737af67ba3ee700aaa8737f686/op-e2e/setup.go#L83-L93
+		NumConfirmations:          1,
+		SafeAbortNonceTooLowCount: 3,
+		FeeLimitMultiplier:        5,
+		ResubmissionTimeout:       3 * time.Second,
+		ReceiptQueryInterval:      50 * time.Millisecond,
+		NetworkTimeout:            2 * time.Second,
+		TxNotInMempoolTimeout:     2 * time.Minute,
+		Signer: func(ctx context.Context, address common.Address, tx *ethtypes.Transaction) (*ethtypes.Transaction, error) {
+			return opcrypto.PrivateKeySignerFn(key, l1ChainID)(address, tx)
+		},
+		From: crypto.PubkeyToAddress(key.PublicKey),
+	}
 }
 
 func (op *OPStack) newLogger(name string) log.Logger {
