@@ -4,16 +4,18 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"math/big"
 	"strings"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/polymerdao/monomer"
+	"github.com/polymerdao/monomer/eth/internal/ethapi"
 )
 
 const commonHashLength = 32
@@ -21,6 +23,7 @@ const commonHashLength = 32
 type ProofBlockDB interface {
 	HeadBlock() (*monomer.Block, error)
 	BlockByHeight(uint64) (*monomer.Block, error)
+	BlockByHash(common.Hash) (*monomer.Block, error)
 }
 
 type ProofProvider struct {
@@ -48,140 +51,20 @@ func NewProofProvider(db state.Database, blockStore ProofBlockDB) *ProofProvider
 	}
 }
 
-// getState returns the state.StateBD and Header of block at the given number.
-// If the passed number is nil, it returns the the db and header of the latest block.
-func (p *ProofProvider) getState(blockNumber *big.Int) (*state.StateDB, *types.Header, error) {
-	var block *monomer.Block
-	var err error
-
-	if blockNumber == nil {
-		block, err = p.blockStore.HeadBlock()
-	} else {
-		block, err = p.blockStore.BlockByHeight(blockNumber.Uint64())
-	}
-	if err != nil {
-		return nil, nil, fmt.Errorf("get eth block %d: %w", blockNumber, err)
-	}
-	ethBlock, err := block.ToEth()
-	if err != nil {
-		return nil, nil, fmt.Errorf("convert block to Ethereum representation: %v", err)
-	}
-
-	header := ethBlock.Header()
-	hash := ethBlock.Hash()
-
-	sdb, err := state.New(hash, p.database, nil)
-	if err != nil {
-		return nil, nil, fmt.Errorf("opening state.StateDB: %w", err)
-	}
-
-	return sdb, header, nil
-}
-
-// decodeHash parses a hex-encoded 32-byte hash. The input may optionally
-// be prefixed by 0x and can have a byte length up to 32.
-func decodeHash(s string) (h common.Hash, inputLength int, err error) {
-	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
-		s = s[2:]
-	}
-	if (len(s) & 1) > 0 {
-		s = "0" + s
-	}
-	b, err := hex.DecodeString(s)
-	if err != nil {
-		return common.Hash{}, 0, errors.New("hex string invalid")
-	}
-	if len(b) > commonHashLength {
-		return common.Hash{}, len(b), errors.New("hex string too long, want at most 32 bytes")
-	}
-	return common.BytesToHash(b), len(b), nil
-}
-
-// AccountResult is the result of a GetProof operation.
-type AccountResult struct {
-	Address      common.Address  `json:"address"`
-	AccountProof []string        `json:"accountProof"`
-	Balance      *big.Int        `json:"balance"`
-	CodeHash     common.Hash     `json:"codeHash"`
-	Nonce        uint64          `json:"nonce"`
-	StorageHash  common.Hash     `json:"storageHash"`
-	StorageProof []StorageResult `json:"storageProof"`
-}
-
-// StorageResult provides a proof for a key-value pair.
-type StorageResult struct {
-	Key   string   `json:"key"`
-	Value *big.Int `json:"value"`
-	Proof []string `json:"proof"`
-}
-
 // GetProof returns the account and storage values of the specified account including the Merkle-proof.
-// The block number can be nil, in which case the value is taken from the latest known block.
+// The user can specify either a block number or a block hash to build to proof from.
 //
 // implementation copied, with light modifications, from
-// https://github.com/ethereum-optimism/op-geth/blob/f2e69450c6eec9c35d56af91389a1c47737206ca/ethclient/gethclient/gethclient.go#L83
-// (HEAD @ 2024-07-29)
-func (p *ProofProvider) GetProof(account common.Address, keys []string, blockNumber *big.Int) (*AccountResult, error) {
-	// Avoid keys being 'null'.
-	if keys == nil {
-		keys = []string{}
-	}
-
-	//////////
-	// Start: Monomer-specific modifications
-	//////////
-
-	// a call against an internally exposed API - ec.c.CallContext(ctx, &res, "eth_getProof", account, keys, toBlockNumArg(blockNumber))
-	// is replaced with a call to an adjacent function implementation
-	res, err := p.getProof(account, keys, blockNumber)
-	if err != nil {
-		return nil, err
-	}
-
-	//////////
-	// End: Monomer-specific modifications
-	//////////
-
-	// Turn hexutils back to normal datatypes
-	storageResults := make([]StorageResult, 0, len(res.StorageProof))
-	for _, st := range res.StorageProof {
-		storageResults = append(storageResults, StorageResult{
-			Key:   st.Key,
-			Value: st.Value.ToInt(),
-			Proof: st.Proof,
-		})
-	}
-
-	result := AccountResult{
-		Address:      res.Address,
-		AccountProof: res.AccountProof,
-		Balance:      res.Balance.ToInt(),
-		Nonce:        uint64(res.Nonce),
-		CodeHash:     res.CodeHash,
-		StorageHash:  res.StorageHash,
-		StorageProof: storageResults,
-	}
-	return &result, err
-}
-
-///////
-//
-// geth.INTERNAL functionality
-//
-// todo: move to an `eth.internal` folder?
-//
-////////
-
-// GetProof returns the Merkle-proof for a given account and optionally some storage keys.
-//
-// implementation copied, with light modifications, from
-// https://github.com/ethereum-optimism/op-geth/blob/f2e69450c6eec9c35d56af91389a1c47737206ca/internal/ethapi/api.go#L708
-// (HEAD @ 2024-07-29)
-func (p *ProofProvider) getProof(address common.Address, storageKeys []string, blockNumber *big.Int) (*accountResult, error) {
+// https://github.com/ethereum-optimism/op-geth/blob/3653ceb/internal/ethapi/api.go#L708
+func (p *ProofProvider) GetProof(
+	address common.Address,
+	storageKeys []string,
+	blockNrOrHash rpc.BlockNumberOrHash,
+) (*ethapi.AccountResult, error) {
 	var (
 		keys         = make([]common.Hash, len(storageKeys))
 		keyLengths   = make([]int, len(storageKeys))
-		storageProof = make([]storageResult, len(storageKeys))
+		storageProof = make([]ethapi.StorageResult, len(storageKeys))
 	)
 	// Deserialize all keys. This prevents state access on invalid input.
 	for i, hexKey := range storageKeys {
@@ -191,29 +74,18 @@ func (p *ProofProvider) getProof(address common.Address, storageKeys []string, b
 			return nil, err
 		}
 	}
-
-	//////////
-	// Start: Monomer-specific modifications
-	//////////
-
-	// the internal geth mechanism contained different hooks into block state data
-	statedb, header, err := p.getState(blockNumber)
-
-	//////////
-	// End: Monomer-specific modifications
-	//////////
-
-	if statedb == nil || err != nil {
-		return nil, err
+	stateDB, stateRoot, err := p.getState(blockNrOrHash)
+	if err != nil {
+		return nil, fmt.Errorf("get state by block number or hash: %w", err)
 	}
-	codeHash := statedb.GetCodeHash(address)
-	storageRoot := statedb.GetStorageRoot(address)
+	codeHash := stateDB.GetCodeHash(address)
+	storageRoot := stateDB.GetStorageRoot(address)
 
 	if len(keys) > 0 {
 		var storageTrie state.Trie
 		if storageRoot != types.EmptyRootHash && storageRoot != (common.Hash{}) {
-			id := trie.StorageTrieID(header.Root, crypto.Keccak256Hash(address.Bytes()), storageRoot)
-			st, err := trie.NewStateTrie(id, statedb.Database().TrieDB())
+			id := trie.StorageTrieID(stateRoot, crypto.Keccak256Hash(address.Bytes()), storageRoot)
+			st, err := trie.NewStateTrie(id, stateDB.Database().TrieDB())
 			if err != nil {
 				return nil, err
 			}
@@ -232,19 +104,19 @@ func (p *ProofProvider) getProof(address common.Address, storageKeys []string, b
 				outputKey = hexutil.Encode(key[:])
 			}
 			if storageTrie == nil {
-				storageProof[i] = storageResult{outputKey, &hexutil.Big{}, []string{}}
+				storageProof[i] = ethapi.StorageResult{Key: outputKey, Value: &hexutil.Big{}, Proof: []string{}}
 				continue
 			}
 			var proof proofList
 			if err := storageTrie.Prove(crypto.Keccak256(key.Bytes()), &proof); err != nil {
 				return nil, err
 			}
-			value := (*hexutil.Big)(statedb.GetState(address, key).Big())
-			storageProof[i] = storageResult{outputKey, value, proof}
+			value := (*hexutil.Big)(stateDB.GetState(address, key).Big())
+			storageProof[i] = ethapi.StorageResult{Key: outputKey, Value: value, Proof: proof}
 		}
 	}
 	// Create the accountProof.
-	tr, err := trie.NewStateTrie(trie.StateTrieID(header.Root), statedb.Database().TrieDB())
+	tr, err := trie.NewStateTrie(trie.StateTrieID(stateRoot), stateDB.Database().TrieDB())
 	if err != nil {
 		return nil, err
 	}
@@ -252,31 +124,81 @@ func (p *ProofProvider) getProof(address common.Address, storageKeys []string, b
 	if err := tr.Prove(crypto.Keccak256(address.Bytes()), &accountProof); err != nil {
 		return nil, err
 	}
-	balance := statedb.GetBalance(address).ToBig()
-	return &accountResult{
+	balance := stateDB.GetBalance(address).ToBig()
+	return &ethapi.AccountResult{
 		Address:      address,
 		AccountProof: accountProof,
 		Balance:      (*hexutil.Big)(balance),
 		CodeHash:     codeHash,
-		Nonce:        hexutil.Uint64(statedb.GetNonce(address)),
+		Nonce:        hexutil.Uint64(stateDB.GetNonce(address)),
 		StorageHash:  storageRoot,
 		StorageProof: storageProof,
-	}, statedb.Error()
+	}, stateDB.Error()
 }
 
-// accountResult structs for internal getProof method
-type accountResult struct {
-	Address      common.Address  `json:"address"`
-	AccountProof []string        `json:"accountProof"`
-	Balance      *hexutil.Big    `json:"balance"`
-	CodeHash     common.Hash     `json:"codeHash"`
-	Nonce        hexutil.Uint64  `json:"nonce"`
-	StorageHash  common.Hash     `json:"storageHash"`
-	StorageProof []storageResult `json:"storageProof"`
+// getState returns the state.StateDB and state root of the Monomer block at the given block number or hash.
+// If the passed block number is "latest", it returns the db and state root of the latest block.
+func (p *ProofProvider) getState(blockNrOrHash rpc.BlockNumberOrHash) (*state.StateDB, common.Hash, error) {
+	var (
+		block *monomer.Block
+		err   error
+	)
+	if blockNr, ok := blockNrOrHash.Number(); ok {
+		if blockNr == rpc.LatestBlockNumber {
+			block, err = p.blockStore.HeadBlock()
+		} else if blockNr == rpc.EarliestBlockNumber || blockNr == rpc.PendingBlockNumber ||
+			blockNr == rpc.SafeBlockNumber || blockNr == rpc.FinalizedBlockNumber {
+			return nil, common.Hash{}, fmt.Errorf("\"%s\" is not supported; either use \"latest\" or a valid block number or hash", blockNr)
+		} else {
+			block, err = p.blockStore.BlockByHeight(uint64(blockNr))
+		}
+		if err != nil {
+			return nil, common.Hash{}, fmt.Errorf("get block by height (%d): %w", blockNr, err)
+		}
+	} else if hash, ok := blockNrOrHash.Hash(); ok {
+		block, err = p.blockStore.BlockByHash(hash)
+		if err != nil {
+			return nil, common.Hash{}, fmt.Errorf("get block by hash (%s): %w", hash, err)
+		}
+	}
+
+	if block == nil {
+		return nil, common.Hash{}, fmt.Errorf("block %w", ethereum.NotFound)
+	}
+	header := block.Header
+	if header == nil {
+		return nil, common.Hash{}, fmt.Errorf("header %w", ethereum.NotFound)
+	}
+
+	stateDB, err := state.New(header.StateRoot, p.database, nil)
+	if err != nil {
+		return nil, common.Hash{}, fmt.Errorf("opening state.StateDB: %w", err)
+	}
+	if stateDB == nil {
+		return nil, common.Hash{}, fmt.Errorf("stateDB %w", ethereum.NotFound)
+	}
+
+	return stateDB, header.StateRoot, nil
 }
 
-type storageResult struct {
-	Key   string       `json:"key"`
-	Value *hexutil.Big `json:"value"`
-	Proof []string     `json:"proof"`
+// decodeHash parses a hex-encoded 32-byte hash. The input may optionally
+// be prefixed by 0x and can have a byte length up to 32.
+//
+// implementation copied, with light modifications, from
+// https://github.com/ethereum-optimism/op-geth/blob/3653ceb/internal/ethapi/api.go#L802
+func decodeHash(s string) (h common.Hash, inputLength int, err error) {
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		s = s[2:]
+	}
+	if (len(s) & 1) > 0 {
+		s = "0" + s
+	}
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return common.Hash{}, 0, errors.New("hex string invalid")
+	}
+	if len(b) > commonHashLength {
+		return common.Hash{}, len(b), errors.New("hex string too long, want at most 32 bytes")
+	}
+	return common.BytesToHash(b), len(b), nil
 }
