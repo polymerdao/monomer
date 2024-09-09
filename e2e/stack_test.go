@@ -144,9 +144,10 @@ func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
 			require.True(t, ok)
 			currentHeight := eventNewBlockHeader.Header.Height
 
-			// Ensure that the current block height is not less than the last checked height
-			if lastBlockHeight > 0 && currentHeight < lastBlockHeight {
-				require.FailNow(t, "monomer has rolled back")
+			// Skip the rollback check if lastBlockHeight is not initialized yet
+			if lastBlockHeight > 0 {
+				// Ensure that the current block height is the last checked height + 1
+				require.Equal(t, currentHeight, lastBlockHeight+1, "monomer has rolled back")
 			}
 			lastBlockHeight = currentHeight
 
