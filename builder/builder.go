@@ -219,24 +219,18 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 }
 
 func (b *Builder) publishEvents(txResults []*abcitypes.TxResult, block *monomer.Block, resp *abcitypes.ResponseFinalizeBlock) error {
-	numTxs := block.Txs.Len()
-	// Initial capacity for the block events slice is conservatively set to the number of txs in the block * 3 because of
-	// the three default events per message emitted by the Cosmos SDK. This slice will dynamically expand as necessary as
-	// block events are added to it.
-	blockEvents := make([]abcitypes.Event, 0, numTxs*3)
 	for _, txResult := range txResults {
 		if err := b.eventBus.PublishEventTx(bfttypes.EventDataTx{
 			TxResult: *txResult,
 		}); err != nil {
 			return fmt.Errorf("publish tx event: %v", err)
 		}
-		blockEvents = append(blockEvents, txResult.Result.Events...)
 	}
 
 	if err := b.eventBus.PublishEventNewBlockEvents(bfttypes.EventDataNewBlockEvents{
 		Height: int64(block.Header.Height),
-		Events: blockEvents,
-		NumTxs: int64(numTxs),
+		Events: resp.Events,
+		NumTxs: int64(block.Txs.Len()),
 	}); err != nil {
 		return fmt.Errorf("publish new block events event: %v", err)
 	}

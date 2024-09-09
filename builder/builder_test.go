@@ -8,8 +8,8 @@ import (
 
 	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/libs/bytes"
 	cmtpubsub "github.com/cometbft/cometbft/libs/pubsub"
+	tmtypes "github.com/cometbft/cometbft/proto/tendermint/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -168,7 +168,7 @@ func TestBuild(t *testing.T) {
 			require.Equal(t, appHash[:], postBuildInfo.GetLastBlockAppHash())
 
 			// Tx store and event bus.
-			wantBlockEvents := make([]abcitypes.Event, 0, len(wantBlock.Txs))
+			expectedTxResults := make([]*abcitypes.ExecTxResult, 0, len(wantBlock.Txs))
 			for i, tx := range wantBlock.Txs {
 				// Tx store.
 				got, err := env.txStore.Get(tx.Hash())
@@ -179,20 +179,36 @@ func TestBuild(t *testing.T) {
 				eventDataTx := getEventData[bfttypes.EventDataTx](t, subscription)
 				checkTxResult(t, &eventDataTx.TxResult, wantBlock, i, tx)
 
-				wantBlockEvents = append(wantBlockEvents, eventDataTx.Result.Events...)
+				expectedTxResults = append(expectedTxResults, &eventDataTx.TxResult.Result)
 			}
 
-			eventDataNewBlockEvents := getEventData[bfttypes.EventDataNewBlockEvents](t, subscription)
-			require.Equal(t, int64(wantBlock.Header.Height), eventDataNewBlockEvents.Height)
-			require.Equal(t, int64(len(wantBlock.Txs)), eventDataNewBlockEvents.NumTxs)
-			require.Equal(t, wantBlockEvents, eventDataNewBlockEvents.Events)
+			var expectedBlockEvents []abcitypes.Event
 
-			eventDataNewBlock := getEventData[bfttypes.EventDataNewBlock](t, subscription)
-			require.Equal(t, wantBlock.ToCometLikeBlock(), eventDataNewBlock.Block)
-			require.Equal(t, bytes.HexBytes(wantBlock.Header.Hash.Bytes()), eventDataNewBlock.BlockID.Hash)
+			// Ensure that EventDataNewBlockEvents is emitted with the correct attributes.
+			require.Equal(t, bfttypes.EventDataNewBlockEvents{
+				Height: int64(wantBlock.Header.Height),
+				Events: expectedBlockEvents,
+				NumTxs: int64(len(wantBlock.Txs)),
+			}, getEventData[bfttypes.EventDataNewBlockEvents](t, subscription))
 
-			eventDataNewBlockHeader := getEventData[bfttypes.EventDataNewBlockHeader](t, subscription)
-			require.Equal(t, *wantBlock.Header.ToComet(), eventDataNewBlockHeader.Header)
+			// Ensure that EventDataNewBlock is emitted with the correct attributes.
+			require.Equal(t, bfttypes.EventDataNewBlock{
+				Block: wantBlock.ToCometLikeBlock(),
+				BlockID: bfttypes.BlockID{
+					Hash: wantBlock.Header.Hash.Bytes(),
+				},
+				ResultFinalizeBlock: abcitypes.ResponseFinalizeBlock{
+					Events:                expectedBlockEvents,
+					TxResults:             expectedTxResults,
+					AppHash:               postBuildInfo.GetLastBlockAppHash(),
+					ConsensusParamUpdates: &tmtypes.ConsensusParams{},
+				},
+			}, getEventData[bfttypes.EventDataNewBlock](t, subscription))
+
+			// Ensure that EventDataNewBlockHeader is emitted with the correct attributes.
+			require.Equal(t, bfttypes.EventDataNewBlockHeader{
+				Header: *wantBlock.Header.ToComet(),
+			}, getEventData[bfttypes.EventDataNewBlockHeader](t, subscription))
 
 			require.NoError(t, subscription.Err())
 		})
