@@ -21,6 +21,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	"github.com/ethereum-optimism/optimism/indexer/bindings"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -51,6 +52,7 @@ type StackConfig struct {
 	L1Portal      *bindings.OptimismPortal
 	L2Client      *bftclient.HTTP
 	MonomerClient *MonomerClient
+	RollupConfig  *rollup.Config
 	WaitL1        func(numBlocks int) error
 	WaitL2        func(numBlocks int) error
 }
@@ -250,10 +252,16 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	// construct L2 client
-	l2Client, err := bftclient.New(s.monomerCometURL.String(), s.monomerCometURL.String())
+	l2Client, err := bftclient.New(s.monomerCometURL.String(), "/websocket")
 	if err != nil {
 		return nil, fmt.Errorf("new Comet client: %v", err)
 	}
+
+	// start the L2 client
+	if err = l2Client.Start(); err != nil {
+		return nil, fmt.Errorf("start Comet client: %v", err)
+	}
+	env.DeferErr("stop Comet client", l2Client.Stop)
 
 	wait := func(numBlocks, layer int) error {
 		var client interface {
@@ -290,6 +298,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		MonomerClient: monomerClient,
 		Operator:      l1users[0],
 		Users:         l1users[1:],
+		RollupConfig:  rollupConfig,
 		WaitL1: func(numBlocks int) error {
 			return wait(numBlocks, 1)
 		},

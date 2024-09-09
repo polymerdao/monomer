@@ -14,10 +14,13 @@ import (
 	"github.com/cometbft/cometbft/config"
 	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	bfttypes "github.com/cometbft/cometbft/types"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/node"
@@ -55,6 +58,10 @@ var e2eTests = []struct {
 	{
 		name: "AttributesTX",
 		run:  containsAttributesTx,
+	},
+	{
+		name: "No Rollbacks",
+		run:  checkForRollbacks,
 	},
 }
 
@@ -120,6 +127,46 @@ func TestE2E(t *testing.T) {
 	}
 
 	runningTests.Wait()
+}
+
+func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
+	// Subscribe to new block events
+	const subscriber = "rollbackChecker"
+	eventChan, err := stack.L2Client.Subscribe(stack.Ctx, subscriber, bfttypes.QueryForEvent(bfttypes.EventNewBlock).String())
+	require.NoError(t, err)
+	defer func() {
+		require.NoError(t, stack.L2Client.UnsubscribeAll(stack.Ctx, subscriber))
+	}()
+
+	var lastBlockHeight int64
+
+	// Check new block events for rollbacks
+	for event := range eventChan {
+		eventNewBlock, ok := event.Data.(bfttypes.EventDataNewBlock)
+		require.True(t, ok)
+		currentHeight := eventNewBlock.Block.Header.Height
+
+		// Skip the rollback check if lastBlockHeight is not initialized yet
+		if lastBlockHeight > 0 {
+			// Ensure that the current block height is the last checked height + 1
+			require.Equal(t, currentHeight, lastBlockHeight+1, "monomer has rolled back")
+		}
+		lastBlockHeight = currentHeight
+
+		// Get the L1 block info from the first tx in the block
+		ethTxs, err := monomer.AdaptCosmosTxsToEthTxs(eventNewBlock.Block.Txs)
+		require.NoError(t, err)
+		l1BlockInfo, err := derive.L1BlockInfoFromBytes(&rollup.Config{}, uint64(eventNewBlock.Block.Time.Unix()), ethTxs[0].Data())
+		require.NoError(t, err)
+
+		// End the test once a sequencing window has passed.
+		if l1BlockInfo.Number >= stack.RollupConfig.SeqWindowSize+1 {
+			t.Log("No Monomer rollbacks detected")
+			return
+		}
+	}
+
+	require.Fail(t, "event chan closed prematurely")
 }
 
 func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
