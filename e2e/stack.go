@@ -21,6 +21,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	"github.com/ethereum-optimism/optimism/indexer/bindings"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -44,16 +45,16 @@ type EventListener interface {
 }
 
 type StackConfig struct {
-	Ctx                 context.Context
-	Operator            L1User
-	Users               []L1User
-	L1Client            *L1Client
-	L1Portal            *bindings.OptimismPortal
-	L2Client            *bftclient.HTTP
-	MonomerClient       *MonomerClient
-	WaitL1              func(numBlocks int) error
-	WaitL2              func(numBlocks int) error
-	SequencerWindowSize uint64
+	Ctx           context.Context
+	Operator      L1User
+	Users         []L1User
+	L1Client      *L1Client
+	L1Portal      *bindings.OptimismPortal
+	L2Client      *bftclient.HTTP
+	MonomerClient *MonomerClient
+	RollupConfig  *rollup.Config
+	WaitL1        func(numBlocks int) error
+	WaitL2        func(numBlocks int) error
 }
 
 type stack struct {
@@ -297,13 +298,13 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		MonomerClient: monomerClient,
 		Operator:      l1users[0],
 		Users:         l1users[1:],
+		RollupConfig:  rollupConfig,
 		WaitL1: func(numBlocks int) error {
 			return wait(numBlocks, 1)
 		},
 		WaitL2: func(numBlocks int) error {
 			return wait(numBlocks, 2)
 		},
-		SequencerWindowSize: deployConfig.SequencerWindowSize,
 	}, nil
 }
 

@@ -155,11 +155,13 @@ func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
 		require.NoError(t, err)
 
 		// End the test once a sequencing window has passed.
-		if l1BlockInfo.Number >= stack.SequencerWindowSize+1 {
+		if l1BlockInfo.Number >= stack.RollupConfig.SeqWindowSize+1 {
 			t.Log("No Monomer rollbacks detected")
 			return
 		}
 	}
+
+	require.Fail(t, "event chan closed prematurely")
 }
 
 func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
