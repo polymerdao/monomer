@@ -180,6 +180,8 @@ func (op *OPStack) runProposer(ctx context.Context, env *environment.Env, l1Clie
 			PollInterval:       50 * time.Millisecond,
 			NetworkTimeout:     2 * time.Second,
 			L2OutputOracleAddr: utils.Ptr(op.l2OutputOracleProxy),
+			// Enable the proposal of safe, but non-finalized L2 blocks for testing purposes.
+			AllowNonFinalized: true,
 		},
 		Txmgr:          txManager,
 		L1Client:       l1Client,
