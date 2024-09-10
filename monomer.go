@@ -60,10 +60,11 @@ type Header struct {
 
 func (h *Header) ToComet() *bfttypes.Header {
 	return &bfttypes.Header{
-		ChainID: h.ChainID.String(),
-		Height:  int64(h.Height),
-		Time:    time.Unix(int64(h.Time), 0),
-		AppHash: h.StateRoot.Bytes(),
+		ChainID:     h.ChainID.String(),
+		Height:      int64(h.Height),
+		Time:        time.Unix(int64(h.Time), 0),
+		LastBlockID: bfttypes.BlockID{Hash: h.ParentHash.Bytes()},
+		AppHash:     h.StateRoot.Bytes(),
 	}
 }
 
