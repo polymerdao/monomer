@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math/big"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -45,7 +46,12 @@ func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(
 		return fmt.Errorf("create initiateWithdrawal data: %v", err)
 	}
 
-	senderEthAddress := common.HexToAddress(sender)
+	// TODO: separate PR for withdrawal bug fix
+	senderCosmosAddress, err := sdk.AccAddressFromBech32(sender)
+	if err != nil {
+		return fmt.Errorf("convert sender to cosmos address: %v", err)
+	}
+	senderEthAddress := common.Address(senderCosmosAddress.Bytes())
 
 	_, err = e.Call(&monomerevm.CallParams{
 		Sender: &senderEthAddress,

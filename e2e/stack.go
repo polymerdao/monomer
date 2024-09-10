@@ -45,16 +45,17 @@ type EventListener interface {
 }
 
 type StackConfig struct {
-	Ctx           context.Context
-	Operator      L1User
-	Users         []L1User
-	L1Client      *L1Client
-	L1Portal      *bindings.OptimismPortal
-	L2Client      *bftclient.HTTP
-	MonomerClient *MonomerClient
+	Ctx                  context.Context
+	Operator             L1User
+	Users                []L1User
+	L1Client             *L1Client
+	L1Portal             *bindings.OptimismPortal
+	L2Client             *bftclient.HTTP
+	L2OutputOracleCaller *bindings.L2OutputOracleCaller
+	MonomerClient        *MonomerClient
 	RollupConfig  *rollup.Config
-	WaitL1        func(numBlocks int) error
-	WaitL2        func(numBlocks int) error
+	WaitL1               func(numBlocks int) error
+	WaitL2               func(numBlocks int) error
 }
 
 type stack struct {
@@ -238,6 +239,11 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("new optimism portal: %v", err)
 	}
 
+	l2OutputOracleCaller, err := bindings.NewL2OutputOracleCaller(l1Deployments.L2OutputOracleProxy, l1Client)
+	if err != nil {
+		return nil, fmt.Errorf("new l2 output oracle caller: %v", err)
+	}
+
 	opStack := NewOPStack(
 		l1url,
 		s.monomerEngineURL,
@@ -291,13 +297,14 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	return &StackConfig{
-		Ctx:           ctx,
-		L1Client:      l1Client,
-		L1Portal:      opPortal,
-		L2Client:      l2Client,
-		MonomerClient: monomerClient,
-		Operator:      l1users[0],
-		Users:         l1users[1:],
+		Ctx:                  ctx,
+		L1Client:             l1Client,
+		L1Portal:             opPortal,
+		L2Client:             l2Client,
+		L2OutputOracleCaller: l2OutputOracleCaller,
+		MonomerClient:        monomerClient,
+		Operator:             l1users[0],
+		Users:                l1users[1:],
 		RollupConfig:  rollupConfig,
 		WaitL1: func(numBlocks int) error {
 			return wait(numBlocks, 1)
