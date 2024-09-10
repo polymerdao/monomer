@@ -1,6 +1,7 @@
 package eth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -10,6 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/eth/internal/ethapi"
 	"github.com/polymerdao/monomer/monomerdb"
@@ -37,6 +40,7 @@ type DB interface {
 	BlockByLabel(eth.BlockLabel) (*monomer.Block, error)
 	BlockByHeight(uint64) (*monomer.Block, error)
 	BlockByHash(common.Hash) (*monomer.Block, error)
+	HeadBlock() (*monomer.Block, error)
 }
 
 type Block struct {
@@ -87,4 +91,25 @@ func (e *Block) toRPCBlock(block *monomer.Block, fullTx bool) (map[string]any, e
 		return nil, fmt.Errorf("rpc marshal block: %v", err)
 	}
 	return rpcBlock, nil
+}
+
+type ProofProvider struct {
+	blockchainAPI *ethapi.BlockChainAPI
+}
+
+func NewProofProvider(db state.Database, blockStore DB) *ProofProvider {
+	return &ProofProvider{
+		blockchainAPI: ethapi.NewBlockChainAPI(newEthAPIBackend(db, blockStore)),
+	}
+}
+
+// GetProof returns the account and storage values of the specified account including the Merkle-proof.
+// The user can specify either a block number or a block hash to build to proof from.
+func (p *ProofProvider) GetProof(
+	ctx context.Context,
+	address common.Address,
+	storageKeys []string,
+	blockNrOrHash rpc.BlockNumberOrHash,
+) (*ethapi.AccountResult, error) {
+	return p.blockchainAPI.GetProof(ctx, address, storageKeys, blockNrOrHash)
 }

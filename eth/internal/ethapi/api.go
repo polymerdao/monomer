@@ -2,13 +2,32 @@ package ethapi
 
 import (
 	"context"
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"math/big"
+	"strings"
 
+	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	types "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/ethereum/go-ethereum/trie"
 )
+
+// BlockChainAPI provides an API to access Ethereum blockchain data.
+type BlockChainAPI struct {
+	b Backend
+}
+
+// NewBlockChainAPI creates a new Ethereum blockchain API.
+func NewBlockChainAPI(b Backend) *BlockChainAPI {
+	return &BlockChainAPI{b}
+}
 
 // AccountResult structs for GetProof
 type AccountResult struct {
@@ -25,6 +44,143 @@ type StorageResult struct {
 	Key   string       `json:"key"`
 	Value *hexutil.Big `json:"value"`
 	Proof []string     `json:"proof"`
+}
+
+// proofList implements ethdb.KeyValueWriter and collects the proofs as
+// hex-strings for delivery to rpc-caller.
+type proofList []string
+
+func (n *proofList) Put(key []byte, value []byte) error {
+	*n = append(*n, hexutil.Encode(value))
+	return nil
+}
+
+func (n *proofList) Delete(key []byte) error {
+	panic("not supported")
+}
+
+// GetProof returns the Merkle-proof for a given account and optionally some storage keys.
+func (s *BlockChainAPI) GetProof(ctx context.Context, address common.Address, storageKeys []string, blockNrOrHash rpc.BlockNumberOrHash) (*AccountResult, error) {
+	header, err := headerByNumberOrHash(ctx, s.b, blockNrOrHash)
+	if err != nil {
+		return nil, err
+	}
+	if s.b.ChainConfig().IsOptimismPreBedrock(header.Number) {
+		if s.b.HistoricalRPCService() != nil {
+			var res AccountResult
+			err := s.b.HistoricalRPCService().CallContext(ctx, &res, "eth_getProof", address, storageKeys, blockNrOrHash)
+			if err != nil {
+				return nil, fmt.Errorf("historical backend error: %w", err)
+			}
+			return &res, nil
+		} else {
+			return nil, rpc.ErrNoHistoricalFallback
+		}
+	}
+	var (
+		keys         = make([]common.Hash, len(storageKeys))
+		keyLengths   = make([]int, len(storageKeys))
+		storageProof = make([]StorageResult, len(storageKeys))
+	)
+	// Deserialize all keys. This prevents state access on invalid input.
+	for i, hexKey := range storageKeys {
+		var err error
+		keys[i], keyLengths[i], err = decodeHash(hexKey)
+		if err != nil {
+			return nil, err
+		}
+	}
+	statedb, header, err := s.b.StateAndHeaderByNumberOrHash(ctx, blockNrOrHash)
+	if statedb == nil || err != nil {
+		return nil, err
+	}
+	codeHash := statedb.GetCodeHash(address)
+	storageRoot := statedb.GetStorageRoot(address)
+
+	if len(keys) > 0 {
+		var storageTrie state.Trie
+		if storageRoot != types.EmptyRootHash && storageRoot != (common.Hash{}) {
+			id := trie.StorageTrieID(header.Root, crypto.Keccak256Hash(address.Bytes()), storageRoot)
+			st, err := trie.NewStateTrie(id, statedb.Database().TrieDB())
+			if err != nil {
+				return nil, err
+			}
+			storageTrie = st
+		}
+		// Create the proofs for the storageKeys.
+		for i, key := range keys {
+			// Output key encoding is a bit special: if the input was a 32-byte hash, it is
+			// returned as such. Otherwise, we apply the QUANTITY encoding mandated by the
+			// JSON-RPC spec for getProof. This behavior exists to preserve backwards
+			// compatibility with older client versions.
+			var outputKey string
+			if keyLengths[i] != 32 {
+				outputKey = hexutil.EncodeBig(key.Big())
+			} else {
+				outputKey = hexutil.Encode(key[:])
+			}
+			if storageTrie == nil {
+				storageProof[i] = StorageResult{outputKey, &hexutil.Big{}, []string{}}
+				continue
+			}
+			var proof proofList
+			if err := storageTrie.Prove(crypto.Keccak256(key.Bytes()), &proof); err != nil {
+				return nil, err
+			}
+			value := (*hexutil.Big)(statedb.GetState(address, key).Big())
+			storageProof[i] = StorageResult{outputKey, value, proof}
+		}
+	}
+	// Create the accountProof.
+	tr, err := trie.NewStateTrie(trie.StateTrieID(header.Root), statedb.Database().TrieDB())
+	if err != nil {
+		return nil, err
+	}
+	var accountProof proofList
+	if err := tr.Prove(crypto.Keccak256(address.Bytes()), &accountProof); err != nil {
+		return nil, err
+	}
+	balance := statedb.GetBalance(address).ToBig()
+	return &AccountResult{
+		Address:      address,
+		AccountProof: accountProof,
+		Balance:      (*hexutil.Big)(balance),
+		CodeHash:     codeHash,
+		Nonce:        hexutil.Uint64(statedb.GetNonce(address)),
+		StorageHash:  storageRoot,
+		StorageProof: storageProof,
+	}, statedb.Error()
+}
+
+// decodeHash parses a hex-encoded 32-byte hash. The input may optionally
+// be prefixed by 0x and can have a byte length up to 32.
+func decodeHash(s string) (h common.Hash, inputLength int, err error) {
+	if strings.HasPrefix(s, "0x") || strings.HasPrefix(s, "0X") {
+		s = s[2:]
+	}
+	if (len(s) & 1) > 0 {
+		s = "0" + s
+	}
+	b, err := hex.DecodeString(s)
+	if err != nil {
+		return common.Hash{}, 0, errors.New("hex string invalid")
+	}
+	if len(b) > 32 {
+		return common.Hash{}, len(b), errors.New("hex string too long, want at most 32 bytes")
+	}
+	return common.BytesToHash(b), len(b), nil
+}
+
+// The HeaderByNumberOrHash method returns a nil error and nil header
+// if the header is not found, but only for nonexistent block numbers. This is
+// different from StateAndHeaderByNumberOrHash. To account for this discrepancy,
+// headerOrNumberByHash will properly convert the error into an ethereum.NotFound.
+func headerByNumberOrHash(ctx context.Context, b Backend, blockNrOrHash rpc.BlockNumberOrHash) (*types.Header, error) {
+	header, err := b.HeaderByNumberOrHash(ctx, blockNrOrHash)
+	if header == nil {
+		return nil, fmt.Errorf("header %w", ethereum.NotFound)
+	}
+	return header, err
 }
 
 // RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
