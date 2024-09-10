@@ -183,74 +183,6 @@ func headerByNumberOrHash(ctx context.Context, b Backend, blockNrOrHash rpc.Bloc
 	return header, err
 }
 
-// RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
-type RPCTransaction struct {
-	BlockHash           *common.Hash      `json:"blockHash"`
-	BlockNumber         *hexutil.Big      `json:"blockNumber"`
-	From                common.Address    `json:"from"`
-	Gas                 hexutil.Uint64    `json:"gas"`
-	GasPrice            *hexutil.Big      `json:"gasPrice"`
-	GasFeeCap           *hexutil.Big      `json:"maxFeePerGas,omitempty"`
-	GasTipCap           *hexutil.Big      `json:"maxPriorityFeePerGas,omitempty"`
-	MaxFeePerBlobGas    *hexutil.Big      `json:"maxFeePerBlobGas,omitempty"`
-	Hash                common.Hash       `json:"hash"`
-	Input               hexutil.Bytes     `json:"input"`
-	Nonce               hexutil.Uint64    `json:"nonce"`
-	To                  *common.Address   `json:"to"`
-	TransactionIndex    *hexutil.Uint64   `json:"transactionIndex"`
-	Value               *hexutil.Big      `json:"value"`
-	Type                hexutil.Uint64    `json:"type"`
-	Accesses            *types.AccessList `json:"accessList,omitempty"`
-	ChainID             *hexutil.Big      `json:"chainId,omitempty"`
-	BlobVersionedHashes []common.Hash     `json:"blobVersionedHashes,omitempty"`
-	V                   *hexutil.Big      `json:"v"`
-	R                   *hexutil.Big      `json:"r"`
-	S                   *hexutil.Big      `json:"s"`
-	YParity             *hexutil.Uint64   `json:"yParity,omitempty"`
-
-	// deposit-tx only
-	SourceHash *common.Hash `json:"sourceHash,omitempty"`
-	Mint       *hexutil.Big `json:"mint,omitempty"`
-	IsSystemTx *bool        `json:"isSystemTx,omitempty"`
-	// deposit-tx post-Canyon only
-	DepositReceiptVersion *hexutil.Uint64 `json:"depositReceiptVersion,omitempty"`
-}
-
-// RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
-// returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
-// transaction hashes.
-func RPCMarshalBlock(ctx context.Context, block *types.Block, inclTx bool, fullTx bool, config *params.ChainConfig, backend Backend) (map[string]interface{}, error) {
-	fields := RPCMarshalHeader(block.Header())
-	fields["size"] = hexutil.Uint64(block.Size())
-
-	if inclTx {
-		formatTx := func(idx int, tx *types.Transaction) interface{} {
-			return tx.Hash()
-		}
-		if fullTx {
-			formatTx = func(idx int, tx *types.Transaction) interface{} {
-				return newRPCTransactionFromBlockIndex(ctx, block, uint64(idx), config, backend)
-			}
-		}
-		txs := block.Transactions()
-		transactions := make([]interface{}, len(txs))
-		for i, tx := range txs {
-			transactions[i] = formatTx(i, tx)
-		}
-		fields["transactions"] = transactions
-	}
-	uncles := block.Uncles()
-	uncleHashes := make([]common.Hash, len(uncles))
-	for i, uncle := range uncles {
-		uncleHashes[i] = uncle.Hash()
-	}
-	fields["uncles"] = uncleHashes
-	if block.Header().WithdrawalsHash != nil {
-		fields["withdrawals"] = block.Withdrawals()
-	}
-	return fields, nil
-}
-
 // RPCMarshalHeader converts the given header to the RPC output .
 func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 	result := map[string]interface{}{
@@ -289,29 +221,72 @@ func RPCMarshalHeader(head *types.Header) map[string]interface{} {
 	return result
 }
 
-// newRPCTransactionFromBlockIndex returns a transaction that will serialize to the RPC representation.
-func newRPCTransactionFromBlockIndex(ctx context.Context, b *types.Block, index uint64, config *params.ChainConfig, backend Backend) *RPCTransaction {
-	txs := b.Transactions()
-	if index >= uint64(len(txs)) {
-		return nil
+// RPCMarshalBlock converts the given block to the RPC output which depends on fullTx. If inclTx is true transactions are
+// returned. When fullTx is true the returned block contains full transaction details, otherwise it will only contain
+// transaction hashes.
+func RPCMarshalBlock(ctx context.Context, block *types.Block, inclTx bool, fullTx bool, config *params.ChainConfig, backend Backend) (map[string]interface{}, error) {
+	fields := RPCMarshalHeader(block.Header())
+	fields["size"] = hexutil.Uint64(block.Size())
+
+	if inclTx {
+		formatTx := func(idx int, tx *types.Transaction) interface{} {
+			return tx.Hash()
+		}
+		if fullTx {
+			formatTx = func(idx int, tx *types.Transaction) interface{} {
+				return newRPCTransactionFromBlockIndex(ctx, block, uint64(idx), config, backend)
+			}
+		}
+		txs := block.Transactions()
+		transactions := make([]interface{}, len(txs))
+		for i, tx := range txs {
+			transactions[i] = formatTx(i, tx)
+		}
+		fields["transactions"] = transactions
 	}
-	tx := txs[index]
-	rcpt := depositTxReceipt(ctx, b.Hash(), index, backend, tx)
-	return newRPCTransaction(tx, b.Hash(), b.NumberU64(), b.Time(), index, b.BaseFee(), config, rcpt)
+	uncles := block.Uncles()
+	uncleHashes := make([]common.Hash, len(uncles))
+	for i, uncle := range uncles {
+		uncleHashes[i] = uncle.Hash()
+	}
+	fields["uncles"] = uncleHashes
+	if block.Header().WithdrawalsHash != nil {
+		fields["withdrawals"] = block.Withdrawals()
+	}
+	return fields, nil
 }
 
-func depositTxReceipt(ctx context.Context, blockHash common.Hash, index uint64, backend Backend, tx *types.Transaction) *types.Receipt {
-	if tx.Type() != types.DepositTxType {
-		return nil
-	}
-	receipts, err := backend.GetReceipts(ctx, blockHash)
-	if err != nil {
-		return nil
-	}
-	if index >= uint64(len(receipts)) {
-		return nil
-	}
-	return receipts[index]
+// RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
+type RPCTransaction struct {
+	BlockHash           *common.Hash      `json:"blockHash"`
+	BlockNumber         *hexutil.Big      `json:"blockNumber"`
+	From                common.Address    `json:"from"`
+	Gas                 hexutil.Uint64    `json:"gas"`
+	GasPrice            *hexutil.Big      `json:"gasPrice"`
+	GasFeeCap           *hexutil.Big      `json:"maxFeePerGas,omitempty"`
+	GasTipCap           *hexutil.Big      `json:"maxPriorityFeePerGas,omitempty"`
+	MaxFeePerBlobGas    *hexutil.Big      `json:"maxFeePerBlobGas,omitempty"`
+	Hash                common.Hash       `json:"hash"`
+	Input               hexutil.Bytes     `json:"input"`
+	Nonce               hexutil.Uint64    `json:"nonce"`
+	To                  *common.Address   `json:"to"`
+	TransactionIndex    *hexutil.Uint64   `json:"transactionIndex"`
+	Value               *hexutil.Big      `json:"value"`
+	Type                hexutil.Uint64    `json:"type"`
+	Accesses            *types.AccessList `json:"accessList,omitempty"`
+	ChainID             *hexutil.Big      `json:"chainId,omitempty"`
+	BlobVersionedHashes []common.Hash     `json:"blobVersionedHashes,omitempty"`
+	V                   *hexutil.Big      `json:"v"`
+	R                   *hexutil.Big      `json:"r"`
+	S                   *hexutil.Big      `json:"s"`
+	YParity             *hexutil.Uint64   `json:"yParity,omitempty"`
+
+	// deposit-tx only
+	SourceHash *common.Hash `json:"sourceHash,omitempty"`
+	Mint       *hexutil.Big `json:"mint,omitempty"`
+	IsSystemTx *bool        `json:"isSystemTx,omitempty"`
+	// deposit-tx post-Canyon only
+	DepositReceiptVersion *hexutil.Uint64 `json:"depositReceiptVersion,omitempty"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -420,4 +395,29 @@ func effectiveGasPrice(tx *types.Transaction, baseFee *big.Int) *big.Int {
 		return tx.GasFeeCap()
 	}
 	return fee
+}
+
+// newRPCTransactionFromBlockIndex returns a transaction that will serialize to the RPC representation.
+func newRPCTransactionFromBlockIndex(ctx context.Context, b *types.Block, index uint64, config *params.ChainConfig, backend Backend) *RPCTransaction {
+	txs := b.Transactions()
+	if index >= uint64(len(txs)) {
+		return nil
+	}
+	tx := txs[index]
+	rcpt := depositTxReceipt(ctx, b.Hash(), index, backend, tx)
+	return newRPCTransaction(tx, b.Hash(), b.NumberU64(), b.Time(), index, b.BaseFee(), config, rcpt)
+}
+
+func depositTxReceipt(ctx context.Context, blockHash common.Hash, index uint64, backend Backend, tx *types.Transaction) *types.Receipt {
+	if tx.Type() != types.DepositTxType {
+		return nil
+	}
+	receipts, err := backend.GetReceipts(ctx, blockHash)
+	if err != nil {
+		return nil
+	}
+	if index >= uint64(len(receipts)) {
+		return nil
+	}
+	return receipts[index]
 }
