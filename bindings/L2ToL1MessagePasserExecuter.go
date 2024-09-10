@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"math/big"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
@@ -35,7 +34,7 @@ func NewL2ToL1MessagePasserExecuter(evm *vm.EVM) (*L2ToL1MessagePasserExecuter, 
 }
 
 func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(
-	sender string,
+	sender common.Address,
 	amount *big.Int,
 	l1Address common.Address,
 	gasLimit *big.Int,
@@ -46,14 +45,8 @@ func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(
 		return fmt.Errorf("create initiateWithdrawal data: %v", err)
 	}
 
-	senderCosmosAddress, err := sdk.AccAddressFromBech32(sender)
-	if err != nil {
-		return fmt.Errorf("convert sender to cosmos address: %v", err)
-	}
-	senderEthAddress := common.BytesToAddress(senderCosmosAddress.Bytes())
-
 	_, err = e.Call(&monomerevm.CallParams{
-		Sender: &senderEthAddress,
+		Sender: &sender,
 		Value:  amount,
 		Data:   data,
 	})

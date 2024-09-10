@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -42,9 +41,7 @@ func TestL2ToL1MessagePasserExecuter(t *testing.T) {
 	executer, err := bindings.NewL2ToL1MessagePasserExecuter(setupEVM(t))
 	require.NoError(t, err)
 
-	cosmosSenderAddr, err := sdk.AccAddressFromBech32("cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh")
-	require.NoError(t, err)
-	ethSenderAddr := common.BytesToAddress(cosmosSenderAddr.Bytes())
+	sender := common.HexToAddress("0xabcdef12345")
 	amount := big.NewInt(500)
 	l1TargetAddress := common.HexToAddress("0x12345abcdef")
 	gasLimit := big.NewInt(100_000)
@@ -53,7 +50,7 @@ func TestL2ToL1MessagePasserExecuter(t *testing.T) {
 
 	withdrawalHash, err := crossdomain.NewWithdrawal(
 		nonce,
-		&ethSenderAddr,
+		&sender,
 		&l1TargetAddress,
 		amount,
 		gasLimit,
@@ -72,7 +69,7 @@ func TestL2ToL1MessagePasserExecuter(t *testing.T) {
 	require.Equal(t, nonce, initialMessageNonce)
 
 	// Initiate a withdrawal
-	err = executer.InitiateWithdrawal(cosmosSenderAddr.String(), amount, l1TargetAddress, gasLimit, data)
+	err = executer.InitiateWithdrawal(sender, amount, l1TargetAddress, gasLimit, data)
 	require.NoError(t, err)
 
 	// Check that the withdrawal hash is in the sentMessages mapping

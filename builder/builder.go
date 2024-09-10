@@ -9,6 +9,7 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -336,9 +337,14 @@ func (b *Builder) storeWithdrawalMsgInEVM(
 		return nil, fmt.Errorf("get message nonce: %v", err)
 	}
 
+	senderCosmosAddress, err := sdk.AccAddressFromBech32(withdrawalMsg.GetSender())
+	if err != nil {
+		return nil, fmt.Errorf("convert sender to cosmos address: %v", err)
+	}
+
 	// Initiate the withdrawal in the Monomer ethereum state.
 	if err = executer.InitiateWithdrawal(
-		withdrawalMsg.GetSender(),
+		common.BytesToAddress(senderCosmosAddress.Bytes()),
 		withdrawalMsg.Value.BigInt(),
 		common.HexToAddress(withdrawalMsg.GetTarget()),
 		new(big.Int).SetBytes(withdrawalMsg.GasLimit),
