@@ -1,0 +1,8 @@
+{
+  "label": "Build",
+  "position": 3,
+  "link": {
+    "type": "generated-index",
+    "description": "Hands-on tutorial to build your first Monomer app."
+  }
+}
