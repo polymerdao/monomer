@@ -1,6 +1,7 @@
 package eth_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -139,7 +140,7 @@ func TestGetProof(t *testing.T) {
 	proofProvider := eth.NewProofProvider(nil, blockstore)
 
 	blockNumber := rpc.LatestBlockNumber
-	pf, err := proofProvider.GetProof(someAddress, []string{}, rpc.BlockNumberOrHash{BlockNumber: &blockNumber})
+	pf, err := proofProvider.GetProof(context.Background(), someAddress, []string{}, rpc.BlockNumberOrHash{BlockNumber: &blockNumber})
 	require.Error(t, err, "should not succeed in generating proofs with empty blockstore")
 	require.Nil(t, pf, "received proof from empty blockstore")
 }
