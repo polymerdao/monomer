@@ -1,5 +1,5 @@
 ---
-sidebar_position: 2
+sidebar_position: 1
 ---
 
 # Create an Application With Monomer
@@ -12,7 +12,7 @@ a Cosmos SDK [simapp](https://docs.cosmos.network/main/learn/intro/sdk-design#ba
 Monomer is a framework for deploying Cosmos SDK applications as rollups on
 Ethereum. As such, the development environment for Monomer is similar to that of
 a Cosmos SDK application. To begin building an application with Monomer, we can
-start with a basic Cosmos SDK app. 
+start with a basic Cosmos SDK app.
 
 We'll use the handy tool [spawn](https://github.com/rollchains/spawn) to bootstrap a new Cosmos SDK application. If you do not already have it, follow the instructions below to install it.
 
@@ -25,11 +25,13 @@ cd spawn
 git checkout v0.50.5
 make install
 ```
+
 </details>
 
-
 ### Bootstrapping a Cosmos SDK Application
+
 We can spawn a new Cosmos SDK application with `spawn new`:
+
 ```bash
 spawn new rollchain --consensus=proof-of-authority \
     --bech32=roll \
@@ -43,6 +45,7 @@ This gives us a boilerplate Cosmos SDK application in the `rollchain`
 directory.
 
 ## Integrating Monomer
+
 Let's move into the `rollchain` directory and add Monomer to our application.
 
 ```bash
@@ -53,6 +56,7 @@ cd rollchain
 
 Now we can import [`x/rollup`](/learn/the-rollup-module) in `app/app.go`. While we're at it, let's also import `x/testmodule` (this
 will [initialize a non-empty validator set](https://github.com/polymerdao/monomer/blob/c98eccb49bf857829cadee899359e60fc36e6745/testapp/x/testmodule/module.go#L82) for us so we don't have to do it manually). When you're ready to deploy your application, you can remove `x/testmodule` and configure your own validator set. Add the following packages to the import statement in `app/app.go`:
+
 ```go
 import (
     // ...
@@ -66,6 +70,7 @@ import (
     // ...
 )
 ```
+
 and run `go mod tidy`.
 
 There are a few modifications we need to make to the boilerplate Cosmos SDK app.
@@ -77,9 +82,10 @@ Namely, we need to
 
 Let's walk through these changes.
 
-
 ### Setting the Store Keys
+
 Look for the block that initializes the KV store keys, and add the store key for `x/rollup` and `x/testmodule`:
+
 ```go
 // app/app.go
 
@@ -93,10 +99,10 @@ func NewChainApp(
 ) *ChainApp {
     // ...
     keys := storetypes.NewKVStoreKeys(
-        // ... 
+        // ...
         ratelimittypes.StoreKey,
         // Monomer
-        rolluptypes.StoreKey, // <-- add this line 
+        rolluptypes.StoreKey, // <-- add this line
         testmodule.StoreKey,  // <-- add this line
     )
     // ...
@@ -104,8 +110,10 @@ func NewChainApp(
 ```
 
 ### Genesis Module Order
+
 Next, add `x/rollup` and `x/testmodule` to the genesis module order.
 Here we place them at the end of the list:
+
 ```go
 // app/app.go
 
@@ -121,8 +129,10 @@ genesisModuleOrder := []string{
 ```
 
 ### Initializing the Modules
+
 Now let's initialize the modules with their respective keepers. Add the
 following block to the `NewChainApp` function:
+
 ```go
 // app/app.go
 
@@ -143,9 +153,11 @@ testmodule.New(testmodulekeeper.New(runtime.NewKVStoreService(keys[testmodule.St
 That's it for `app.go`! Next we'll add a CLI command to interact with Monomer.
 
 ### Defining the Monomer Command
+
 In `cmd/rolld/commands.go`, import `github.com/polymerdao/monomer/integrations` and add the following block to the `initRootCmd`
 function. This defines the `monomer` command which utilizes our custom start
 command hook that handles the integration between Monomer and the Cosmos SDK:
+
 ```go
 // cmd/rolld/commands.go
 
@@ -163,7 +175,7 @@ func initRootCmd(
   basicManager module.BasicManager,
 ) {
   // ...
-	
+
   // Remove or comment out the following line:
   /* server.AddCommands(rootCmd, app.DefaultNodeHome, newApp, appExport, addModuleInitFlags) */
 
@@ -178,36 +190,42 @@ func initRootCmd(
   }))
   rootCmd.AddCommand(monomerCmd)
   // --- End block ---
-  
+
   // ...
 }
 ```
 
 ## Building the Application
+
 Before we can build our application, we need to add the following replace directives in `go.mod` and then run `go mod
-tidy`: 
+tidy`:
+
 ```go
 github.com/ethereum/go-ethereum => github.com/joshklop/op-geth v0.0.0-20240515205036-e3b990384a74
 github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20240814165419-c6b91fa9f263
 ```
 
 and change the `cosmossdk.io/core` replace directive to `v0.11.1`:
+
 ```
 cosmossdk.io/core => cosmossdk.io/core v0.11.1
 ```
 
-Now we can build our application by running 
+Now we can build our application by running
+
 ```bash
-make install 
+make install
 ```
+
 from the root of the
 `rollchain/` directory. This will install our chain binary, `rolld`, to the
 `$GOBIN` directory.
 
-## Configuring the Application 
+## Configuring the Application
 
 There's one last step before we can run our application: We need to write
 its genesis file. We can generate one by running
+
 ```bash
 rolld init my-monomer-app --chain-id=1
 ```
@@ -229,4 +247,4 @@ rolld monomer start
 ```
 
 Congratulations! You've successfully integrated Monomer into your Cosmos SDK
-application. 
+application.
