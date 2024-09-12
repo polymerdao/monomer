@@ -22,7 +22,7 @@ In order to achieve this, Monomer performs three primary tasks:
 
 - It translates between Ethereum's `EngineAPI` and the Cosmos `ABCI` standards for `consensus<>execution` communication
 - It provides a custom Cosmos SDK module for handling rollup-specific logic and state
-- It defines a hybridized block structure that where the Cosmos AppHash is stored as data in an EVM state tree
+- It defines a hybridized block head structure, and build process, where the Cosmos AppHash is stored as data in an EVM state tree
 
 :::note[Architecture]
 ![Architecture](/img/architecture.png)
