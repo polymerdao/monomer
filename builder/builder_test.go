@@ -320,6 +320,7 @@ func TestBuildRollupTxs(t *testing.T) {
 		cosmAddr.String(),
 		common.HexToAddress("0x12345abcde").String(),
 		math.NewIntFromBigInt(depositTxETH.Value()),
+		big.NewInt(100_000),
 	)
 
 	b := builder.New(
