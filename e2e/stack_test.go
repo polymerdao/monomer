@@ -9,22 +9,28 @@ import (
 	"path/filepath"
 	"sync"
 	"testing"
+	"time"
 
+	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/config"
-	bftclient "github.com/cometbft/cometbft/rpc/client/http"
+	cometcore "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
+	"github.com/ethereum-optimism/optimism/op-node/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
+	"github.com/polymerdao/monomer/utils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slog"
@@ -48,8 +54,8 @@ var e2eTests = []struct {
 	run  func(t *testing.T, stack *e2e.StackConfig)
 }{
 	{
-		name: "L1 Deposits",
-		run:  depositE2E,
+		name: "L1 Deposits and L2 Withdrawals",
+		run:  rollupFlow,
 	},
 	{
 		name: "CometBFT Txs",
@@ -222,7 +228,7 @@ func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
 	require.Len(t, txBlock.Transactions(), 2) // 1 deposit tx + 1 cometbft tx
 }
 
-func depositE2E(t *testing.T, stack *e2e.StackConfig) {
+func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
 	monomerClient := stack.MonomerClient
 
@@ -237,35 +243,24 @@ func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 	user := stack.Users[0]
 	l1signer := types.NewEIP155Signer(l1ChainID)
 
-	// send user Deposit Tx
-	nonce, err := l1Client.Client.NonceAt(stack.Ctx, user.Address, nil)
-	require.NoError(t, err)
-
-	gasPrice, err := l1Client.Client.SuggestGasPrice(context.Background())
-	require.NoError(t, err)
+	//////////////////////
+	////// DEPOSITS //////
+	//////////////////////
 
 	l2GasLimit := l2blockGasLimit / 10
 	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
 
+	// get the user's balance before the deposit has been processed
+	balanceBeforeDeposit, err := l1Client.BalanceAt(stack.Ctx, user.Address, nil)
+	require.NoError(t, err)
+
+	// send user Deposit Tx
+	// TODO: the only reason the L1 balance assertions are passing is because depositTx.Value == depositTx.Mint. Once we pivot to using Mint instead of Value in x/rollup we should add separate deposit tx cases with and without a Value field set
+	depositAmount := big.NewInt(oneEth)
 	depositTx, err := stack.L1Portal.DepositTransaction(
-		&bind.TransactOpts{
-			From: user.Address,
-			Signer: func(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
-				signed, err := types.SignTx(tx, l1signer, user.PrivateKey)
-				if err != nil {
-					return nil, err
-				}
-				return signed, nil
-			},
-			Nonce:    big.NewInt(int64(nonce)),
-			GasPrice: big.NewInt(gasPrice.Int64() * 2),
-			GasLimit: l1GasLimit,
-			Value:    big.NewInt(oneEth),
-			Context:  stack.Ctx,
-			NoSend:   false,
-		},
+		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, depositAmount),
 		user.Address,
-		big.NewInt(oneEth/2), // the "minting order" for L2
+		depositAmount,
 		l2GasLimit,
 		false,    // _isCreation
 		[]byte{}, // no data
@@ -282,7 +277,7 @@ func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 	receipt, err := l1Client.Client.TransactionReceipt(stack.Ctx, depositTx.Hash())
 	require.NoError(t, err, "deposit tx receipt")
 	require.NotNil(t, receipt, "deposit tx receipt")
-	require.NotZero(t, receipt.Status, "deposit tx reverted") // receipt.Status == 0 -> reverted tx
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "deposit tx reverted")
 
 	depositLogs, err := stack.L1Portal.FilterTransactionDeposited(
 		&bind.FilterOpts{
@@ -290,40 +285,253 @@ func depositE2E(t *testing.T, stack *e2e.StackConfig) {
 			End:     nil,
 			Context: stack.Ctx,
 		},
-		nil, // from any address
-		nil, // to any address
-		nil, // any event version
+		[]common.Address{user.Address},
+		[]common.Address{user.Address},
+		[]*big.Int{big.NewInt(0)},
 	)
 	require.NoError(t, err, "configuring 'TransactionDeposited' event listener")
-	if !depositLogs.Next() {
-		require.FailNowf(t, "finding deposit event", "err: %w", depositLogs.Error())
-	}
-	require.Equal(t, depositLogs.Event.From, user.Address) // user deposit has emitted L1 event1
+	require.True(t, depositLogs.Next(), "finding deposit event")
+	require.NoError(t, depositLogs.Close())
 
-	requireEthIsMinted(t, stack.L2Client)
+	// get the user's balance after the deposit has been processed
+	balanceAfterDeposit, err := stack.L1Client.BalanceAt(stack.Ctx, user.Address, nil)
+	require.NoError(t, err)
+
+	//nolint:gocritic
+	// gasCost = gasUsed * gasPrice
+	gasCost := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), depositTx.GasPrice())
+
+	//nolint:gocritic
+	// expectedBalance = balanceBeforeDeposit - depositAmount - gasCost
+	expectedBalance := new(big.Int).Sub(new(big.Int).Sub(balanceBeforeDeposit, depositAmount), gasCost)
+
+	// check that the user's balance has been updated on L1
+	require.Equal(t, expectedBalance, balanceAfterDeposit)
+
+	userCosmosAddr := utils.EvmToCosmosAddress(user.Address).String()
+	depositValueHex := hexutil.Encode(depositAmount.Bytes())
+	requireEthIsMinted(t, stack, userCosmosAddr, depositValueHex)
+
+	t.Log("Monomer can ingest user deposit txs from L1 and mint ETH on L2")
+
+	/////////////////////////
+	////// WITHDRAWALS //////
+	/////////////////////////
+
+	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
+	withdrawalTx := e2e.NewWithdrawalTx(0, user.Address, user.Address, depositAmount, new(big.Int).SetUint64(params.TxGas))
+
+	// initiate the withdrawal of the deposited amount on L2
+	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
+		stack.Ctx,
+		testapp.ToWithdrawalTx(
+			t,
+			utils.EvmToCosmosAddress(*withdrawalTx.Sender).String(),
+			withdrawalTx.Target.String(),
+			math.NewIntFromBigInt(withdrawalTx.Value),
+			withdrawalTx.GasLimit,
+		),
+	)
+	require.NoError(t, err)
+	require.Equal(t, abcitypes.CodeTypeOK, withdrawalTxResult.Code)
+
+	// wait for tx to be processed on L2
+	require.NoError(t, stack.WaitL2(1))
+
+	// inspect L2 events to ensure that the user's ETH was burned on L2
+	requireEthIsBurned(t, stack, userCosmosAddr, depositValueHex)
+
+	// wait for the L2 output containing the withdrawal tx to be proposed on L1
+	l2OutputBlockNumber := waitForL2OutputProposal(t, stack.L2OutputOracleCaller)
+
+	// generate the proofs necessary to prove the withdrawal on L1
+	provenWithdrawalParams, err := e2e.ProveWithdrawalParameters(stack, *withdrawalTx, l2OutputBlockNumber)
+	require.NoError(t, err)
+
+	// send a withdrawal proving tx to prove the withdrawal on L1
+	proveWithdrawalTx, err := stack.L1Portal.ProveWithdrawalTransaction(
+		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, nil),
+		withdrawalTx.WithdrawalTransaction(),
+		provenWithdrawalParams.L2OutputIndex,
+		provenWithdrawalParams.OutputRootProof,
+		provenWithdrawalParams.WithdrawalProof,
+	)
+	require.NoError(t, err, "prove withdrawal tx")
+
+	// wait for withdrawal proving tx to be processed on L1
+	require.NoError(t, stack.WaitL1(1))
+
+	// inspect L1 for withdrawal proving tx receipt and emitted WithdrawalProven event
+	receipt, err = l1Client.Client.TransactionReceipt(stack.Ctx, proveWithdrawalTx.Hash())
+	require.NoError(t, err, "withdrawal proving tx receipt")
+	require.NotNil(t, receipt, "withdrawal proving tx receipt")
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "withdrawal proving tx failed")
+
+	withdrawalTxHash, err := withdrawalTx.Hash()
+	require.NoError(t, err)
+	proveWithdrawalLogs, err := stack.L1Portal.FilterWithdrawalProven(
+		&bind.FilterOpts{
+			Start:   0,
+			End:     nil,
+			Context: stack.Ctx,
+		},
+		[][32]byte{[32]byte(withdrawalTxHash.Bytes())},
+		[]common.Address{*withdrawalTx.Sender},
+		[]common.Address{*withdrawalTx.Target},
+	)
+	require.NoError(t, err, "configuring 'WithdrawalProven' event listener")
+	require.True(t, proveWithdrawalLogs.Next(), "finding WithdrawalProven event")
+	require.NoError(t, proveWithdrawalLogs.Close())
+
+	// wait for the withdrawal finalization period before sending the withdrawal finalizing tx
+	finalizationPeriod, err := stack.L2OutputOracleCaller.FinalizationPeriodSeconds(&bind.CallOpts{})
+	require.NoError(t, err)
+	time.Sleep(time.Duration(finalizationPeriod.Uint64()) * time.Second)
+
+	// get the user's balance before the withdrawal has been finalized
+	balanceBeforeFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, user.Address, nil)
+	require.NoError(t, err)
+
+	// send a withdrawal finalizing tx to finalize the withdrawal on L1
+	finalizeWithdrawalTx, err := stack.L1Portal.FinalizeWithdrawalTransaction(
+		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, nil),
+		withdrawalTx.WithdrawalTransaction(),
+	)
+	require.NoError(t, err)
+
+	// wait for withdrawal finalizing tx to be processed on L1
+	require.NoError(t, stack.WaitL1(1))
+
+	// inspect L1 for withdrawal finalizing tx receipt and emitted WithdrawalFinalized event
+	receipt, err = l1Client.Client.TransactionReceipt(stack.Ctx, finalizeWithdrawalTx.Hash())
+	require.NoError(t, err, "finalize withdrawal tx receipt")
+	require.NotNil(t, receipt, "finalize withdrawal tx receipt")
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "finalize withdrawal tx failed")
+
+	finalizeWithdrawalLogs, err := stack.L1Portal.FilterWithdrawalFinalized(
+		&bind.FilterOpts{
+			Start:   0,
+			End:     nil,
+			Context: stack.Ctx,
+		},
+		[][32]byte{[32]byte(withdrawalTxHash.Bytes())},
+	)
+	require.NoError(t, err, "configuring 'WithdrawalFinalized' event listener")
+	require.True(t, finalizeWithdrawalLogs.Next(), "finding WithdrawalFinalized event")
+	require.True(t, finalizeWithdrawalLogs.Event.Success, "withdrawal finalization failed")
+	require.NoError(t, finalizeWithdrawalLogs.Close())
+
+	// get the user's balance after the withdrawal has been finalized
+	balanceAfterFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, user.Address, nil)
+	require.NoError(t, err)
+
+	//nolint:gocritic
+	// gasCost = gasUsed * gasPrice
+	gasCost = new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), finalizeWithdrawalTx.GasPrice())
+
+	//nolint:gocritic
+	// expectedBalance = balanceBeforeFinalization + depositAmount - gasCost
+	expectedBalance = new(big.Int).Sub(new(big.Int).Add(balanceBeforeFinalization, depositAmount), gasCost)
+
+	// check that the user's balance has been updated on L1
+	require.Equal(t, expectedBalance, balanceAfterFinalization)
+
+	t.Log("Monomer can initiate withdrawals on L2 and can generate proofs for verifying the withdrawal on L1")
 }
 
-func requireEthIsMinted(t *testing.T, appchainClient *bftclient.HTTP) {
+func requireEthIsMinted(t *testing.T, stack *e2e.StackConfig, userAddress, valueHex string) {
 	query := fmt.Sprintf(
-		"%s.%s='%s'",
-		rolluptypes.EventTypeMintETH,
-		rolluptypes.AttributeKeyL1DepositTxType,
-		rolluptypes.L1UserDepositTxType,
+		"%s.%s='%s' AND %s.%s='%s' AND %s.%s='%s'",
+		rolluptypes.EventTypeMintETH, rolluptypes.AttributeKeyL1DepositTxType, rolluptypes.L1UserDepositTxType,
+		rolluptypes.EventTypeMintETH, rolluptypes.AttributeKeyToCosmosAddress, userAddress,
+		rolluptypes.EventTypeMintETH, rolluptypes.AttributeKeyValue, valueHex,
 	)
+	result := l2TxSearch(t, stack, query)
+
+	require.NotEmpty(t, result.Txs, "mint_eth event not found")
+}
+
+func requireEthIsBurned(t *testing.T, stack *e2e.StackConfig, userAddress, valueHex string) {
+	query := fmt.Sprintf(
+		"%s.%s='%s' AND %s.%s='%s' AND %s.%s='%s'",
+		rolluptypes.EventTypeBurnETH, rolluptypes.AttributeKeyL2WithdrawalTx, rolluptypes.EventTypeWithdrawalInitiated,
+		rolluptypes.EventTypeBurnETH, rolluptypes.AttributeKeyFromCosmosAddress, userAddress,
+		rolluptypes.EventTypeBurnETH, rolluptypes.AttributeKeyValue, valueHex,
+	)
+	result := l2TxSearch(t, stack, query)
+
+	require.NotEmpty(t, result.Txs, "burn_eth event not found")
+}
+
+func l2TxSearch(t *testing.T, stack *e2e.StackConfig, query string) *cometcore.ResultTxSearch {
 	page := 1
 	perPage := 100
-	orderBy := "desc"
 
-	result, err := appchainClient.TxSearch(
-		context.Background(),
+	result, err := stack.L2Client.TxSearch(
+		stack.Ctx,
 		query,
 		false,
 		&page,
 		&perPage,
-		orderBy,
+		"desc",
 	)
 	require.NoError(t, err, "search transactions")
 	require.NotNil(t, result)
-	require.NotEmpty(t, result.Txs, "mint_eth event not found")
-	t.Log("Monomer can mint_eth from L1 user deposits")
+	return result
+}
+
+func createL1TransactOpts(
+	t *testing.T,
+	stack *e2e.StackConfig,
+	user *e2e.L1User,
+	l1signer types.Signer,
+	l1GasLimit uint64,
+	value *big.Int,
+) *bind.TransactOpts {
+	return &bind.TransactOpts{
+		From: user.Address,
+		Signer: func(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
+			signed, err := types.SignTx(tx, l1signer, user.PrivateKey)
+			require.NoError(t, err)
+			return signed, nil
+		},
+		Nonce:    getCurrentUserNonce(t, stack, user.Address),
+		GasPrice: getSuggestedL1GasPrice(t, stack),
+		GasLimit: l1GasLimit,
+		Value:    value,
+		Context:  stack.Ctx,
+		NoSend:   false,
+	}
+}
+
+func getCurrentUserNonce(t *testing.T, stack *e2e.StackConfig, userAddress common.Address) *big.Int {
+	nonce, err := stack.L1Client.NonceAt(stack.Ctx, userAddress, nil)
+	require.NoError(t, err)
+	return new(big.Int).SetUint64(nonce)
+}
+
+func getSuggestedL1GasPrice(t *testing.T, stack *e2e.StackConfig) *big.Int {
+	gasPrice, err := stack.L1Client.Client.SuggestGasPrice(stack.Ctx)
+	require.NoError(t, err)
+	return gasPrice
+}
+
+// waitForL2OutputProposal waits for the L2 output containing the withdrawal tx to be proposed on L1 and returns
+// the block number with the L2 output proposal.
+func waitForL2OutputProposal(t *testing.T, l2OutputOracleCaller *bindings.L2OutputOracleCaller) *big.Int {
+	// get the L2 block number where the withdrawal tx will be included in an output proposal
+	nextOutputBlockNumber, err := l2OutputOracleCaller.NextBlockNumber(&bind.CallOpts{})
+	require.NoError(t, err)
+
+	// wait for the L2 output containing the withdrawal tx to be proposed on L1
+	l2OutputBlockNumber, err := l2OutputOracleCaller.LatestBlockNumber(&bind.CallOpts{})
+	require.NoError(t, err)
+	for l2OutputBlockNumber.Cmp(nextOutputBlockNumber) < 0 {
+		l2OutputBlockNumber, err = l2OutputOracleCaller.LatestBlockNumber(&bind.CallOpts{})
+		require.NoError(t, err)
+
+		time.Sleep(250 * time.Millisecond)
+	}
+
+	return l2OutputBlockNumber
 }
