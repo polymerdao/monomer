@@ -3,6 +3,7 @@ package testapp
 import (
 	"context"
 	"encoding/json"
+	"math/big"
 	"slices"
 	"testing"
 
@@ -62,12 +63,12 @@ func ToTestTx(t *testing.T, k, v string) []byte {
 	})
 }
 
-func ToWithdrawalTx(t *testing.T, cosmosAddr string, ethAddr string, amount math.Int) []byte {
+func ToWithdrawalTx(t *testing.T, cosmosAddr string, ethAddr string, amount math.Int, gasLimit *big.Int) []byte {
 	return toTx(t, &rolluptypes.MsgInitiateWithdrawal{
 		Sender:   cosmosAddr,
 		Target:   ethAddr,
 		Value:    amount,
-		GasLimit: []byte{0xff, 0xff, 0xff, 0xff, 0xff},
+		GasLimit: gasLimit.Bytes(),
 		Data:     []byte{},
 	})
 }
