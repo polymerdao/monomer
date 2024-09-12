@@ -311,7 +311,7 @@ func TestBuildRollupTxs(t *testing.T) {
 	require.Len(t, ethTxs, 2, "Expected two Ethereum transactions: L1 attribute and deposit tx, got %d", len(ethTxs))
 
 	depositTxETH := ethTxs[1]
-	require.NotNil(t, depositTxETH.Value())
+	require.NotNil(t, depositTxETH.Mint())
 	require.NotNil(t, depositTxETH.To(), "Deposit transaction must have a 'to' address")
 
 	cosmAddr := utils.EvmToCosmosAddress(*depositTxETH.To())
@@ -346,7 +346,7 @@ func TestBuildRollupTxs(t *testing.T) {
 	builtBlock, preBuildInfo, postBuildInfo := buildBlock(t, b, env.app, payload)
 
 	// Test deposit was received
-	checkDepositTxResult(t, env.txStore, depositTxs, fmt.Sprintf("%sETH", depositTxETH.Value().String()), cosmAddr.String())
+	checkDepositTxResult(t, env.txStore, depositTxs, fmt.Sprintf("%sETH", depositTxETH.Mint().String()), cosmAddr.String())
 
 	withdrawalTxResult, err := env.txStore.Get(bfttypes.Tx(withdrawalTx).Hash())
 	require.NoError(t, err)

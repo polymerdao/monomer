@@ -22,6 +22,7 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ethereum/go-ethereum/common"
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	monomertestutils "github.com/polymerdao/monomer/testutils"
 	"github.com/polymerdao/monomer/x/rollup"
 	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
@@ -40,14 +41,16 @@ func TestRollup(t *testing.T) {
 	l1AttributesTxBz := monomertestutils.TxToBytes(t, l1AttributesTx)
 	depositTxBz := monomertestutils.TxToBytes(t, depositTx)
 
-	depositAmount := depositTx.Value()
-	var userAddr sdk.AccAddress = depositTx.To().Bytes()
+	depositAmount := depositTx.Mint()
+	to, err := gethtypes.NewLondonSigner(depositTx.ChainId()).Sender(depositTx)
+	require.NoError(t, err)
+	var userAddr sdk.AccAddress = to.Bytes()
 
 	// query the user's ETH balance and assert it's zero
 	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, userAddr, integrationApp))
 
 	// send an invalid MsgApplyL1Txs and assert error
-	_, err := integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
+	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
 		TxBytes:     [][]byte{l1AttributesTxBz, l1AttributesTxBz},
 		FromAddress: monomerSigner,
 	})
