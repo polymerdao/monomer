@@ -24,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	monomertestutils "github.com/polymerdao/monomer/testutils"
+	"github.com/polymerdao/monomer/utils"
 	"github.com/polymerdao/monomer/x/rollup"
 	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
@@ -44,7 +45,7 @@ func TestRollup(t *testing.T) {
 	depositAmount := depositTx.Mint()
 	from, err := gethtypes.NewCancunSigner(depositTx.ChainId()).Sender(depositTx)
 	require.NoError(t, err)
-	var userAddr sdk.AccAddress = from.Bytes()
+	userAddr := utils.EvmToCosmosAddress(from)
 
 	// query the user's ETH balance and assert it's zero
 	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, userAddr, integrationApp))
