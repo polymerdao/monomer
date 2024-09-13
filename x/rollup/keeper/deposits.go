@@ -79,17 +79,17 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Eve
 
 		// Get the sender's address from the transaction
 		// We use NewLondonSigner because deposit transactions follow EIP-2718 and EIP-2930
-		to, err := ethtypes.NewLondonSigner(tx.ChainId()).Sender(&tx)
+		from, err := ethtypes.NewLondonSigner(tx.ChainId()).Sender(&tx)
 		if err != nil {
-			ctx.Logger().Error("Failed to get sender address", "evmAddress", to, "err", err)
+			ctx.Logger().Error("Failed to get sender address", "evmAddress", from, "err", err)
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to get sender address: %v", err)
 		}
-		cosmAddr := utils.EvmToCosmosAddress(to)
+		cosmAddr := utils.EvmToCosmosAddress(from)
 		mintAmount := sdkmath.NewIntFromBigInt(tx.Mint())
 
 		mintEvent, err := k.mintETH(ctx, cosmAddr, mintAmount)
 		if err != nil {
-			ctx.Logger().Error("Failed to mint ETH", "evmAddress", to, "cosmosAddress", cosmAddr, "err", err)
+			ctx.Logger().Error("Failed to mint ETH", "evmAddress", from, "cosmosAddress", cosmAddr, "err", err)
 			return nil, types.WrapError(types.ErrMintETH, "failed to mint ETH for cosmosAddress: %v; err: %v", cosmAddr, err)
 		}
 		mintEvents = append(mintEvents, *mintEvent)

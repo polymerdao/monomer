@@ -42,9 +42,9 @@ func TestRollup(t *testing.T) {
 	depositTxBz := monomertestutils.TxToBytes(t, depositTx)
 
 	depositAmount := depositTx.Mint()
-	to, err := gethtypes.NewLondonSigner(depositTx.ChainId()).Sender(depositTx)
+	from, err := gethtypes.NewLondonSigner(depositTx.ChainId()).Sender(depositTx)
 	require.NoError(t, err)
-	var userAddr sdk.AccAddress = to.Bytes()
+	var userAddr sdk.AccAddress = from.Bytes()
 
 	// query the user's ETH balance and assert it's zero
 	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, userAddr, integrationApp))
