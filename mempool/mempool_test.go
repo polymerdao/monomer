@@ -31,8 +31,7 @@ func TestMempool(t *testing.T) {
 
 		cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes}, nil, "")
 		require.NoError(t, err)
-
-		require.Error(t, pool.Enqueue(cosmosTxs[0]))
+		require.ErrorIs(t, pool.Enqueue(cosmosTxs[0]), mempool.ErrDepositTxInPool)
 	})
 
 	// enqueue multiple to empty

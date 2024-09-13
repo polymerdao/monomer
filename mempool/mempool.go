@@ -18,6 +18,8 @@ const (
 	tailKey       = "tailKey"
 )
 
+var ErrDepositTxInPool = errors.New("deposit txs are not allowed in the pool")
+
 // Pool stores the transactions in a linked list for its inherent FCFS behavior
 type storageElem struct {
 	Txn      comettypes.Tx `json:"txn"`
@@ -43,7 +45,7 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) (err error) {
 	// If the adaptation succeeds, it indicates that the
 	// user transaction is a deposit transaction, which is not allowed in the pool.
 	if _, err := monomer.GetDepositTxs([][]byte{userTxn}); err == nil {
-		return errors.New("deposit txs are not allowed in the pool")
+		return ErrDepositTxInPool
 	}
 
 	batch := p.db.NewBatch()
