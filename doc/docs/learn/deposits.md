@@ -6,7 +6,7 @@ import ThemedImage from '@theme/ThemedImage';
 
 # Deposits
 
-Monomer supports ETH deposits through the Optimism Portal L1 contract. This is the canonical way to move assets from Ethereum to the Monomer rollup chain, and the easiest way to bootstrap liquidity on the rollup chain.
+Monomer supports ETH deposits through the [`OptimismPortal`](https://github.com/ethereum-optimism/optimism/blob/d48b45954c381f75a13e61312da68d84e9b41418/packages/contracts-bedrock/src/L1/OptimismPortal.sol) L1 contract. This is the canonical way to move assets from Ethereum to the Monomer rollup chain, and the easiest way to bootstrap liquidity on the rollup chain.
 
 :::note
 Currently, only `value` deposits are supported. General `transactions` originating form the L1 are a roadmap item.
