@@ -40,6 +40,10 @@ func TestRollup(t *testing.T) {
 	l1AttributesTxBz := monomertestutils.TxToBytes(t, l1AttributesTx)
 	depositTxBz := monomertestutils.TxToBytes(t, depositTx)
 
+	weth9addr := common.HexToAddress("0x07358b966f0A6229e1d45B99179Aad24FB8Ac95D")
+	erc20userAddr, err := sdk.AccAddressFromBech32("cosmos1j7geyfa0usewjm2nd05ck8a4nsxlyt9c78cldz")
+	require.NoError(t, err)
+
 	depositAmount := depositTx.Value()
 	var userAddr sdk.AccAddress = depositTx.To().Bytes()
 
@@ -47,7 +51,7 @@ func TestRollup(t *testing.T) {
 	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, userAddr, integrationApp))
 
 	// send an invalid MsgApplyL1Txs and assert error
-	_, err := integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
+	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
 		TxBytes:     [][]byte{l1AttributesTxBz, l1AttributesTxBz},
 		FromAddress: monomerSigner,
 	})
@@ -62,6 +66,9 @@ func TestRollup(t *testing.T) {
 
 	// query the user's ETH balance and assert it's equal to the deposit amount
 	require.Equal(t, depositAmount, queryUserETHBalance(t, queryClient, userAddr, integrationApp).BigInt())
+
+	// query the user's ERC20 balance
+	require.Equal(t, big.NewInt(100), queryUserERC20Balance(t, queryClient, erc20userAddr, weth9addr, integrationApp).BigInt())
 
 	// try to withdraw more than deposited and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
@@ -144,6 +151,15 @@ func queryUserETHBalance(t *testing.T, queryClient banktypes.QueryClient, userAd
 	resp, err := queryClient.Balance(app.Context(), &banktypes.QueryBalanceRequest{
 		Address: userAddr.String(),
 		Denom:   rolluptypes.ETH,
+	})
+	require.NoError(t, err)
+	return resp.Balance.Amount
+}
+
+func queryUserERC20Balance(t *testing.T, queryClient banktypes.QueryClient, userAddr sdk.AccAddress, erc20addr common.Address, app *integration.App) math.Int {
+	resp, err := queryClient.Balance(app.Context(), &banktypes.QueryBalanceRequest{
+		Address: userAddr.String(),
+		Denom:   "erc20/" + erc20addr.String()[2:],
 	})
 	require.NoError(t, err)
 	return resp.Balance.Amount

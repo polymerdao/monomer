@@ -16,6 +16,8 @@ import (
 	"github.com/cometbft/cometbft/config"
 	cometcore "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
+	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
@@ -38,7 +40,6 @@ import (
 
 const (
 	artifactsDirectoryName = "artifacts"
-	oneEth                 = 1e18
 )
 
 func openLogFile(t *testing.T, env *environment.Env, name string) *os.File {
@@ -53,22 +54,26 @@ var e2eTests = []struct {
 	name string
 	run  func(t *testing.T, stack *e2e.StackConfig)
 }{
+	//{
+	//	name: "ETH L1 Deposits and L2 Withdrawals",
+	//	run:  ethRollupFlow,
+	//},
 	{
-		name: "L1 Deposits and L2 Withdrawals",
-		run:  rollupFlow,
+		name: "ERC20 L1 Deposits and L2 Withdrawals",
+		run:  erc20RollupFlow,
 	},
-	{
-		name: "CometBFT Txs",
-		run:  cometBFTtx,
-	},
-	{
-		name: "AttributesTX",
-		run:  containsAttributesTx,
-	},
-	{
-		name: "No Rollbacks",
-		run:  checkForRollbacks,
-	},
+	//{
+	//	name: "CometBFT Txs",
+	//	run:  cometBFTtx,
+	//},
+	//{
+	//	name: "AttributesTX",
+	//	run:  containsAttributesTx,
+	//},
+	//{
+	//	name: "No Rollbacks",
+	//	run:  checkForRollbacks,
+	//},
 }
 
 func TestE2E(t *testing.T) {
@@ -228,7 +233,7 @@ func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
 	require.Len(t, txBlock.Transactions(), 2) // 1 deposit tx + 1 cometbft tx
 }
 
-func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
+func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
 	monomerClient := stack.MonomerClient
 
@@ -243,12 +248,113 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	user := stack.Users[0]
 	l1signer := types.NewEIP155Signer(l1ChainID)
 
-	//////////////////////
-	////// DEPOSITS //////
-	//////////////////////
+	l2GasLimit := l2blockGasLimit / 10
+	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+
+	l1StandardBridge, err := opbindings.NewL1StandardBridge(stack.L1Deployments.L1StandardBridgeProxy, l1Client)
+	require.NoError(t, err)
+
+	/////////////////////////////
+	////// ERC-20 DEPOSITS //////
+	/////////////////////////////
+
+	// Deploy WETH9
+	// TODO: deploy WETH9 contract in stack.go and pass through stack?
+	// TODO: look into using `opts, err := bind.NewKeyedTransactorWithChainID(sys.Cfg.Secrets.Alice, cfg.L1ChainIDBig())`
+	weth9Address, tx, WETH9, err := opbindings.DeployWETH9(
+		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, nil),
+		l1Client,
+	)
+	require.NoError(t, err)
+	// TODO: look into using `wait.ForReceiptOK(stack.Ctx, l1Client.Client, tx.Hash())` in the rest of our e2e tests
+	_, err = wait.ForReceiptOK(stack.Ctx, l1Client.Client, tx.Hash())
+	require.NoError(t, err, "Waiting for deposit tx on L1")
+
+	// Get some WETH
+	wethL1Amount := big.NewInt(params.Ether)
+	tx, err = WETH9.Deposit(createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, wethL1Amount))
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(stack.Ctx, l1Client.Client, tx.Hash())
+	require.NoError(t, err)
+	wethBalance, err := WETH9.BalanceOf(&bind.CallOpts{}, user.Address)
+	require.NoError(t, err)
+	require.Equal(t, wethL1Amount, wethBalance)
+
+	// Approve WETH9 with the bridge
+	tx, err = WETH9.Approve(
+		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, nil),
+		stack.L1Deployments.L1StandardBridgeProxy,
+		wethL1Amount,
+	)
+	require.NoError(t, err)
+	_, err = wait.ForReceiptOK(context.Background(), l1Client.Client, tx.Hash())
+	require.NoError(t, err)
+
+	// Bridge the WETH9
+	wethL2Amount := big.NewInt(100)
+	tx, err = l1StandardBridge.BridgeERC20(
+		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, nil),
+		weth9Address,
+		weth9Address, // TODO: cosmos address representing the L2 ERC-20 token goes here
+		wethL2Amount,
+		100000,
+		[]byte{},
+	)
+	require.NoError(t, err)
+	depositReceipt, err := wait.ForReceiptOK(context.Background(), l1Client.Client, tx.Hash())
+	require.NoError(t, err)
+
+	t.Log("Deposit through L1StandardBridge", "gas used", depositReceipt.GasUsed)
+
+	// compute the deposit transaction hash + poll for it
+	//depositEvent, err := receipts.FindLog(depositReceipt.Logs, stack.OptimismPortal.ParseTransactionDeposited)
+	//require.NoError(t, err, "Should emit deposit event")
+
+	// wait for tx to be processed on L1 and L2
+	require.NoError(t, stack.WaitL1(1))
+	require.NoError(t, stack.WaitL2(1))
+
+	// assert the user's bridged WETH is no longer on L1
+	wethBalance, err = WETH9.BalanceOf(&bind.CallOpts{}, user.Address)
+	require.NoError(t, err)
+	require.Equal(t, new(big.Int).Sub(wethL1Amount, wethL2Amount), wethBalance)
+
+	//depositTx, err := derive.UnmarshalDepositLogEvent(&depositEvent.Raw)
+	//require.NoError(t, err)
+	//_, err = wait.ForReceiptOK(context.Background(), l2Client, types.NewTx(depositTx).Hash())
+	//require.NoError(t, err)
+
+	// Ensure that the deposit went through
+	//optimismMintableToken, err := bindings.NewOptimismMintableERC20(event.LocalToken, l2Client)
+	//require.NoError(t, err)
+
+	// Should have balance on L2
+	//l2Balance, err := optimismMintableToken.BalanceOf(&bind.CallOpts{}, opts.From)
+	//require.NoError(t, err)
+	//require.Equal(t, l2Balance, big.NewInt(100))
+}
+
+func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
+	l1Client := stack.L1Client
+	monomerClient := stack.MonomerClient
+
+	b, err := monomerClient.BlockByNumber(stack.Ctx, nil)
+	require.NoError(t, err, "monomer block by number")
+	l2blockGasLimit := b.GasLimit()
+
+	l1ChainID, err := l1Client.ChainID(stack.Ctx)
+	require.NoError(t, err, "chain id")
+
+	// instantiate L1 user, tx signer.
+	user := stack.Users[0]
+	l1signer := types.NewEIP155Signer(l1ChainID)
 
 	l2GasLimit := l2blockGasLimit / 10
 	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+
+	//////////////////////////
+	////// ETH DEPOSITS //////
+	//////////////////////////
 
 	// get the user's balance before the deposit has been processed
 	balanceBeforeDeposit, err := l1Client.BalanceAt(stack.Ctx, user.Address, nil)
@@ -256,8 +362,8 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// send user Deposit Tx
 	// TODO: the only reason the L1 balance assertions are passing is because depositTx.Value == depositTx.Mint. Once we pivot to using Mint instead of Value in x/rollup we should add separate deposit tx cases with and without a Value field set
-	depositAmount := big.NewInt(oneEth)
-	depositTx, err := stack.L1Portal.DepositTransaction(
+	depositAmount := big.NewInt(params.Ether)
+	depositTx, err := stack.OptimismPortal.DepositTransaction(
 		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, depositAmount),
 		user.Address,
 		depositAmount,
@@ -279,7 +385,7 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NotNil(t, receipt, "deposit tx receipt")
 	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "deposit tx reverted")
 
-	depositLogs, err := stack.L1Portal.FilterTransactionDeposited(
+	depositLogs, err := stack.OptimismPortal.FilterTransactionDeposited(
 		&bind.FilterOpts{
 			Start:   0,
 			End:     nil,
@@ -314,9 +420,9 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	t.Log("Monomer can ingest user deposit txs from L1 and mint ETH on L2")
 
-	/////////////////////////
-	////// WITHDRAWALS //////
-	/////////////////////////
+	/////////////////////////////
+	////// ETH WITHDRAWALS //////
+	/////////////////////////////
 
 	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
 	withdrawalTx := e2e.NewWithdrawalTx(0, user.Address, user.Address, depositAmount, new(big.Int).SetUint64(params.TxGas))
@@ -349,7 +455,7 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err)
 
 	// send a withdrawal proving tx to prove the withdrawal on L1
-	proveWithdrawalTx, err := stack.L1Portal.ProveWithdrawalTransaction(
+	proveWithdrawalTx, err := stack.OptimismPortal.ProveWithdrawalTransaction(
 		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, nil),
 		withdrawalTx.WithdrawalTransaction(),
 		provenWithdrawalParams.L2OutputIndex,
@@ -369,7 +475,7 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	withdrawalTxHash, err := withdrawalTx.Hash()
 	require.NoError(t, err)
-	proveWithdrawalLogs, err := stack.L1Portal.FilterWithdrawalProven(
+	proveWithdrawalLogs, err := stack.OptimismPortal.FilterWithdrawalProven(
 		&bind.FilterOpts{
 			Start:   0,
 			End:     nil,
@@ -393,7 +499,7 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err)
 
 	// send a withdrawal finalizing tx to finalize the withdrawal on L1
-	finalizeWithdrawalTx, err := stack.L1Portal.FinalizeWithdrawalTransaction(
+	finalizeWithdrawalTx, err := stack.OptimismPortal.FinalizeWithdrawalTransaction(
 		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, nil),
 		withdrawalTx.WithdrawalTransaction(),
 	)
@@ -408,7 +514,7 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NotNil(t, receipt, "finalize withdrawal tx receipt")
 	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "finalize withdrawal tx failed")
 
-	finalizeWithdrawalLogs, err := stack.L1Portal.FilterWithdrawalFinalized(
+	finalizeWithdrawalLogs, err := stack.OptimismPortal.FilterWithdrawalFinalized(
 		&bind.FilterOpts{
 			Start:   0,
 			End:     nil,

@@ -49,7 +49,8 @@ type StackConfig struct {
 	Operator             L1User
 	Users                []L1User
 	L1Client             *L1Client
-	L1Portal             *bindings.OptimismPortal
+	L1Deployments        *opgenesis.L1Deployments
+	OptimismPortal       *bindings.OptimismPortal
 	L2OutputOracleCaller *bindings.L2OutputOracleCaller
 	L2Client             *bftclient.HTTP
 	MonomerClient        *MonomerClient
@@ -299,7 +300,8 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	return &StackConfig{
 		Ctx:                  ctx,
 		L1Client:             l1Client,
-		L1Portal:             opPortal,
+		OptimismPortal:       opPortal,
+		L1Deployments:        l1Deployments,
 		L2OutputOracleCaller: l2OutputOracleCaller,
 		L2Client:             l2Client,
 		MonomerClient:        monomerClient,
