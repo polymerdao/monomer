@@ -42,7 +42,7 @@ func TestRollup(t *testing.T) {
 	depositTxBz := monomertestutils.TxToBytes(t, depositTx)
 
 	depositAmount := depositTx.Mint()
-	from, err := gethtypes.NewLondonSigner(depositTx.ChainId()).Sender(depositTx)
+	from, err := gethtypes.NewCancunSigner(depositTx.ChainId()).Sender(depositTx)
 	require.NoError(t, err)
 	var userAddr sdk.AccAddress = from.Bytes()
 
