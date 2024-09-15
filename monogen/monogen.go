@@ -15,6 +15,8 @@ import (
 )
 
 func Generate(ctx context.Context, goModulePath, addressPrefix string, skipGit bool) error {
+	// TODO: don't do anything if directory already exists? I feel like ignite should handle this.
+
 	igniteRootDir, err := config.DirPath()
 	if err != nil {
 		return fmt.Errorf("get ignite config directory: %v", err)
@@ -49,8 +51,20 @@ func Generate(ctx context.Context, goModulePath, addressPrefix string, skipGit b
 	// monogen modifications.
 	g := genny.New()
 	g.RunFn(func(r *genny.Runner) error {
-		if err := addRollupModule(r, filepath.Join(appDir, "app", "app.go"), filepath.Join(appDir, "app", "app_config.go")); err != nil {
+		appGoPath := filepath.Join(appDir, "app", "app.go")
+		appConfigGoPath := filepath.Join(appDir, "app", "app_config.go")
+		if err := addRollupModule(r, appGoPath, appConfigGoPath); err != nil {
 			return fmt.Errorf("add rollup module: %v", err)
+		}
+		if err := removeConsensusModule(r, appGoPath, appConfigGoPath); err != nil {
+			return fmt.Errorf("remove consensus module: %v", err)
+		}
+		appName := filepath.Base(appDir)
+		if err := addMonomerCommand(r, filepath.Join(appDir, "cmd", appName+"d", "cmd", "commands.go")); err != nil {
+			return fmt.Errorf("add monomer command: %v", err)
+		}
+		if err := addReplaceDirectives(r, filepath.Join(appDir, "go.mod")); err != nil {
+			return fmt.Errorf("add replace directives: %v", err)
 		}
 		return nil
 	})
@@ -137,14 +151,109 @@ func addRollupModule(r *genny.Runner, appGoPath, appConfigGoPath string) error {
 	return nil
 }
 
-// remove consensus module
-//   - app.go
-//   - app_config.go
+func removeConsensusModule(r *genny.Runner, appGoPath, appConfigGoPath string) error {
+	replacer := placeholder.New()
 
-// add monomer command
-//   - cmd/{name}d/commands.go
+	// Modify the app config, usually at app/app_config.go.
+	appConfigGo, err := r.Disk.Find(appConfigGoPath)
+	if err != nil {
+		return fmt.Errorf("find: %v", err)
+	}
 
-// replace directives
-//   - go.mod
+	// 1. Remove import.
+	content := replacer.Replace(appConfigGo.String(), `consensusmodulev1 "cosmossdk.io/api/cosmos/consensus/module/v1"
+	`, "")
+	content = replacer.Replace(content, `consensustypes "github.com/cosmos/cosmos-sdk/x/consensus/types"
+	`, "")
+
+	// 2. Remove module configuration.
+	content = replacer.Replace(content, `{
+			Name:   consensustypes.ModuleName,
+			Config: appconfig.WrapAny(&consensusmodulev1.Module{}),
+		},
+		`, "")
+
+	if err := r.File(genny.NewFileS(appConfigGoPath, content)); err != nil {
+		return fmt.Errorf("write %s: %v", appConfigGoPath, err)
+	}
+
+	// Modify the app file, usually at app/app.go.
+	appGo, err := r.Disk.Find(appGoPath)
+	if err != nil {
+		return fmt.Errorf("find: %v", err)
+	}
+
+	// 1. Remove import.
+	content = replacer.Replace(appGo.String(), `_ "github.com/cosmos/cosmos-sdk/x/consensus" // import for side-effects
+	`, "")
+	content = replacer.Replace(content, `consensuskeeper "github.com/cosmos/cosmos-sdk/x/consensus/keeper"
+	`, "")
+
+	// 2. Remove keeper declaration.
+	content = replacer.Replace(content, `ConsensusParamsKeeper consensuskeeper.Keeper
+`, "")
+
+	// 3. Remove keeper definition.
+	content = replacer.Replace(content, `&app.ConsensusParamsKeeper,
+		`, "")
+
+	if err := r.File(genny.NewFileS(appGoPath, content)); err != nil {
+		return fmt.Errorf("write %s: %v", appGoPath, err)
+	}
+
+	return nil
+}
+
+func addMonomerCommand(r *genny.Runner, commandsGoPath string) error {
+	replacer := placeholder.New()
+
+	commandsGo, err := r.Disk.Find(commandsGoPath)
+	if err != nil {
+		return fmt.Errorf("find: %v", err)
+	}
+
+	content, err := xast.AppendImports(commandsGo.String(), xast.WithLastImport("github.com/polymerdao/monomer/integrations"))
+	if err != nil {
+		return fmt.Errorf("append import: %v", err)
+	}
+
+	content = replacer.Replace(content, `
+	server.AddCommands(rootCmd, app.DefaultNodeHome, newApp, appExport, addModuleInitFlags)`, `
+	monomerCmd := &cobra.Command{
+		Use:   "monomer",
+		Short: "Monomer subcommands",
+	}
+	monomerCmd.AddCommand(server.StartCmdWithOptions(newApp, app.DefaultNodeHome, server.StartCmdOptions{
+		StartCommandHandler: integrations.StartCommandHandler,
+	}))
+	rootCmd.AddCommand(monomerCmd)`)
+
+	if err := r.File(genny.NewFileS(commandsGoPath, content)); err != nil {
+		return fmt.Errorf("write %s: %v", commandsGoPath, err)
+	}
+
+	return nil
+}
+
+func addReplaceDirectives(r *genny.Runner, goModPath string) error {
+	replacer := placeholder.New()
+
+	goMod, err := r.Disk.Find(goModPath)
+	if err != nil {
+		return fmt.Errorf("find: %v", err)
+	}
+	content := replacer.Replace(goMod.String(), "replace (", `replace (
+	cosmossdk.io/core => cosmossdk.io/core v0.11.1
+	github.com/btcsuite/btcd/btcec/v2 v2.3.4 => github.com/btcsuite/btcd/btcec/v2 v2.3.2
+	github.com/crate-crypto/go-ipa => github.com/crate-crypto/go-ipa v0.0.0-20231205143816-408dbffb2041
+	github.com/crate-crypto/go-kzg-4844 v1.0.0 => github.com/crate-crypto/go-kzg-4844 v0.7.0
+	github.com/ethereum/go-ethereum => github.com/joshklop/op-geth v0.0.0-20240515205036-e3b990384a74
+	github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20240814165419-c6b91fa9f263
+`)
+	if err := r.File(genny.NewFileS(goModPath, content)); err != nil {
+		return fmt.Errorf("write %s: %v", goModPath, err)
+	}
+	return nil
+}
 
 // to test, we run Generate and then run all of the unit tests + run monomer start + hit a comet endpoint
