@@ -8,6 +8,7 @@ import (
 	"github.com/gobuffalo/genny/v2"
 	"github.com/ignite/cli/v28/ignite/config"
 	"github.com/ignite/cli/v28/ignite/pkg/cache"
+	"github.com/ignite/cli/v28/ignite/pkg/gocmd"
 	"github.com/ignite/cli/v28/ignite/pkg/placeholder"
 	"github.com/ignite/cli/v28/ignite/pkg/xast"
 	"github.com/ignite/cli/v28/ignite/services/scaffolder"
@@ -76,8 +77,13 @@ func Generate(ctx context.Context, goModulePath, addressPrefix string, skipGit b
 		return fmt.Errorf("apply monogen modifications: %v", err)
 	}
 
-	// go mod tidy
-	// go fmt
+	if err := gocmd.Fmt(ctx, appDir); err != nil {
+		return fmt.Errorf("go fmt: %v", err)
+	}
+	_ = gocmd.GoImports(ctx, appDir) // goimports installation could fail, so ignore the error
+	if err := gocmd.ModTidy(ctx, appDir); err != nil {
+		return fmt.Errorf("go mod tidy: %v", err)
+	}
 
 	return nil
 }
@@ -110,9 +116,9 @@ func addRollupModule(r *genny.Runner, appGoPath, appConfigGoPath string) error {
 
 	// 3. Add rollup module to app config.
 	content = replacer.Replace(content, module.PlaceholderSgAppModuleConfig, `{
-		Name:   rolluptypes.ModuleName,
-		Config: appconfig.WrapAny(rollupmodulev1.Module{}),
-	}`)
+				Name:   rolluptypes.ModuleName,
+				Config: appconfig.WrapAny(rollupmodulev1.Module{}),
+			},`)
 
 	if err := r.File(genny.NewFileS(appConfigGoPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", appConfigGoPath, err)
@@ -128,7 +134,7 @@ func addRollupModule(r *genny.Runner, appGoPath, appConfigGoPath string) error {
 	content, err = xast.AppendImports(
 		appGo.String(),
 		xast.WithLastNamedImport("rollupkeeper", "github.com/polymerdao/monomer/x/rollup/keeper"),
-		xast.WithLastNamedImport("_", "github.com/polymerdao/monomer/x/rollup // import for side-effects"),
+		xast.WithLastNamedImport("_", "github.com/polymerdao/monomer/x/rollup"),
 	)
 	if err != nil {
 		return fmt.Errorf("append rollup module imports to %s: %v", appGoPath, err)
