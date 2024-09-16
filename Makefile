@@ -58,7 +58,8 @@ install-abi-gen:
 
 .PHONY: install-mockgen
 install-mockgen:
-	go install github.com/golang/mock/mockgen@v1.6.0
+	go install go.uber.org/mock/mockgen@latest
+	$(eval PATH := $(PATH):$(shell go env GOPATH)/bin)
 
 .PHONY: install-foundry
 install-foundry:
