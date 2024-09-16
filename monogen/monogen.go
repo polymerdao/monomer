@@ -80,7 +80,7 @@ func Generate(ctx context.Context, goModulePath, addressPrefix string, skipGit b
 	if err := gocmd.Fmt(ctx, appDir); err != nil {
 		return fmt.Errorf("go fmt: %v", err)
 	}
-	_ = gocmd.GoImports(ctx, appDir) // goimports installation could fail, so ignore the error
+	_ = gocmd.GoImports(ctx, appDir) // From ignite: goimports installation could fail, so ignore the error
 	if err := gocmd.ModTidy(ctx, appDir); err != nil {
 		return fmt.Errorf("go mod tidy: %v", err)
 	}
@@ -117,7 +117,7 @@ func addRollupModule(r *genny.Runner, appGoPath, appConfigGoPath string) error {
 	// 3. Add rollup module to app config.
 	content = replacer.Replace(content, module.PlaceholderSgAppModuleConfig, `{
 				Name:   rolluptypes.ModuleName,
-				Config: appconfig.WrapAny(rollupmodulev1.Module{}),
+				Config: appconfig.WrapAny(&rollupmodulev1.Module{}),
 			},`)
 
 	if err := r.File(genny.NewFileS(appConfigGoPath, content)); err != nil {
@@ -173,11 +173,11 @@ func removeConsensusModule(r *genny.Runner, appGoPath, appConfigGoPath string) e
 	`, "")
 
 	// 2. Remove module configuration.
-	content = replacer.Replace(content, `{
-			Name:   consensustypes.ModuleName,
-			Config: appconfig.WrapAny(&consensusmodulev1.Module{}),
-		},
-		`, "")
+	content = replacer.Replace(content, `
+			{
+				Name:   consensustypes.ModuleName,
+				Config: appconfig.WrapAny(&consensusmodulev1.Module{}),
+			},`, "")
 
 	if err := r.File(genny.NewFileS(appConfigGoPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", appConfigGoPath, err)
