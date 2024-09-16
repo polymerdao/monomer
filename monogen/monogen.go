@@ -15,8 +15,8 @@ import (
 	"github.com/ignite/cli/v28/ignite/templates/module"
 )
 
-func Generate(ctx context.Context, goModulePath, addressPrefix string, skipGit bool) error {
-	// TODO: don't do anything if directory already exists? I feel like ignite should handle this.
+func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix string, skipGit bool) error {
+	// TODO: don't do anything if directory already exists. I feel like ignite should handle this somewhere.
 
 	igniteRootDir, err := config.DirPath()
 	if err != nil {
@@ -35,7 +35,7 @@ func Generate(ctx context.Context, goModulePath, addressPrefix string, skipGit b
 		ctx,
 		cacheStorage,
 		placeholder.New(),
-		"", // app directory path (empty means ignite will use the goModulePath)
+		appDirPath,
 		goModulePath,
 		addressPrefix,
 		true, // no default module
@@ -261,5 +261,3 @@ func addReplaceDirectives(r *genny.Runner, goModPath string) error {
 	}
 	return nil
 }
-
-// to test, we run Generate and then run all of the unit tests + run monomer start + hit a comet endpoint
