@@ -96,8 +96,3 @@ setup-e2e: generate-e2e-testapp
 	$(MAKE) -C e2e/optimism install-geth && \
 		$(MAKE) -C e2e/optimism cannon-prestate && \
 		$(MAKE) -C e2e/optimism devnet-allocs
-
-.PHONY: generate-e2e-testapp
-generate-e2e-testapp:
-	go run ./monogen/cmd/ --skip-git --address-prefix test --gomod-path github.com/polymerdao/monomer/e2e/testapp && \
-		./monogen.sh
