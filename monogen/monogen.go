@@ -14,6 +14,7 @@ import (
 	"github.com/ignite/cli/v28/ignite/pkg/xast"
 	"github.com/ignite/cli/v28/ignite/services/scaffolder"
 	"github.com/ignite/cli/v28/ignite/templates/module"
+	"github.com/ignite/cli/v28/ignite/version"
 )
 
 func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix string, skipGit bool) error {
@@ -27,8 +28,7 @@ func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix strin
 	}
 	// https://github.com/ignite/cli/blob/2a968e8684cae0a1d79ccb11f0db067a4605173e/ignite/cmd/cmd.go#L33-L34
 	cacheDBPath := filepath.Join(igniteRootDir, "ignite_cache.db")
-	// Note that we need to change this version every time we bump ignite's version in Monomer's go.mod.
-	cacheStorage, err := cache.NewStorage(cacheDBPath, cache.WithVersion("v28.5.1"))
+	cacheStorage, err := cache.NewStorage(cacheDBPath, cache.WithVersion(version.Version))
 	if err != nil {
 		return fmt.Errorf("new ignite cache storage: %v", err)
 	}
@@ -114,14 +114,16 @@ func addRollupModule(r *genny.Runner, appGoPath, appConfigGoPath string) error {
 	content = replacer.Replace(
 		content,
 		module.PlaceholderSgAppMaccPerms,
-		`{Account: rolluptypes.ModuleName, Permissions: []string{authtypes.Minter, authtypes.Burner}},`,
+		fmt.Sprintf(`{Account: rolluptypes.ModuleName, Permissions: []string{authtypes.Minter, authtypes.Burner}},
+		%s`, module.PlaceholderSgAppMaccPerms),
 	)
 
 	// 3. Add rollup module to app config.
-	content = replacer.Replace(content, module.PlaceholderSgAppModuleConfig, `{
+	content = replacer.Replace(content, module.PlaceholderSgAppModuleConfig, fmt.Sprintf(`{
 				Name:   rolluptypes.ModuleName,
 				Config: appconfig.WrapAny(&rollupmodulev1.Module{}),
-			},`)
+			},
+			%s`, module.PlaceholderSgAppModuleConfig))
 
 	if err := r.File(genny.NewFileS(appConfigGoPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", appConfigGoPath, err)
