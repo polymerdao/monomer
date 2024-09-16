@@ -17,28 +17,42 @@ func TestGenerate(t *testing.T) {
 	const appName = "testapp"
 	rootDirPath := t.TempDir()
 	appDirPath := filepath.Join(rootDirPath, appName)
+	// Generate project.
 	require.NoError(t, monogen.Generate(context.Background(), appDirPath, "github.com/test/"+appName, "test", true))
-
-	initCommand := func(cmd *exec.Cmd) *exec.Cmd {
-		cmd.Dir = appDirPath
-		// Set a different home directory to avoid cluttering the home directory of the person running the script.
-		// Ignite prefixes environment variables with the lowercase app name instead of uppercase for some reason.
-		cmd.Env = append(os.Environ(), appName+"_HOME="+rootDirPath)
-		logger := logWriter(t.Log)
-		cmd.Stdout = logger
-		cmd.Stderr = logger
-		return cmd
-	}
 
 	// Run monogen.sh.
 	scriptPath, err := filepath.Abs("monogen.sh")
 	require.NoError(t, err)
-	require.NoError(t, initCommand(exec.Command(scriptPath)).Run())
+	require.NoError(t, initCommand(t, exec.Command(scriptPath), appName, rootDirPath, appDirPath).Run())
 
+	testApp(t, rootDirPath, appDirPath, appName)
+
+	// Cannot overwrite existing directory.
+	require.ErrorContains(t, monogen.Generate(context.Background(), appDirPath, "github.com/test/"+appName, "test", true), "refusing to overwrite directory")
+}
+
+func initCommand(t *testing.T, cmd *exec.Cmd, appName, rootDirPath, appDirPath string) *exec.Cmd {
+	cmd.Dir = appDirPath
+	// Set a different home directory to avoid cluttering the home directory of the person running the script.
+	// Ignite prefixes environment variables with the lowercase app name instead of uppercase for some reason.
+	cmd.Env = append(os.Environ(), appName+"_HOME="+rootDirPath)
+	logger := logWriter(t.Log)
+	cmd.Stdout = logger
+	cmd.Stderr = logger
+	return cmd
+}
+
+func testApp(t *testing.T, rootDirPath, appDirPath, appName string) {
 	// Start the app.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	cmd := initCommand(exec.CommandContext(ctx, filepath.Join(appDirPath, appName+"d"), "monomer", "start", "--minimum-gas-prices", "0.0001stake"))
+	cmd := initCommand(
+		t,
+		exec.CommandContext(ctx, filepath.Join(appDirPath, appName+"d"), "monomer", "start", "--minimum-gas-prices", "0.0001stake"),
+		appName,
+		rootDirPath,
+		appDirPath,
+	)
 	require.NoError(t, cmd.Start())
 	defer func() {
 		cancel()

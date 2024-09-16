@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 
+	"github.com/cometbft/cometbft/libs/os"
 	"github.com/gobuffalo/genny/v2"
 	"github.com/ignite/cli/v28/ignite/config"
 	"github.com/ignite/cli/v28/ignite/pkg/cache"
@@ -16,7 +17,9 @@ import (
 )
 
 func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix string, skipGit bool) error {
-	// TODO: don't do anything if directory already exists. I feel like ignite should handle this somewhere.
+	if os.FileExists(appDirPath) {
+		return fmt.Errorf("refusing to overwrite directory: %s", appDirPath)
+	}
 
 	igniteRootDir, err := config.DirPath()
 	if err != nil {
