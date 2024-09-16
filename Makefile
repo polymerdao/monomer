@@ -2,6 +2,7 @@ GOBIN ?= $$(go env GOPATH)/bin
 COVER_OUT ?= cover.out
 COVER_HTML ?= cover.html
 SCRIPTS_PATH ?= scripts
+BIN ?= bin
 
 E2E_ARTIFACTS_PATH ?= e2e/artifacts
 E2E_STATE_SETUP_PATH ?= e2e/optimism/.devnet
@@ -11,7 +12,7 @@ FOUNDRY_CACHE_PATH ?= bindings/cache
 
 .PHONY: monogen
 monogen:
-	go build -o bin/monogen ./monogen/cmd
+	go build -o $(BIN)/monogen ./monogen/cmd
 
 .PHONY: test
 test:
@@ -90,6 +91,7 @@ clean:
 	if [ -f $(E2E_CONFIG_SETUP_PATH) ]; then rm $(E2E_CONFIG_SETUP_PATH); fi
 	if [ -d ${FOUNDRY_ARTIFACTS_PATH} ]; then rm -r ${FOUNDRY_ARTIFACTS_PATH}; fi
 	if [ -d ${FOUNDRY_CACHE_PATH} ]; then rm -r ${FOUNDRY_CACHE_PATH}; fi
+	if [ -d $(BIN) ]; then rm -r $(BIN); fi
 
 .PHONY: setup-e2e
 setup-e2e:
