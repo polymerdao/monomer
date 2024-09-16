@@ -20,14 +20,13 @@ import (
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-node/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/polymerdao/monomer"
@@ -46,8 +45,7 @@ type EventListener interface {
 
 type StackConfig struct {
 	Ctx                  context.Context
-	Operator             L1User
-	Users                []L1User
+	User                 *ecdsa.PrivateKey
 	L1Client             *L1Client
 	L1Portal             *bindings.OptimismPortal
 	L2OutputOracleCaller *bindings.L2OutputOracleCaller
@@ -66,11 +64,6 @@ type stack struct {
 	l1stateDumpDir   string
 	eventListener    EventListener
 	prometheusCfg    *config.InstrumentationConfig
-}
-
-type L1User struct {
-	Address    common.Address
-	PrivateKey *ecdsa.PrivateKey
 }
 
 // Setup creates and runs a new stack for end-to-end testing.
@@ -162,29 +155,6 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("auxState to state dump: %v", err)
 	}
 
-	// Fund test EOA accounts
-	l1users := make([]L1User, 0)
-	for range 2 {
-		privateKey, err := crypto.GenerateKey()
-		if err != nil {
-			return nil, fmt.Errorf("generate key: %v", err)
-		}
-		userAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
-
-		user := state.DumpAccount{
-			Balance: "0x100000000000000000000000000000000000000000000000000000000000000",
-			Nonce:   0,
-			Address: &userAddress,
-		}
-		l1state.OnAccount(user.Address, user)
-		l1users = append(l1users, L1User{
-			Address:    userAddress,
-			PrivateKey: privateKey,
-		})
-	}
-
-	deployConfig.BatchSenderAddress = l1users[0].Address
-
 	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, l1state, l1Deployments)
 	if err != nil {
 		return nil, fmt.Errorf("build l1 developer genesis: %v", err)
@@ -244,12 +214,18 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("new l2 output oracle caller: %v", err)
 	}
 
+	secrets, err := e2eutils.DefaultMnemonicConfig.Secrets()
+	if err != nil {
+		return nil, fmt.Errorf("get secrets for default mnemonics: %v", err)
+	}
+
 	opStack := NewOPStack(
 		l1url,
 		s.monomerEngineURL,
 		s.opNodeURL,
 		l1Deployments.L2OutputOracleProxy,
-		l1users[0].PrivateKey,
+		secrets.Batcher,
+		secrets.Proposer,
 		rollupConfig,
 		s.eventListener,
 	)
@@ -303,8 +279,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		L2OutputOracleCaller: l2OutputOracleCaller,
 		L2Client:             l2Client,
 		MonomerClient:        monomerClient,
-		Operator:             l1users[0],
-		Users:                l1users[1:],
+		User:                 secrets.Alice,
 		RollupConfig:         rollupConfig,
 		WaitL1: func(numBlocks int) error {
 			return wait(numBlocks, 1)

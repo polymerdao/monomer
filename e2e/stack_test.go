@@ -2,6 +2,7 @@ package e2e_test
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"math/big"
@@ -23,6 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/polymerdao/monomer"
@@ -240,7 +242,8 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err, "chain id")
 
 	// instantiate L1 user, tx signer.
-	user := stack.Users[0]
+	userPrivKey := stack.User
+	userAddress := crypto.PubkeyToAddress(userPrivKey.PublicKey)
 	l1signer := types.NewEIP155Signer(l1ChainID)
 
 	//////////////////////
@@ -251,15 +254,15 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
 
 	// get the user's balance before the deposit has been processed
-	balanceBeforeDeposit, err := l1Client.BalanceAt(stack.Ctx, user.Address, nil)
+	balanceBeforeDeposit, err := l1Client.BalanceAt(stack.Ctx, userAddress, nil)
 	require.NoError(t, err)
 
 	// send user Deposit Tx
 	// TODO: the only reason the L1 balance assertions are passing is because depositTx.Value == depositTx.Mint. Once we pivot to using Mint instead of Value in x/rollup we should add separate deposit tx cases with and without a Value field set
 	depositAmount := big.NewInt(oneEth)
 	depositTx, err := stack.L1Portal.DepositTransaction(
-		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, depositAmount),
-		user.Address,
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, depositAmount),
+		userAddress,
 		depositAmount,
 		l2GasLimit,
 		false,    // _isCreation
@@ -285,8 +288,8 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 			End:     nil,
 			Context: stack.Ctx,
 		},
-		[]common.Address{user.Address},
-		[]common.Address{user.Address},
+		[]common.Address{userAddress},
+		[]common.Address{userAddress},
 		[]*big.Int{big.NewInt(0)},
 	)
 	require.NoError(t, err, "configuring 'TransactionDeposited' event listener")
@@ -294,7 +297,7 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, depositLogs.Close())
 
 	// get the user's balance after the deposit has been processed
-	balanceAfterDeposit, err := stack.L1Client.BalanceAt(stack.Ctx, user.Address, nil)
+	balanceAfterDeposit, err := stack.L1Client.BalanceAt(stack.Ctx, userAddress, nil)
 	require.NoError(t, err)
 
 	//nolint:gocritic
@@ -308,7 +311,7 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// check that the user's balance has been updated on L1
 	require.Equal(t, expectedBalance, balanceAfterDeposit)
 
-	userCosmosAddr := utils.EvmToCosmosAddress(user.Address).String()
+	userCosmosAddr := utils.EvmToCosmosAddress(userAddress).String()
 	depositValueHex := hexutil.Encode(depositAmount.Bytes())
 	requireEthIsMinted(t, stack, userCosmosAddr, depositValueHex)
 
@@ -319,7 +322,7 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	/////////////////////////
 
 	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
-	withdrawalTx := e2e.NewWithdrawalTx(0, user.Address, user.Address, depositAmount, new(big.Int).SetUint64(params.TxGas))
+	withdrawalTx := e2e.NewWithdrawalTx(0, userAddress, userAddress, depositAmount, new(big.Int).SetUint64(params.TxGas))
 
 	// initiate the withdrawal of the deposited amount on L2
 	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
@@ -350,7 +353,7 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// send a withdrawal proving tx to prove the withdrawal on L1
 	proveWithdrawalTx, err := stack.L1Portal.ProveWithdrawalTransaction(
-		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
 		withdrawalTx.WithdrawalTransaction(),
 		provenWithdrawalParams.L2OutputIndex,
 		provenWithdrawalParams.OutputRootProof,
@@ -389,12 +392,12 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	time.Sleep(time.Duration(finalizationPeriod.Uint64()) * time.Second)
 
 	// get the user's balance before the withdrawal has been finalized
-	balanceBeforeFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, user.Address, nil)
+	balanceBeforeFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userAddress, nil)
 	require.NoError(t, err)
 
 	// send a withdrawal finalizing tx to finalize the withdrawal on L1
 	finalizeWithdrawalTx, err := stack.L1Portal.FinalizeWithdrawalTransaction(
-		createL1TransactOpts(t, stack, &user, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
 		withdrawalTx.WithdrawalTransaction(),
 	)
 	require.NoError(t, err)
@@ -422,7 +425,7 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, finalizeWithdrawalLogs.Close())
 
 	// get the user's balance after the withdrawal has been finalized
-	balanceAfterFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, user.Address, nil)
+	balanceAfterFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userAddress, nil)
 	require.NoError(t, err)
 
 	//nolint:gocritic
@@ -483,19 +486,20 @@ func l2TxSearch(t *testing.T, stack *e2e.StackConfig, query string) *cometcore.R
 func createL1TransactOpts(
 	t *testing.T,
 	stack *e2e.StackConfig,
-	user *e2e.L1User,
+	user *ecdsa.PrivateKey,
 	l1signer types.Signer,
 	l1GasLimit uint64,
 	value *big.Int,
 ) *bind.TransactOpts {
+	address := crypto.PubkeyToAddress(user.PublicKey)
 	return &bind.TransactOpts{
-		From: user.Address,
+		From: address,
 		Signer: func(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
-			signed, err := types.SignTx(tx, l1signer, user.PrivateKey)
+			signed, err := types.SignTx(tx, l1signer, user)
 			require.NoError(t, err)
 			return signed, nil
 		},
-		Nonce:    getCurrentUserNonce(t, stack, user.Address),
+		Nonce:    getCurrentUserNonce(t, stack, address),
 		GasPrice: getSuggestedL1GasPrice(t, stack),
 		GasLimit: l1GasLimit,
 		Value:    value,
