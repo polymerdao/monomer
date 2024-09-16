@@ -24,7 +24,11 @@ test-all:
 
 .PHONY: e2e
 e2e:
-	go test -v ./e2e
+	go test -v ./e2e \
+	-l1-allocs ./optimism/.devnet/allocs-l1.json \
+	-l2-allocs-dir ./optimism/.devnet/ \
+	-l1-deployments ./optimism/.devnet/addresses.json \
+	-deploy-config ./optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
 
 .PHONY: install-golangci-lint
 install-golangci-lint:
