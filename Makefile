@@ -92,7 +92,6 @@ setup-e2e:
 	$(MAKE) -C e2e/optimism install-geth && \
 	$(MAKE) -C e2e/optimism cannon-prestate && \
 	$(MAKE) -C e2e/optimism devnet-allocs && \
-	# Make genesis state and config available to op-e2e/config/init.go. See issue 207. && \
 	cp -r e2e/optimism/.devnet/ ./.devnet && \
 	mkdir -p ./packages/contracts-bedrock/deploy-config && \
 	cp ./e2e/optimism/packages/contracts-bedrock/deploy-config/devnetL1.json ./packages/contracts-bedrock/deploy-config/devnetL1.json
