@@ -4,3 +4,6 @@ e2e/artifacts
 # Ignore the forge artifacts and cache.
 bindings/artifacts
 bindings/cache
+
+# Ignore binaries.
+bin/
