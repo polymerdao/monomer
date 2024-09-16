@@ -9,11 +9,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
-	"github.com/golang/mock/gomock"
 	"github.com/polymerdao/monomer/x/rollup/keeper"
 	rolluptestutil "github.com/polymerdao/monomer/x/rollup/testutil"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 )
 
 type KeeperTestSuite struct {
