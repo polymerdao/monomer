@@ -4,3 +4,7 @@ e2e/artifacts
 # Ignore the forge artifacts and cache.
 bindings/artifacts
 bindings/cache
+
+# Ignore the op stack genesis outputs from make setup-e2e
+.devnet
+packages/contracts-bedrock/deploy-config/
