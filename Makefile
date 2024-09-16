@@ -70,7 +70,7 @@ gen-bindings:
 
 .PHONY: gen-mocks
 gen-mocks:
-	mockgen -source=x/rollup/types/expected_keepers.go -package testutil -destination x/rollup/testutil/expected_keepers_mocks.go
+	go generate ./...
 
 $(COVER_OUT):
 	go test -short ./... -coverprofile=$@ -covermode=atomic -coverpkg=./...
