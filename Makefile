@@ -92,7 +92,7 @@ clean:
 	if [ -d ${FOUNDRY_CACHE_PATH} ]; then rm -r ${FOUNDRY_CACHE_PATH}; fi
 
 .PHONY: setup-e2e
-setup-e2e: generate-e2e-testapp
+setup-e2e:
 	$(MAKE) -C e2e/optimism install-geth && \
 		$(MAKE) -C e2e/optimism cannon-prestate && \
 		$(MAKE) -C e2e/optimism devnet-allocs
