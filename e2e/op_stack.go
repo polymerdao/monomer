@@ -3,16 +3,13 @@ package e2e
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math/big"
 	"time"
 
-	hdwallet "github.com/ethereum-optimism/go-ethereum-hdwallet"
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/compressor"
 	opbatchermetrics "github.com/ethereum-optimism/optimism/op-batcher/metrics"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	opnodemetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
 	opnode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -24,7 +21,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-service/dial"
 	"github.com/ethereum-optimism/optimism/op-service/sources"
 	"github.com/ethereum-optimism/optimism/op-service/txmgr"
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -45,7 +41,8 @@ type OPStack struct {
 	l1URL               *url.URL
 	engineURL           *url.URL
 	nodeURL             *url.URL
-	privKey             *ecdsa.PrivateKey
+	batcherPrivKey      *ecdsa.PrivateKey
+	proposerPrivKey     *ecdsa.PrivateKey
 	rollupConfig        *rollup.Config
 	l2OutputOracleProxy common.Address
 	eventListener       OPEventListener
@@ -58,7 +55,8 @@ func NewOPStack(
 	engineURL,
 	nodeURL *url.URL,
 	l2OutputOracleProxy common.Address,
-	privKey *ecdsa.PrivateKey,
+	batcherPrivKey *ecdsa.PrivateKey,
+	proposerPrivKey *ecdsa.PrivateKey,
 	rollupConfig *rollup.Config,
 	eventListener OPEventListener,
 ) *OPStack {
@@ -66,7 +64,8 @@ func NewOPStack(
 		l1URL:               l1URL,
 		engineURL:           engineURL,
 		nodeURL:             nodeURL,
-		privKey:             privKey,
+		batcherPrivKey:      batcherPrivKey,
+		proposerPrivKey:     proposerPrivKey,
 		rollupConfig:        rollupConfig,
 		l2OutputOracleProxy: l2OutputOracleProxy,
 		eventListener:       eventListener,
@@ -84,36 +83,16 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 		return err
 	}
 
-	// check balance of privKey - operator must hold an L1 balance to post state roots & batches
-	balance, err := l1.BalanceAt(ctx, crypto.PubkeyToAddress(op.privKey.PublicKey), nil)
-	if err != nil {
-		return fmt.Errorf("get balance: %v", err)
-	} else if balance.Cmp(big.NewInt(0)) == 0 {
-		return errors.New("stack operator balance is 0")
-	}
-
-	// Since the L2OutputOracle contract is deployed on L1 through allocs-l1.json, we need to use the proposer private
-	// key that corresponds to the PROPOSER constant to sign the proposer transactions.
-	// https://github.com/ethereum-optimism/optimism/blob/5b13bad/packages/contracts-bedrock/src/L1/L2OutputOracle.sol#L197
-	wallet, err := hdwallet.NewFromMnemonic(e2eutils.DefaultMnemonicConfig.Mnemonic)
-	if err != nil {
-		return fmt.Errorf("create wallet with op e2e mnemonic: %w", err)
-	}
-	proposerPrivKey, err := wallet.PrivateKey(accounts.Account{URL: accounts.URL{Path: e2eutils.DefaultMnemonicConfig.Proposer}})
-	if err != nil {
-		return fmt.Errorf("get proposer private key: %w", err)
-	}
-
 	l1ChainID, err := l1.ChainID(ctx)
 	if err != nil {
 		return fmt.Errorf("get l1 chain id: %v", err)
 	}
 
-	if err := op.runProposer(ctx, env, l1, op.newTxManagerConfig(l1, l1ChainID, proposerPrivKey)); err != nil {
+	if err := op.runProposer(ctx, env, l1, op.newTxManagerConfig(l1, l1ChainID, op.proposerPrivKey)); err != nil {
 		return err
 	}
 
-	if err := op.runBatcher(ctx, env, l1, op.newTxManagerConfig(l1, l1ChainID, op.privKey)); err != nil {
+	if err := op.runBatcher(ctx, env, l1, op.newTxManagerConfig(l1, l1ChainID, op.batcherPrivKey)); err != nil {
 		return err
 	}
 	return nil
