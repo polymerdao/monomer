@@ -131,13 +131,13 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		{
 			Namespace: "eth",
 			Service: struct {
-				*eth.ChainID
-				*eth.Block
-				*eth.ProofProvider
+				*eth.ChainIDAPI
+				*eth.BlockAPI
+				*eth.ProofAPI
 			}{
-				ChainID:       eth.NewChainID(n.genesis.ChainID.HexBig(), ethMetrics),
-				Block:         eth.NewBlock(n.blockdb, n.genesis.ChainID.Big(), ethMetrics),
-				ProofProvider: eth.NewProofProvider(n.ethstatedb, n.blockdb),
+				ChainIDAPI: eth.NewChainIDAPI(n.genesis.ChainID.HexBig(), ethMetrics),
+				BlockAPI:   eth.NewBlockAPI(n.blockdb, n.genesis.ChainID.Big(), ethMetrics),
+				ProofAPI:   eth.NewProofAPI(n.ethstatedb, n.blockdb),
 			},
 		},
 	} {

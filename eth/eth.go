@@ -1,6 +1,7 @@
 package eth
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"math/big"
@@ -10,24 +11,26 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/eth/internal/ethapi"
 	"github.com/polymerdao/monomer/monomerdb"
 )
 
-type ChainID struct {
+type ChainIDAPI struct {
 	chainID *hexutil.Big
 	metrics Metrics
 }
 
-func NewChainID(chainID *hexutil.Big, metrics Metrics) *ChainID {
-	return &ChainID{
+func NewChainIDAPI(chainID *hexutil.Big, metrics Metrics) *ChainIDAPI {
+	return &ChainIDAPI{
 		chainID: chainID,
 		metrics: metrics,
 	}
 }
 
-func (e *ChainID) ChainId() *hexutil.Big { //nolint:stylecheck
+func (e *ChainIDAPI) ChainId() *hexutil.Big { //nolint:stylecheck
 	defer e.metrics.RecordRPCMethodCall(ChainIDMethodName, time.Now())
 
 	return e.chainID
@@ -37,23 +40,24 @@ type DB interface {
 	BlockByLabel(eth.BlockLabel) (*monomer.Block, error)
 	BlockByHeight(uint64) (*monomer.Block, error)
 	BlockByHash(common.Hash) (*monomer.Block, error)
+	HeadBlock() (*monomer.Block, error)
 }
 
-type Block struct {
+type BlockAPI struct {
 	blockStore DB
 	chainID    *big.Int
 	metrics    Metrics
 }
 
-func NewBlock(blockStore DB, chainID *big.Int, metrics Metrics) *Block {
-	return &Block{
+func NewBlockAPI(blockStore DB, chainID *big.Int, metrics Metrics) *BlockAPI {
+	return &BlockAPI{
 		blockStore: blockStore,
 		chainID:    chainID,
 		metrics:    metrics,
 	}
 }
 
-func (e *Block) GetBlockByNumber(id BlockID, fullTx bool) (map[string]any, error) {
+func (e *BlockAPI) GetBlockByNumber(id BlockID, fullTx bool) (map[string]any, error) {
 	defer e.metrics.RecordRPCMethodCall(GetBlockByNumberMethodName, time.Now())
 
 	block, err := id.Get(e.blockStore)
@@ -65,7 +69,7 @@ func (e *Block) GetBlockByNumber(id BlockID, fullTx bool) (map[string]any, error
 	return e.toRPCBlock(block, fullTx)
 }
 
-func (e *Block) GetBlockByHash(hash common.Hash, fullTx bool) (map[string]any, error) {
+func (e *BlockAPI) GetBlockByHash(hash common.Hash, fullTx bool) (map[string]any, error) {
 	defer e.metrics.RecordRPCMethodCall(GetBlockByHashMethodName, time.Now())
 
 	block, err := e.blockStore.BlockByHash(hash)
@@ -77,7 +81,7 @@ func (e *Block) GetBlockByHash(hash common.Hash, fullTx bool) (map[string]any, e
 	return e.toRPCBlock(block, fullTx)
 }
 
-func (e *Block) toRPCBlock(block *monomer.Block, fullTx bool) (map[string]any, error) {
+func (e *BlockAPI) toRPCBlock(block *monomer.Block, fullTx bool) (map[string]any, error) {
 	ethBlock, err := block.ToEth()
 	if err != nil {
 		return nil, fmt.Errorf("convert to eth block: %v", err)
@@ -87,4 +91,25 @@ func (e *Block) toRPCBlock(block *monomer.Block, fullTx bool) (map[string]any, e
 		return nil, fmt.Errorf("rpc marshal block: %v", err)
 	}
 	return rpcBlock, nil
+}
+
+type ProofAPI struct {
+	blockchainAPI *ethapi.BlockChainAPI
+}
+
+func NewProofAPI(db state.Database, blockStore DB) *ProofAPI {
+	return &ProofAPI{
+		blockchainAPI: ethapi.NewBlockChainAPI(newEthAPIBackend(db, blockStore)),
+	}
+}
+
+// GetProof returns the account and storage values of the specified account including the Merkle-proof.
+// The user can specify either a block number or a block hash to build to proof from.
+func (p *ProofAPI) GetProof(
+	ctx context.Context,
+	address common.Address,
+	storageKeys []string,
+	blockNrOrHash rpc.BlockNumberOrHash,
+) (*ethapi.AccountResult, error) {
+	return p.blockchainAPI.GetProof(ctx, address, storageKeys, blockNrOrHash)
 }

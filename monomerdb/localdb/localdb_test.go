@@ -101,14 +101,14 @@ func testHeadBlock(t *testing.T, db *localdb.DB, block *monomer.Block) {
 
 func TestRollback(t *testing.T) {
 	db := testutils.NewLocalMemDB(t)
-	block := testutils.GenerateBlockWithParentAndTxs(t, &monomer.Header{}, testapp.ToTx(t, "k", "v"))
+	block := testutils.GenerateBlockWithParentAndTxs(t, &monomer.Header{}, testapp.ToTestTx(t, "k", "v"))
 	require.NoError(t, db.AppendBlock(block))
 	require.NoError(t, db.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
 
-	block2 := testutils.GenerateBlockWithParentAndTxs(t, block.Header, testapp.ToTx(t, "k2", "v2"))
+	block2 := testutils.GenerateBlockWithParentAndTxs(t, block.Header, testapp.ToTestTx(t, "k2", "v2"))
 	require.NoError(t, db.AppendBlock(block2))
 
-	block3 := testutils.GenerateBlockWithParentAndTxs(t, block2.Header, testapp.ToTx(t, "k3", "v3"))
+	block3 := testutils.GenerateBlockWithParentAndTxs(t, block2.Header, testapp.ToTestTx(t, "k3", "v3"))
 	require.NoError(t, db.AppendBlock(block3))
 
 	require.NoError(t, db.UpdateLabels(block3.Header.Hash, block2.Header.Hash, block.Header.Hash))

@@ -86,7 +86,7 @@ func TestStartCommandHandler(t *testing.T) {
 	require.NoError(t, err, "could not create CometBFT client")
 	t.Log("CometBFT client created", "bftClient", bftClient)
 
-	txBytes := testapp.ToTx(t, "userTxKey", "userTxValue")
+	txBytes := testapp.ToTestTx(t, "userTxKey", "userTxValue")
 	bftTx := bfttypes.Tx(txBytes)
 
 	putTx, err := bftClient.BroadcastTxAsync(ctx, txBytes)

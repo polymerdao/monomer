@@ -2,12 +2,17 @@ GOBIN ?= $$(go env GOPATH)/bin
 COVER_OUT ?= cover.out
 COVER_HTML ?= cover.html
 SCRIPTS_PATH ?= scripts
+BIN ?= bin
 
 E2E_ARTIFACTS_PATH ?= e2e/artifacts
 E2E_STATE_SETUP_PATH ?= e2e/optimism/.devnet
 E2E_CONFIG_SETUP_PATH ?= e2e/optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
 FOUNDRY_ARTIFACTS_PATH ?= bindings/artifacts
 FOUNDRY_CACHE_PATH ?= bindings/cache
+
+.PHONY: monogen
+monogen:
+	go build -o $(BIN)/monogen ./monogen/cmd
 
 .PHONY: test
 test:
@@ -19,7 +24,11 @@ test-all:
 
 .PHONY: e2e
 e2e:
-	go test -v ./e2e
+	go test -v ./e2e \
+	-l1-allocs ./optimism/.devnet/allocs-l1.json \
+	-l2-allocs-dir ./optimism/.devnet/ \
+	-l1-deployments ./optimism/.devnet/addresses.json \
+	-deploy-config ./optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
 
 .PHONY: install-golangci-lint
 install-golangci-lint:
@@ -53,7 +62,7 @@ install-abi-gen:
 
 .PHONY: install-mockgen
 install-mockgen:
-	go install github.com/golang/mock/mockgen@v1.6.0
+	go install go.uber.org/mock/mockgen@v0.4.0
 
 .PHONY: install-foundry
 install-foundry:
@@ -86,6 +95,7 @@ clean:
 	if [ -f $(E2E_CONFIG_SETUP_PATH) ]; then rm $(E2E_CONFIG_SETUP_PATH); fi
 	if [ -d ${FOUNDRY_ARTIFACTS_PATH} ]; then rm -r ${FOUNDRY_ARTIFACTS_PATH}; fi
 	if [ -d ${FOUNDRY_CACHE_PATH} ]; then rm -r ${FOUNDRY_CACHE_PATH}; fi
+	if [ -d $(BIN) ]; then rm -r $(BIN); fi
 
 .PHONY: setup-e2e
 setup-e2e:

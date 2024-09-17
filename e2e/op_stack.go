@@ -3,7 +3,6 @@ package e2e
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -42,7 +41,8 @@ type OPStack struct {
 	l1URL               *url.URL
 	engineURL           *url.URL
 	nodeURL             *url.URL
-	privKey             *ecdsa.PrivateKey
+	batcherPrivKey      *ecdsa.PrivateKey
+	proposerPrivKey     *ecdsa.PrivateKey
 	rollupConfig        *rollup.Config
 	l2OutputOracleProxy common.Address
 	eventListener       OPEventListener
@@ -55,7 +55,8 @@ func NewOPStack(
 	engineURL,
 	nodeURL *url.URL,
 	l2OutputOracleProxy common.Address,
-	privKey *ecdsa.PrivateKey,
+	batcherPrivKey *ecdsa.PrivateKey,
+	proposerPrivKey *ecdsa.PrivateKey,
 	rollupConfig *rollup.Config,
 	eventListener OPEventListener,
 ) *OPStack {
@@ -63,7 +64,8 @@ func NewOPStack(
 		l1URL:               l1URL,
 		engineURL:           engineURL,
 		nodeURL:             nodeURL,
-		privKey:             privKey,
+		batcherPrivKey:      batcherPrivKey,
+		proposerPrivKey:     proposerPrivKey,
 		rollupConfig:        rollupConfig,
 		l2OutputOracleProxy: l2OutputOracleProxy,
 		eventListener:       eventListener,
@@ -81,41 +83,16 @@ func (op *OPStack) Run(ctx context.Context, env *environment.Env) error {
 		return err
 	}
 
-	// check balance of privKey - operator must hold an L1 balance to post state roots & batches
-	balance, err := l1.BalanceAt(ctx, crypto.PubkeyToAddress(op.privKey.PublicKey), nil)
-	if err != nil {
-		return fmt.Errorf("get balance: %v", err)
-	} else if balance.Cmp(big.NewInt(0)) == 0 {
-		return errors.New("stack operator balance is 0")
-	}
-
-	// Use the same tx manager config for the op-proposer and op-batcher.
 	l1ChainID, err := l1.ChainID(ctx)
 	if err != nil {
 		return fmt.Errorf("get l1 chain id: %v", err)
 	}
-	txManagerConfig := &txmgr.Config{
-		Backend: l1,
-		ChainID: l1ChainID,
-		// https://github.com/ethereum-optimism/optimism/blob/5b13bad9883fa5737af67ba3ee700aaa8737f686/op-e2e/setup.go#L83-L93
-		NumConfirmations:          1,
-		SafeAbortNonceTooLowCount: 3,
-		FeeLimitMultiplier:        5,
-		ResubmissionTimeout:       3 * time.Second,
-		ReceiptQueryInterval:      50 * time.Millisecond,
-		NetworkTimeout:            2 * time.Second,
-		TxNotInMempoolTimeout:     2 * time.Minute,
-		Signer: func(ctx context.Context, address common.Address, tx *ethtypes.Transaction) (*ethtypes.Transaction, error) {
-			return opcrypto.PrivateKeySignerFn(op.privKey, l1ChainID)(address, tx)
-		},
-		From: crypto.PubkeyToAddress(op.privKey.PublicKey),
-	}
 
-	if err := op.runProposer(ctx, env, l1, txManagerConfig); err != nil {
+	if err := op.runProposer(ctx, env, l1, op.newTxManagerConfig(l1, l1ChainID, op.proposerPrivKey)); err != nil {
 		return err
 	}
 
-	if err := op.runBatcher(ctx, env, l1, txManagerConfig); err != nil {
+	if err := op.runBatcher(ctx, env, l1, op.newTxManagerConfig(l1, l1ChainID, op.batcherPrivKey)); err != nil {
 		return err
 	}
 	return nil
@@ -180,6 +157,8 @@ func (op *OPStack) runProposer(ctx context.Context, env *environment.Env, l1Clie
 			PollInterval:       50 * time.Millisecond,
 			NetworkTimeout:     2 * time.Second,
 			L2OutputOracleAddr: utils.Ptr(op.l2OutputOracleProxy),
+			// Enable the proposal of safe, but non-finalized L2 blocks for testing purposes.
+			AllowNonFinalized: true,
 		},
 		Txmgr:          txManager,
 		L1Client:       l1Client,
@@ -228,10 +207,9 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 		L1Client:         l1Client,
 		EndpointProvider: endpointProvider,
 		ChannelConfig: batcher.ChannelConfig{
-			SeqWindowSize:      op.rollupConfig.SeqWindowSize,
-			ChannelTimeout:     op.rollupConfig.ChannelTimeout,
-			MaxChannelDuration: 1,
-			SubSafetyMargin:    4,
+			SeqWindowSize:   op.rollupConfig.SeqWindowSize,
+			ChannelTimeout:  op.rollupConfig.ChannelTimeout,
+			SubSafetyMargin: op.rollupConfig.SeqWindowSize / 2,
 			// MaxFrameSize field value is copied from:
 			//nolint:lll
 			// https://github.com/ethereum-optimism/optimism/blob/5b13bad9883fa5737af67ba3ee700aaa8737f686/op-batcher/batcher/channel_config_test.go#L19
@@ -252,6 +230,25 @@ func (op *OPStack) runBatcher(ctx context.Context, env *environment.Env, l1Clien
 		return batchSubmitter.StopBatchSubmitting(ctx)
 	})
 	return nil
+}
+
+func (op *OPStack) newTxManagerConfig(l1 txmgr.ETHBackend, l1ChainID *big.Int, key *ecdsa.PrivateKey) *txmgr.Config {
+	return &txmgr.Config{
+		Backend: l1,
+		ChainID: l1ChainID,
+		// https://github.com/ethereum-optimism/optimism/blob/5b13bad9883fa5737af67ba3ee700aaa8737f686/op-e2e/setup.go#L83-L93
+		NumConfirmations:          1,
+		SafeAbortNonceTooLowCount: 3,
+		FeeLimitMultiplier:        5,
+		ResubmissionTimeout:       3 * time.Second,
+		ReceiptQueryInterval:      50 * time.Millisecond,
+		NetworkTimeout:            2 * time.Second,
+		TxNotInMempoolTimeout:     2 * time.Minute,
+		Signer: func(ctx context.Context, address common.Address, tx *ethtypes.Transaction) (*ethtypes.Transaction, error) {
+			return opcrypto.PrivateKeySignerFn(key, l1ChainID)(address, tx)
+		},
+		From: crypto.PubkeyToAddress(key.PublicKey),
+	}
 }
 
 func (op *OPStack) newLogger(name string) log.Logger {

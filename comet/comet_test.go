@@ -45,7 +45,7 @@ func TestABCI(t *testing.T) {
 	// Build bock with tx.
 	height := int64(1)
 	_, err = app.FinalizeBlock(context.Background(), &abcitypes.RequestFinalizeBlock{
-		Txs:    [][]byte{testapp.ToTx(t, k, v)},
+		Txs:    [][]byte{testapp.ToTestTx(t, k, v)},
 		Height: height,
 	})
 	require.NoError(t, err)
@@ -122,7 +122,7 @@ func TestBroadcastTx(t *testing.T) {
 	broadcastTxAPI := comet.NewBroadcastTxAPI(app, mpool)
 
 	// Success case.
-	tx := testapp.ToTx(t, "k1", "v1")
+	tx := testapp.ToTestTx(t, "k1", "v1")
 	result, err := broadcastTxAPI.BroadcastTx(&jsonrpctypes.Context{}, tx)
 	require.NoError(t, err)
 	// We trust that the other fields are set correctly.

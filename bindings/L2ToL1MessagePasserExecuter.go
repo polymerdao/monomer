@@ -34,7 +34,7 @@ func NewL2ToL1MessagePasserExecuter(evm *vm.EVM) (*L2ToL1MessagePasserExecuter, 
 }
 
 func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(
-	sender string,
+	sender common.Address,
 	amount *big.Int,
 	l1Address common.Address,
 	gasLimit *big.Int,
@@ -45,10 +45,8 @@ func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(
 		return fmt.Errorf("create initiateWithdrawal data: %v", err)
 	}
 
-	senderEthAddress := common.HexToAddress(sender)
-
 	_, err = e.Call(&monomerevm.CallParams{
-		Sender: &senderEthAddress,
+		Sender: &sender,
 		Value:  amount,
 		Data:   data,
 	})

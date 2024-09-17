@@ -9,6 +9,7 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -209,17 +210,49 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	if err := b.txStore.Add(txResults); err != nil {
 		return nil, fmt.Errorf("add tx results: %v", err)
 	}
+
 	// Publish events.
+	if err := b.publishEvents(txResults, block, resp); err != nil {
+		return nil, fmt.Errorf("publish events: %v", err)
+	}
+
+	return block, nil
+}
+
+func (b *Builder) publishEvents(txResults []*abcitypes.TxResult, block *monomer.Block, resp *abcitypes.ResponseFinalizeBlock) error {
 	for _, txResult := range txResults {
 		if err := b.eventBus.PublishEventTx(bfttypes.EventDataTx{
 			TxResult: *txResult,
 		}); err != nil {
-			return nil, fmt.Errorf("publish event tx: %v", err)
+			return fmt.Errorf("publish tx event: %v", err)
 		}
 	}
 
-	// TODO publish other things like new blocks.
-	return block, nil
+	if err := b.eventBus.PublishEventNewBlockEvents(bfttypes.EventDataNewBlockEvents{
+		Height: int64(block.Header.Height),
+		Events: resp.Events,
+		NumTxs: int64(block.Txs.Len()),
+	}); err != nil {
+		return fmt.Errorf("publish new block events event: %v", err)
+	}
+
+	if err := b.eventBus.PublishEventNewBlock(bfttypes.EventDataNewBlock{
+		Block:               block.ToCometLikeBlock(),
+		ResultFinalizeBlock: *resp,
+		BlockID: bfttypes.BlockID{
+			Hash: block.Header.Hash.Bytes(),
+		},
+	}); err != nil {
+		return fmt.Errorf("publish new block event: %v", err)
+	}
+
+	if err := b.eventBus.PublishEventNewBlockHeader(bfttypes.EventDataNewBlockHeader{
+		Header: *block.Header.ToComet(),
+	}); err != nil {
+		return fmt.Errorf("publish new block header event: %v", err)
+	}
+
+	return nil
 }
 
 // storeAppHashInEVM stores the updated cosmos app hash in the monomer EVM state db. This is used for proving withdrawals.
@@ -304,9 +337,14 @@ func (b *Builder) storeWithdrawalMsgInEVM(
 		return nil, fmt.Errorf("get message nonce: %v", err)
 	}
 
+	senderCosmosAddress, err := sdk.AccAddressFromBech32(withdrawalMsg.GetSender())
+	if err != nil {
+		return nil, fmt.Errorf("convert sender to cosmos address: %v", err)
+	}
+
 	// Initiate the withdrawal in the Monomer ethereum state.
 	if err = executer.InitiateWithdrawal(
-		withdrawalMsg.GetSender(),
+		common.BytesToAddress(senderCosmosAddress.Bytes()),
 		withdrawalMsg.Value.BigInt(),
 		common.HexToAddress(withdrawalMsg.GetTarget()),
 		new(big.Int).SetBytes(withdrawalMsg.GasLimit),

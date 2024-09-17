@@ -1,16 +1,15 @@
 package keeper
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/polymerdao/monomer/utils"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
 )
@@ -25,20 +24,7 @@ func (k *Keeper) setL1BlockInfo(ctx sdk.Context, info derive.L1BlockInfo) error 
 		return types.WrapError(err, "marshal L1 block info")
 	}
 	if err = k.storeService.OpenKVStore(ctx).Set([]byte(types.KeyL1BlockInfo), infoBytes); err != nil {
-		return types.WrapError(err, "set")
-	}
-	return nil
-}
-
-// TODO: include the logic to also store the L1 block info by blockhash in setL1BlockInfo and remove setL1BlockHistory
-// setL1BlockHistory sets the L1 block info to the app state, with the key being the blockhash, so we can look it up easily later.
-func (k *Keeper) setL1BlockHistory(ctx context.Context, info *derive.L1BlockInfo) error {
-	infoBytes, err := json.Marshal(info)
-	if err != nil {
-		return types.WrapError(err, "marshal L1 block info")
-	}
-	if err = k.storeService.OpenKVStore(ctx).Set(info.BlockHash.Bytes(), infoBytes); err != nil {
-		return types.WrapError(err, "set")
+		return types.WrapError(err, "set latest L1 block info")
 	}
 	return nil
 }
@@ -54,7 +40,7 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive
 		ctx.Logger().Error("First L1 tx must be a L1 attributes tx", "type", tx.Type())
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "first L1 tx must be a L1 attributes tx, but got type %d", tx.Type())
 	}
-	l1blockInfo, err := derive.L1BlockInfoFromBytes(k.rollupCfg, 0, tx.Data())
+	l1blockInfo, err := derive.L1BlockInfoFromBytes(k.rollupCfg, uint64(ctx.BlockTime().Unix()), tx.Data())
 	if err != nil {
 		ctx.Logger().Error("Failed to derive L1 block info from L1 Info Deposit tx", "err", err, "txBytes", txBytes)
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to derive L1 block info from L1 Info Deposit tx: %v", err)
@@ -91,7 +77,7 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Eve
 			ctx.Logger().Error("Contract creation txs are not supported", "index", i)
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "Contract creation txs are not supported, index:%d", i)
 		}
-		cosmAddr := evmToCosmos(*to)
+		cosmAddr := utils.EvmToCosmosAddress(*to)
 		mintAmount := sdkmath.NewIntFromBigInt(tx.Value())
 		mintEvent, err := k.mintETH(ctx, cosmAddr, mintAmount)
 		if err != nil {
@@ -122,9 +108,4 @@ func (k *Keeper) mintETH(ctx sdk.Context, addr sdk.AccAddress, amount sdkmath.In
 	)
 
 	return &mintEvent, nil
-}
-
-// evmToCosmos converts an EVM address to a sdk.AccAddress
-func evmToCosmos(addr common.Address) sdk.AccAddress {
-	return addr.Bytes()
 }

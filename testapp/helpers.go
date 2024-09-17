@@ -3,15 +3,19 @@ package testapp
 import (
 	"context"
 	"encoding/json"
+	"math/big"
 	"slices"
 	"testing"
 
+	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/polymerdao/monomer/testapp/x/testmodule/types"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -48,8 +52,8 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 	return defaultGenesis
 }
 
-func ToTx(t *testing.T, k, v string) []byte {
-	msgAny, err := codectypes.NewAnyWithValue(&types.MsgSetValue{
+func ToTestTx(t *testing.T, k, v string) []byte {
+	return toTx(t, &types.MsgSetValue{
 		// TODO use real addresses and enable the signature and gas checks.
 		// This is just a dummy address. The signature and gas checks are disabled in testapp.go,
 		// so this works for now.
@@ -57,7 +61,22 @@ func ToTx(t *testing.T, k, v string) []byte {
 		Key:         k,
 		Value:       v,
 	})
+}
+
+func ToWithdrawalTx(t *testing.T, cosmosAddr string, ethAddr string, amount math.Int, gasLimit *big.Int) []byte {
+	return toTx(t, &rolluptypes.MsgInitiateWithdrawal{
+		Sender:   cosmosAddr,
+		Target:   ethAddr,
+		Value:    amount,
+		GasLimit: gasLimit.Bytes(),
+		Data:     []byte{},
+	})
+}
+
+func toTx(t *testing.T, msg proto.Message) []byte {
+	msgAny, err := codectypes.NewAnyWithValue(msg)
 	require.NoError(t, err)
+
 	tx := &sdktx.Tx{
 		Body: &sdktx.TxBody{
 			Messages: []*codectypes.Any{msgAny},
@@ -66,8 +85,8 @@ func ToTx(t *testing.T, k, v string) []byte {
 			Fee: &sdktx.Fee{},
 		},
 	}
-	txBytes := make([]byte, tx.Size())
-	_, err = tx.MarshalTo(txBytes)
+
+	txBytes, err := tx.Marshal()
 	require.NoError(t, err)
 	return txBytes
 }
@@ -77,7 +96,7 @@ func ToTx(t *testing.T, k, v string) []byte {
 func ToTxs(t *testing.T, kvs map[string]string) [][]byte {
 	var txs [][]byte
 	for k, v := range kvs {
-		txs = append(txs, ToTx(t, k, v))
+		txs = append(txs, ToTestTx(t, k, v))
 	}
 	// Ensure txs are always returned in the same order.
 	slices.SortFunc(txs, func(x []byte, y []byte) int {

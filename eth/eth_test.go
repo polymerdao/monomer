@@ -1,6 +1,7 @@
 package eth_test
 
 import (
+	"context"
 	"math/big"
 	"testing"
 
@@ -8,6 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/eth"
 	"github.com/polymerdao/monomer/eth/internal/ethapi"
@@ -19,7 +21,7 @@ func TestChainId(t *testing.T) {
 	for _, id := range []monomer.ChainID{0, 1, 2, 10} {
 		t.Run(id.String(), func(t *testing.T) {
 			hexID := id.HexBig()
-			require.Equal(t, hexID, eth.NewChainID(hexID, eth.NewNoopMetrics()).ChainId())
+			require.Equal(t, hexID, eth.NewChainIDAPI(hexID, eth.NewNoopMetrics()).ChainId())
 		})
 	}
 }
@@ -75,8 +77,8 @@ func TestGetBlockByNumber(t *testing.T) {
 			} {
 				t.Run(description, func(t *testing.T) {
 					chainID := new(big.Int)
-					s := eth.NewBlock(blockStore, chainID, eth.NewNoopMetrics())
-					got, err := s.GetBlockByNumber(test.id, fullTxs)
+					blockAPI := eth.NewBlockAPI(blockStore, chainID, eth.NewNoopMetrics())
+					got, err := blockAPI.GetBlockByNumber(test.id, fullTxs)
 					if test.want == nil {
 						require.ErrorIs(t, err, ethereum.NotFound)
 						require.Nil(t, got)
@@ -104,8 +106,8 @@ func TestGetBlockByHash(t *testing.T) {
 		t.Run(description, func(t *testing.T) {
 			t.Run("block hash 1 exists", func(t *testing.T) {
 				chainID := new(big.Int)
-				e := eth.NewBlock(blockStore, chainID, eth.NewNoopMetrics())
-				got, err := e.GetBlockByHash(block.Header.Hash, fullTx)
+				blockAPI := eth.NewBlockAPI(blockStore, chainID, eth.NewNoopMetrics())
+				got, err := blockAPI.GetBlockByHash(block.Header.Hash, fullTx)
 				require.NoError(t, err)
 				ethBlock, err := block.ToEth()
 				require.NoError(t, err)
@@ -121,7 +123,7 @@ func TestGetBlockByHash(t *testing.T) {
 			} {
 				t.Run(description, func(t *testing.T) {
 					chainID := new(big.Int)
-					e := eth.NewBlock(blockStore, chainID, eth.NewNoopMetrics())
+					e := eth.NewBlockAPI(blockStore, chainID, eth.NewNoopMetrics())
 					got, err := e.GetBlockByHash(common.Hash{}, inclTx)
 					require.Nil(t, got)
 					require.ErrorIs(t, err, ethereum.NotFound)
@@ -135,9 +137,10 @@ func TestGetProof(t *testing.T) {
 	someAddress := common.HexToAddress("0xabc")
 	blockstore := testutils.NewLocalMemDB(t)
 
-	proofProvider := eth.NewProofProvider(nil, blockstore)
+	proofAPI := eth.NewProofAPI(nil, blockstore)
 
-	pf, err := proofProvider.GetProof(someAddress, []string{}, nil)
+	blockNumber := rpc.LatestBlockNumber
+	pf, err := proofAPI.GetProof(context.Background(), someAddress, []string{}, rpc.BlockNumberOrHash{BlockNumber: &blockNumber})
 	require.Error(t, err, "should not succeed in generating proofs with empty blockstore")
 	require.Nil(t, pf, "received proof from empty blockstore")
 }

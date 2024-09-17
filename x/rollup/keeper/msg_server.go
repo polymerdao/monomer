@@ -10,17 +10,7 @@ import (
 	"github.com/samber/lo"
 )
 
-type msgServer struct {
-	*Keeper
-}
-
-// NewMsgServerImpl returns an implementation of the MsgServer interface
-// for the provided Keeper.
-func NewMsgServerImpl(keeper *Keeper) types.MsgServer {
-	return &msgServer{Keeper: keeper}
-}
-
-var _ types.MsgServer = msgServer{}
+var _ types.MsgServer = &Keeper{}
 
 // ApplyL1Txs implements types.MsgServer.
 func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*types.MsgApplyL1TxsResponse, error) {
@@ -42,14 +32,6 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 	}
 
 	ctx.Logger().Info("Save L1 block info", "l1blockInfo", string(lo.Must(json.Marshal(l1blockInfo))))
-
-	// save L1 block History to AppState
-	if err = k.setL1BlockHistory(&ctx, l1blockInfo); err != nil {
-		ctx.Logger().Error("Failed to save L1 block history info to AppState", "err", err)
-		return nil, types.WrapError(types.ErrL1BlockInfo, "save error: %v", err)
-	}
-
-	ctx.Logger().Info("Save L1 block history info", "l1blockHistoryInfo", string(lo.Must(json.Marshal(l1blockInfo))))
 
 	// process L1 user deposit txs
 	mintEvents, err := k.processL1UserDepositTxs(ctx, msg.TxBytes)

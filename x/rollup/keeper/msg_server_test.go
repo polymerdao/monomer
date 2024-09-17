@@ -11,7 +11,6 @@ import (
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
 	"github.com/polymerdao/monomer/testutils"
-	"github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/polymerdao/monomer/x/rollup/types"
 )
 
@@ -111,7 +110,7 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 			}
 			s.mockMintETH()
 
-			resp, err := keeper.NewMsgServerImpl(s.rollupKeeper).ApplyL1Txs(s.ctx, &types.MsgApplyL1Txs{
+			resp, err := s.rollupKeeper.ApplyL1Txs(s.ctx, &types.MsgApplyL1Txs{
 				TxBytes: test.txBytes,
 			})
 
@@ -130,10 +129,7 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 				// Verify that the l1 block info and l1 block history are saved to the store
 				expectedBlockInfo := eth.BlockToInfo(testutils.GenerateL1Block())
 				l1BlockInfoBz := s.rollupStore.Get([]byte(types.KeyL1BlockInfo))
-				historicalL1BlockInfoBz := s.rollupStore.Get(expectedBlockInfo.Hash().Bytes())
 				s.Require().NotNil(l1BlockInfoBz)
-				s.Require().NotNil(historicalL1BlockInfoBz)
-				s.Require().Equal(l1BlockInfoBz, historicalL1BlockInfoBz)
 
 				var l1BlockInfo *derive.L1BlockInfo
 				err = json.Unmarshal(l1BlockInfoBz, &l1BlockInfo)
@@ -188,7 +184,7 @@ func (s *KeeperTestSuite) TestInitiateWithdrawal() {
 			}
 			s.mockBurnETH()
 
-			resp, err := keeper.NewMsgServerImpl(s.rollupKeeper).InitiateWithdrawal(s.ctx, &types.MsgInitiateWithdrawal{
+			resp, err := s.rollupKeeper.InitiateWithdrawal(s.ctx, &types.MsgInitiateWithdrawal{
 				Sender: test.sender,
 				Target: l1Target,
 				Value:  withdrawalAmount,

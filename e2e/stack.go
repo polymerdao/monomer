@@ -3,12 +3,9 @@ package e2e
 import (
 	"context"
 	"crypto/ecdsa"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"net"
-	"os"
-	"path/filepath"
 	"time"
 
 	"github.com/cockroachdb/pebble"
@@ -19,14 +16,14 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
-	"github.com/ethereum-optimism/optimism/indexer/bindings"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
+	ope2econfig "github.com/ethereum-optimism/optimism/op-e2e/config"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
+	"github.com/ethereum-optimism/optimism/op-node/bindings"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/polymerdao/monomer"
@@ -44,30 +41,24 @@ type EventListener interface {
 }
 
 type StackConfig struct {
-	Ctx           context.Context
-	Operator      L1User
-	Users         []L1User
-	L1Client      *L1Client
-	L1Portal      *bindings.OptimismPortal
-	L2Client      *bftclient.HTTP
-	MonomerClient *MonomerClient
-	WaitL1        func(numBlocks int) error
-	WaitL2        func(numBlocks int) error
+	Ctx                  context.Context
+	User                 *ecdsa.PrivateKey
+	L1Client             *L1Client
+	L1Portal             *bindings.OptimismPortal
+	L2OutputOracleCaller *bindings.L2OutputOracleCaller
+	L2Client             *bftclient.HTTP
+	MonomerClient        *MonomerClient
+	RollupConfig         *rollup.Config
+	WaitL1               func(numBlocks int) error
+	WaitL2               func(numBlocks int) error
 }
 
 type stack struct {
 	monomerEngineURL *e2eurl.URL
 	monomerCometURL  *e2eurl.URL
 	opNodeURL        *e2eurl.URL
-	deployConfigDir  string
-	l1stateDumpDir   string
 	eventListener    EventListener
 	prometheusCfg    *config.InstrumentationConfig
-}
-
-type L1User struct {
-	Address    common.Address
-	PrivateKey *ecdsa.PrivateKey
 }
 
 // Setup creates and runs a new stack for end-to-end testing.
@@ -81,15 +72,6 @@ func Setup(
 	prometheusCfg *config.InstrumentationConfig,
 	eventListener EventListener,
 ) (*StackConfig, error) {
-	deployConfigDir, err := filepath.Abs("./optimism/packages/contracts-bedrock/deploy-config")
-	if err != nil {
-		return nil, fmt.Errorf("abs deploy config dir: %v", err)
-	}
-	l1stateDumpDir, err := filepath.Abs("./optimism/.devnet")
-	if err != nil {
-		return nil, fmt.Errorf("abs l1 state dump dir: %v", err)
-	}
-
 	monomerEngineURL, err := e2eurl.ParseString("ws://127.0.0.1:8889")
 	if err != nil {
 		return nil, fmt.Errorf("new monomer url: %v", err)
@@ -107,8 +89,6 @@ func Setup(
 		monomerEngineURL: monomerEngineURL,
 		monomerCometURL:  monomerCometURL,
 		opNodeURL:        opNodeURL,
-		deployConfigDir:  deployConfigDir,
-		l1stateDumpDir:   l1stateDumpDir,
 		eventListener:    eventListener,
 		prometheusCfg:    prometheusCfg,
 	}
@@ -119,71 +99,13 @@ func Setup(
 func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, error) {
 	// configure & run L1
 
-	const networkName = "devnetL1"
-	l1Deployments, err := opgenesis.NewL1Deployments(filepath.Join(s.l1stateDumpDir, "addresses.json"))
-	if err != nil {
-		return nil, fmt.Errorf("new l1 deployments: %v", err)
-	}
-	deployConfig, err := opgenesis.NewDeployConfigWithNetwork(networkName, s.deployConfigDir)
-	if err != nil {
-		return nil, fmt.Errorf("new deploy config: %v", err)
-	}
-	deployConfig.SetDeployments(l1Deployments)
-	deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time.Now().Unix())
-	deployConfig.L1UseClique = false // Allows node to produce blocks without addition config. Clique is a PoA config.
-	// SequencerWindowSize is usually set to something in the hundreds or thousands.
-	// That means we don't ever perform unsafe block consolidation (i.e., the safe head never advances) before the test is complete.
-	// To force this edge case to occur in the test, we decrease the SWS.
+	deployConfig := ope2econfig.DeployConfig.Copy()
+	// Set a shorter Sequencer Window Size to force unsafe block consolidation to happen more often.
+	// A verifier (and the sequencer when it's determining the safe head) will have to read the entire sequencer window
+	// before advancing in the worst case. For the sake of tests running quickly, we minimize that worst case to 4 blocks.
 	deployConfig.SequencerWindowSize = 4
-	// Set low ChannelTimeout to ensure the batcher opens and closes a channel in the same block to avoid reorgs in
-	// unsafe block consolidation. Note that at the time of this writing, we're still seeing reorgs, so this likely isn't the silver bullet.
-	deployConfig.ChannelTimeout = 1
-	deployConfig.L1BlockTime = 2
-	deployConfig.L2BlockTime = 1
 
-	var auxState auxDump
-
-	l1StateJSON, err := os.ReadFile(filepath.Join(s.l1stateDumpDir, "allocs-l1.json"))
-	if err != nil {
-		// check if not found
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("allocs-l1.json not found - run `make setup-e2e` from project root")
-		} else {
-			return nil, fmt.Errorf("read allocs-l1.json: %v", err)
-		}
-	}
-	err = json.Unmarshal(l1StateJSON, &auxState)
-	if err != nil {
-		return nil, fmt.Errorf("unmarshal l1 state: %v", err)
-	}
-
-	l1state, err := auxState.ToStateDump()
-	if err != nil {
-		return nil, fmt.Errorf("auxState to state dump: %v", err)
-	}
-
-	// Fund test EOA accounts
-	l1users := make([]L1User, 0)
-	for range 2 {
-		privateKey, err := crypto.GenerateKey()
-		if err != nil {
-			return nil, fmt.Errorf("generate key: %v", err)
-		}
-		userAddress := crypto.PubkeyToAddress(privateKey.PublicKey)
-
-		user := state.DumpAccount{
-			Balance: "0x100000000000000000000000000000000000000000000000000000000000000",
-			Nonce:   0,
-			Address: &userAddress,
-		}
-		l1state.OnAccount(user.Address, user)
-		l1users = append(l1users, L1User{
-			Address:    userAddress,
-			PrivateKey: privateKey,
-		})
-	}
-
-	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, l1state, l1Deployments)
+	l1genesis, err := opgenesis.BuildL1DeveloperGenesis(deployConfig, ope2econfig.L1Allocs, ope2econfig.L1Deployments)
 	if err != nil {
 		return nil, fmt.Errorf("build l1 developer genesis: %v", err)
 	}
@@ -237,12 +159,23 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("new optimism portal: %v", err)
 	}
 
+	l2OutputOracleCaller, err := bindings.NewL2OutputOracleCaller(ope2econfig.L1Deployments.L2OutputOracleProxy, l1Client)
+	if err != nil {
+		return nil, fmt.Errorf("new l2 output oracle caller: %v", err)
+	}
+
+	secrets, err := e2eutils.DefaultMnemonicConfig.Secrets()
+	if err != nil {
+		return nil, fmt.Errorf("get secrets for default mnemonics: %v", err)
+	}
+
 	opStack := NewOPStack(
 		l1url,
 		s.monomerEngineURL,
 		s.opNodeURL,
-		l1Deployments.L2OutputOracleProxy,
-		l1users[0].PrivateKey,
+		ope2econfig.L1Deployments.L2OutputOracleProxy,
+		secrets.Batcher,
+		secrets.Proposer,
 		rollupConfig,
 		s.eventListener,
 	)
@@ -251,10 +184,16 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	// construct L2 client
-	l2Client, err := bftclient.New(s.monomerCometURL.String(), s.monomerCometURL.String())
+	l2Client, err := bftclient.New(s.monomerCometURL.String(), "/websocket")
 	if err != nil {
 		return nil, fmt.Errorf("new Comet client: %v", err)
 	}
+
+	// start the L2 client
+	if err = l2Client.Start(); err != nil {
+		return nil, fmt.Errorf("start Comet client: %v", err)
+	}
+	env.DeferErr("stop Comet client", l2Client.Stop)
 
 	wait := func(numBlocks, layer int) error {
 		var client interface {
@@ -284,13 +223,14 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	}
 
 	return &StackConfig{
-		Ctx:           ctx,
-		L1Client:      l1Client,
-		L1Portal:      opPortal,
-		L2Client:      l2Client,
-		MonomerClient: monomerClient,
-		Operator:      l1users[0],
-		Users:         l1users[1:],
+		Ctx:                  ctx,
+		L1Client:             l1Client,
+		L1Portal:             opPortal,
+		L2OutputOracleCaller: l2OutputOracleCaller,
+		L2Client:             l2Client,
+		MonomerClient:        monomerClient,
+		User:                 secrets.Alice,
+		RollupConfig:         rollupConfig,
 		WaitL1: func(numBlocks int) error {
 			return wait(numBlocks, 1)
 		},
