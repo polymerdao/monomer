@@ -324,9 +324,8 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// initiate the withdrawal of the deposited amount on L2
 	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
 		stack.Ctx,
-		testapp.ToTx(t,
-			&rolluptypes.MsgInitiateWithdrawal{
-				Sender:   utils.EvmToCosmosAddress(*withdrawalTx.Sender).String(),
+		testapp.ToTx(t, &rolluptypes.MsgInitiateWithdrawal{
+			Sender:   utils.EvmToCosmosAddress(*withdrawalTx.Sender).String(),
 				Target:   withdrawalTx.Target.String(),
 				Value:    math.NewIntFromBigInt(withdrawalTx.Value),
 				GasLimit: withdrawalTx.GasLimit.Bytes(),
