@@ -31,4 +31,4 @@ After the deposit transactions have been adapted, they are combined with Cosmos 
 
 ### 3. Withdrawal Tx Post-Processing
 
-The created block is inspected for withdrawal initiating transactions. Wherever an L2 transaction initiates a withdrawal, the corresponding updates are made to the EVM sidecar state via the `L2ToL1MessagePasserExecuter` contract.
+The created block is inspected for withdrawal initiating transactions. Wherever an L2 transaction initiates a withdrawal, the corresponding updates are made to the EVM sidecar state via the `L2ToL1MessagePasser` contract.
