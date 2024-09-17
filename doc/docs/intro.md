@@ -30,6 +30,6 @@ In order to achieve this, Monomer performs three primary tasks:
 
 ## This Documentation
 
-The [Learn](/docs/category/Learn) section walks through specific data flows in Monomer, describing internal components along the way.
+The [Learn](./category/learn) section walks through specific data flows in Monomer, describing internal components along the way.
 
-The [Build](/docs/categlry/Build) section provides a tutorial on how to build an application with Monomer.
+The [Build](./category/build) section provides a tutorial on how to build an application with Monomer.
