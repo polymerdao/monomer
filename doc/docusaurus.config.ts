@@ -90,6 +90,10 @@ const config: Config = {
             {
               label: 'Nethermind',
               href: 'https://nethermind.io',
+            },
+            {
+              label: 'Discord',
+              href: 'https://discord.gg/w9dhEEKh',
             }
           ],
         },
