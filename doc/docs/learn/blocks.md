@@ -7,31 +7,7 @@ sidebar_label: Block Transitions
 
 Monomer applications must support both the usual Cosmos SDK application functionality and rollup-specific workflows.
 
-In order to acheieve this, Monomer defines a custom `Block` and block `Header` types, with helpers to generate representations that are consistent with both the Cosmos SDK and the EVM.
-
-```go
-type Block struct {
-	Header *Header
-	Txs    bfttypes.Txs
-}
-
-func (b *Block) ToEth() (*ethtypes.Block, error) {...}
-func (b *Block) ToCometLikeBlock() *bfttypes.Block {...}
-
-type Header struct {
-	ChainID    ChainID
-	Height     uint64
-	Time       uint64
-	ParentHash common.Hash
-	StateRoot  common.Hash
-	GasLimit   uint64
-	Hash       common.Hash
-}
-
-func (h *Header) ToComet() *bfttypes.Header {...}
-func (h *Header) ToEth() *ethtypes.Header {...}
-
-```
+In order to acheieve this, Monomer defines custom `Block` and block `Header` types, with helper functions to generate representations that are consistent with both the Cosmos SDK and the EVM.
 
 # State
 
