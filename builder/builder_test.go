@@ -27,7 +27,6 @@ import (
 	"github.com/polymerdao/monomer/testutils"
 	"github.com/polymerdao/monomer/utils"
 	"github.com/polymerdao/monomer/x/rollup/types"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -317,7 +316,7 @@ func TestBuildRollupTxs(t *testing.T) {
 
 	cosmAddr := utils.EvmToCosmosAddress(*depositTxETH.To())
 	withdrawalTx := testapp.ToTx(t,
-		&rolluptypes.MsgInitiateWithdrawal{
+		&types.MsgInitiateWithdrawal{
 			Sender:   cosmAddr.String(),
 			Target:   common.HexToAddress("0x12345abcde").String(),
 			Value:    math.NewIntFromBigInt(depositTxETH.Value()),
