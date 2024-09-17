@@ -4,6 +4,8 @@ import (
 	"testing"
 
 	comettypes "github.com/cometbft/cometbft/types"
+	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/mempool"
 	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +22,16 @@ func TestMempool(t *testing.T) {
 
 		_, err = pool.Dequeue()
 		require.Error(t, err)
+	})
+
+	t.Run("deposit transaction", func(t *testing.T) {
+		_, depositTx, _ := testutils.GenerateEthTxs(t)
+		depositTxBytes, err := depositTx.MarshalBinary()
+		require.NoError(t, err)
+
+		cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes}, nil, "")
+		require.NoError(t, err)
+		require.ErrorContains(t, pool.Enqueue(cosmosTxs[0]), "deposit txs are not allowed in the pool")
 	})
 
 	// enqueue multiple to empty

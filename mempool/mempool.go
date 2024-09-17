@@ -8,6 +8,7 @@ import (
 
 	comettypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/utils"
 )
 
@@ -37,6 +38,13 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) (err error) {
 	// NOTE: we should do reads and writes on the same view. Right now they occur on separate views.
 	// Unfortunately, comet's DB interface doesn't support it.
 	// Moving to a different DB interface is left for future work.
+
+	// Attempt to adapt the Cosmos transaction to an Ethereum deposit transaction.
+	// If the adaptation succeeds, it indicates that the
+	// user transaction is a deposit transaction, which is not allowed in the pool.
+	if _, err := monomer.GetDepositTxs([][]byte{userTxn}); err == nil {
+		return errors.New("deposit txs are not allowed in the pool")
+	}
 
 	batch := p.db.NewBatch()
 	defer func() {
