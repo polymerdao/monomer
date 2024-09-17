@@ -3,11 +3,9 @@ package testapp
 import (
 	"context"
 	"encoding/json"
-	"math/big"
 	"slices"
 	"testing"
 
-	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -15,7 +13,6 @@ import (
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/polymerdao/monomer/testapp/x/testmodule/types"
-	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -53,7 +50,7 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 }
 
 func ToTestTx(t *testing.T, k, v string) []byte {
-	return toTx(t, &types.MsgSetValue{
+	return ToTx(t, &types.MsgSetValue{
 		// TODO use real addresses and enable the signature and gas checks.
 		// This is just a dummy address. The signature and gas checks are disabled in testapp.go,
 		// so this works for now.
@@ -63,17 +60,7 @@ func ToTestTx(t *testing.T, k, v string) []byte {
 	})
 }
 
-func ToWithdrawalTx(t *testing.T, cosmosAddr string, ethAddr string, amount math.Int, gasLimit *big.Int) []byte {
-	return toTx(t, &rolluptypes.MsgInitiateWithdrawal{
-		Sender:   cosmosAddr,
-		Target:   ethAddr,
-		Value:    amount,
-		GasLimit: gasLimit.Bytes(),
-		Data:     []byte{},
-	})
-}
-
-func toTx(t *testing.T, msg proto.Message) []byte {
+func ToTx(t *testing.T, msg proto.Message) []byte {
 	msgAny, err := codectypes.NewAnyWithValue(msg)
 	require.NoError(t, err)
 
