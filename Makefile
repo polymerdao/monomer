@@ -58,8 +58,7 @@ install-abi-gen:
 
 .PHONY: install-mockgen
 install-mockgen:
-	go install go.uber.org/mock/mockgen@latest
-	$(eval PATH := $(PATH):$(shell go env GOPATH)/bin)
+	go install go.uber.org/mock/mockgen@v0.4.0
 
 .PHONY: install-foundry
 install-foundry:
@@ -71,7 +70,7 @@ gen-bindings:
 
 .PHONY: gen-mocks
 gen-mocks:
-	go generate ./...
+	mockgen -source=x/rollup/types/expected_keepers.go -package testutil -destination x/rollup/testutil/expected_keepers_mocks.go
 
 $(COVER_OUT):
 	go test -short ./... -coverprofile=$@ -covermode=atomic -coverpkg=./...
