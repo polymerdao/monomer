@@ -326,11 +326,11 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 		stack.Ctx,
 		testapp.ToTx(t, &rolluptypes.MsgInitiateWithdrawal{
 			Sender:   utils.EvmToCosmosAddress(*withdrawalTx.Sender).String(),
-				Target:   withdrawalTx.Target.String(),
-				Value:    math.NewIntFromBigInt(withdrawalTx.Value),
-				GasLimit: withdrawalTx.GasLimit.Bytes(),
-				Data:     []byte{},
-			}),
+			Target:   withdrawalTx.Target.String(),
+			Value:    math.NewIntFromBigInt(withdrawalTx.Value),
+			GasLimit: withdrawalTx.GasLimit.Bytes(),
+			Data:     []byte{},
+		}),
 	)
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, withdrawalTxResult.Code)
