@@ -320,7 +320,7 @@ func TestBuildRollupTxs(t *testing.T) {
 	withdrawalTx := testapp.ToTx(t, &types.MsgInitiateWithdrawal{
 		Sender:   cosmAddr.String(),
 		Target:   common.HexToAddress("0x12345abcde").String(),
-		Value:    math.NewIntFromBigInt(depositTxETH.Value()),
+		Value:    math.NewIntFromBigInt(depositTxETH.Mint()),
 		GasLimit: big.NewInt(100_000).Bytes(),
 		Data:     []byte{},
 	})
