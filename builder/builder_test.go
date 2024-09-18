@@ -315,13 +315,13 @@ func TestBuildRollupTxs(t *testing.T) {
 	require.NotNil(t, depositTxETH.To(), "Deposit transaction must have a 'to' address")
 
 	cosmAddr := utils.EvmToCosmosAddress(*depositTxETH.To())
-	withdrawalTx := testapp.ToWithdrawalTx(
-		t,
-		cosmAddr.String(),
-		common.HexToAddress("0x12345abcde").String(),
-		math.NewIntFromBigInt(depositTxETH.Value()),
-		big.NewInt(100_000),
-	)
+	withdrawalTx := testapp.ToTx(t, &types.MsgInitiateWithdrawal{
+		Sender:   cosmAddr.String(),
+		Target:   common.HexToAddress("0x12345abcde").String(),
+		Value:    math.NewIntFromBigInt(depositTxETH.Value()),
+		GasLimit: big.NewInt(100_000).Bytes(),
+		Data:     []byte{},
+	})
 
 	b := builder.New(
 		env.pool,
