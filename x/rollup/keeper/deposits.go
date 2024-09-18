@@ -52,7 +52,7 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive
 
 // processL1UserDepositTxs processes the L1 user deposit txs, mints ETH to the user's cosmos address,
 // and returns associated events.
-func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Events, error) { //nolint:gocritic // hugeParam
+func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte, l1blockInfo *derive.L1BlockInfo) (sdk.Events, error) { //nolint:gocritic // hugeParam
 	mintEvents := sdk.Events{}
 
 	// skip the first tx - it is the L1 attributes tx
@@ -82,8 +82,8 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Eve
 		// Get the sender's address from the transaction
 		from, err := ethtypes.MakeSigner(
 			monomer.NewChainConfig(tx.ChainId()),
-			big.NewInt(ctx.BlockHeight()),
-			uint64(tx.Time().Unix()),
+			new(big.Int).SetUint64(l1blockInfo.Number),
+			l1blockInfo.Time,
 		).Sender(&tx)
 		if err != nil {
 			ctx.Logger().Error("Failed to get sender address", "evmAddress", from, "err", err)

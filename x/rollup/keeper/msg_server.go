@@ -34,7 +34,7 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 	ctx.Logger().Info("Save L1 block info", "l1blockInfo", string(lo.Must(json.Marshal(l1blockInfo))))
 
 	// process L1 user deposit txs
-	mintEvents, err := k.processL1UserDepositTxs(ctx, msg.TxBytes)
+	mintEvents, err := k.processL1UserDepositTxs(ctx, msg.TxBytes, l1blockInfo)
 	if err != nil {
 		ctx.Logger().Error("Failed to process L1 user deposit txs", "err", err)
 		return nil, types.WrapError(types.ErrProcessL1UserDepositTxs, "err: %v", err)
