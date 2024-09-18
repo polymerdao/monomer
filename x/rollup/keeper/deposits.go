@@ -52,7 +52,11 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive
 
 // processL1UserDepositTxs processes the L1 user deposit txs, mints ETH to the user's cosmos address,
 // and returns associated events.
-func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte, l1blockInfo *derive.L1BlockInfo) (sdk.Events, error) { //nolint:gocritic // hugeParam
+func (k *Keeper) processL1UserDepositTxs(
+	ctx sdk.Context, //nolint:gocritic // hugeParam
+	txs [][]byte,
+	l1blockInfo *derive.L1BlockInfo,
+) (sdk.Events, error) {
 	mintEvents := sdk.Events{}
 
 	// skip the first tx - it is the L1 attributes tx
