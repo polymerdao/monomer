@@ -3,12 +3,14 @@ package keeper
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/utils"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
@@ -78,7 +80,11 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Eve
 		}
 
 		// Get the sender's address from the transaction
-		from, err := ethtypes.NewCancunSigner(tx.ChainId()).Sender(&tx)
+		from, err := ethtypes.MakeSigner(
+			monomer.NewChainConfig(tx.ChainId()),
+			big.NewInt(ctx.BlockHeight()),
+			uint64(ctx.BlockTime().Unix()),
+		).Sender(&tx)
 		if err != nil {
 			ctx.Logger().Error("Failed to get sender address", "evmAddress", from, "err", err)
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to get sender address: %v", err)
