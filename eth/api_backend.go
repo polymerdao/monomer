@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/eth/internal/ethapi"
 )
 
 type ethAPIBackend struct {
@@ -27,7 +26,7 @@ func newEthAPIBackend(db state.Database, blockStore DB) *ethAPIBackend {
 }
 
 func (*ethAPIBackend) ChainConfig() *params.ChainConfig {
-	return ethapi.NewChainConfig(nil)
+	return monomer.NewChainConfig(nil)
 }
 
 func (*ethAPIBackend) GetReceipts(_ context.Context, _ common.Hash) (types.Receipts, error) {
