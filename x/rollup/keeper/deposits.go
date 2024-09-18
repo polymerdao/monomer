@@ -83,7 +83,7 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Eve
 		from, err := ethtypes.MakeSigner(
 			monomer.NewChainConfig(tx.ChainId()),
 			big.NewInt(ctx.BlockHeight()),
-			uint64(ctx.BlockTime().Unix()),
+			uint64(tx.Time().Unix()),
 		).Sender(&tx)
 		if err != nil {
 			ctx.Logger().Error("Failed to get sender address", "evmAddress", from, "err", err)
