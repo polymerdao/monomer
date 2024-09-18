@@ -3,12 +3,14 @@ package keeper
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/utils"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
@@ -50,7 +52,11 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive
 
 // processL1UserDepositTxs processes the L1 user deposit txs, mints ETH to the user's cosmos address,
 // and returns associated events.
-func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Events, error) { //nolint:gocritic // hugeParam
+func (k *Keeper) processL1UserDepositTxs(
+	ctx sdk.Context, //nolint:gocritic // hugeParam
+	txs [][]byte,
+	l1blockInfo *derive.L1BlockInfo,
+) (sdk.Events, error) {
 	mintEvents := sdk.Events{}
 
 	// skip the first tx - it is the L1 attributes tx
@@ -70,18 +76,29 @@ func (k *Keeper) processL1UserDepositTxs(ctx sdk.Context, txs [][]byte) (sdk.Eve
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "L1 tx must be a user deposit tx, type %d", tx.Type())
 		}
 		ctx.Logger().Debug("User deposit tx", "index", i, "tx", string(lo.Must(tx.MarshalJSON())))
-		to := tx.To()
 		// if the receipient is nil, it means the tx is creating a contract which we don't support, so return an error.
 		// see https://github.com/ethereum-optimism/op-geth/blob/v1.101301.0-rc.2/core/state_processor.go#L154
-		if to == nil {
+		if tx.To() == nil {
 			ctx.Logger().Error("Contract creation txs are not supported", "index", i)
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "Contract creation txs are not supported, index:%d", i)
 		}
-		cosmAddr := utils.EvmToCosmosAddress(*to)
-		mintAmount := sdkmath.NewIntFromBigInt(tx.Value())
+
+		// Get the sender's address from the transaction
+		from, err := ethtypes.MakeSigner(
+			monomer.NewChainConfig(tx.ChainId()),
+			new(big.Int).SetUint64(l1blockInfo.Number),
+			l1blockInfo.Time,
+		).Sender(&tx)
+		if err != nil {
+			ctx.Logger().Error("Failed to get sender address", "evmAddress", from, "err", err)
+			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to get sender address: %v", err)
+		}
+		cosmAddr := utils.EvmToCosmosAddress(from)
+		mintAmount := sdkmath.NewIntFromBigInt(tx.Mint())
+
 		mintEvent, err := k.mintETH(ctx, cosmAddr, mintAmount)
 		if err != nil {
-			ctx.Logger().Error("Failed to mint ETH", "evmAddress", to, "cosmosAddress", cosmAddr, "err", err)
+			ctx.Logger().Error("Failed to mint ETH", "evmAddress", from, "cosmosAddress", cosmAddr, "err", err)
 			return nil, types.WrapError(types.ErrMintETH, "failed to mint ETH for cosmosAddress: %v; err: %v", cosmAddr, err)
 		}
 		mintEvents = append(mintEvents, *mintEvent)

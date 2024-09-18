@@ -258,12 +258,11 @@ func rollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err)
 
 	// send user Deposit Tx
-	// TODO: the only reason the L1 balance assertions are passing is because depositTx.Value == depositTx.Mint. Once we pivot to using Mint instead of Value in x/rollup we should add separate deposit tx cases with and without a Value field set
 	depositAmount := big.NewInt(oneEth)
 	depositTx, err := stack.L1Portal.DepositTransaction(
 		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, depositAmount),
 		userAddress,
-		depositAmount,
+		big.NewInt(0),
 		l2GasLimit,
 		false,    // _isCreation
 		[]byte{}, // no data

@@ -18,7 +18,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
+	"github.com/polymerdao/monomer/utils"
 )
 
 type Application interface {
@@ -212,5 +214,26 @@ func ValidForkchoiceUpdateResult(headBlockHash *common.Hash, id *engine.PayloadI
 			LatestValidHash: headBlockHash,
 		},
 		PayloadID: id,
+	}
+}
+
+func NewChainConfig(chainID *big.Int) *params.ChainConfig {
+	return &params.ChainConfig{
+		ChainID: chainID,
+
+		ByzantiumBlock:      new(big.Int),
+		ConstantinopleBlock: new(big.Int),
+		PetersburgBlock:     new(big.Int),
+		IstanbulBlock:       new(big.Int),
+		MuirGlacierBlock:    new(big.Int),
+		BerlinBlock:         new(big.Int),
+		LondonBlock:         new(big.Int),
+		ArrowGlacierBlock:   new(big.Int),
+		GrayGlacierBlock:    new(big.Int),
+		MergeNetsplitBlock:  new(big.Int),
+
+		BedrockBlock: new(big.Int),
+		RegolithTime: utils.Ptr(uint64(0)),
+		CanyonTime:   utils.Ptr(uint64(0)),
 	}
 }
