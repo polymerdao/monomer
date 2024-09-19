@@ -3,6 +3,7 @@ package testutils
 import (
 	"math/big"
 	"math/rand"
+	"strings"
 	"testing"
 
 	"github.com/cockroachdb/pebble"
@@ -12,10 +13,13 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum-optimism/optimism/op-service/testutils"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
@@ -82,6 +86,47 @@ func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transactio
 
 	cosmosEthTx := monomer.AdaptNonDepositCosmosTxToEthTx([]byte{1})
 	return l1InfoTx, depositTx, cosmosEthTx
+}
+
+func GenerateERC20DepositTx(t *testing.T, tokenAddr, userAddr common.Address, amount *big.Int) *gethtypes.Transaction {
+	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.CrossDomainMessengerMetaData.ABI))
+	require.NoError(t, err)
+	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.StandardBridgeMetaData.ABI))
+	require.NoError(t, err)
+
+	rng := rand.New(rand.NewSource(1234))
+
+	finalizeBridgeERC20Bz, err := standardBridgeABI.Pack(
+		"finalizeBridgeERC20",
+		tokenAddr,                    // l1 token address
+		testutils.RandomAddress(rng), // l2 token address
+		testutils.RandomAddress(rng), // from
+		userAddr,                     // to
+		amount,                       // amount
+		[]byte{},                     // extra data
+	)
+	require.NoError(t, err)
+
+	relayMessageBz, err := crossDomainMessengerABI.Pack(
+		"relayMessage",
+		big.NewInt(0),                // nonce
+		testutils.RandomAddress(rng), // sender
+		testutils.RandomAddress(rng), // target
+		amount,                       // value
+		big.NewInt(0),                // min gas limit
+		finalizeBridgeERC20Bz,        // message
+	)
+	require.NoError(t, err)
+
+	to := testutils.RandomAddress(rng)
+	depositTx := &gethtypes.DepositTx{
+		// TODO: remove hardcoded address once a genesis state is configured
+		// L2 aliased L1CrossDomainMessenger proxy address
+		From: crossdomain.ApplyL1ToL2Alias(common.HexToAddress("0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE")),
+		To:   &to,
+		Data: relayMessageBz,
+	}
+	return gethtypes.NewTx(depositTx)
 }
 
 func TxToBytes(t *testing.T, tx *gethtypes.Transaction) []byte {
