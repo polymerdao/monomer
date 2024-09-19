@@ -46,7 +46,7 @@ type StackConfig struct {
 	Users                []*ecdsa.PrivateKey
 	L1Client             *L1Client
 	L1Deployments        *opgenesis.L1Deployments
-	L1Portal             *bindings.OptimismPortal
+	OptimismPortal       *bindings.OptimismPortal
 	L1StandardBridge     *opbindings.L1StandardBridge
 	L2OutputOracleCaller *bindings.L2OutputOracleCaller
 	L2Client             *bftclient.HTTP
@@ -234,7 +234,7 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		Ctx:                  ctx,
 		L1Client:             l1Client,
 		L1Deployments:        ope2econfig.L1Deployments,
-		L1Portal:             opPortal,
+		OptimismPortal:       opPortal,
 		L1StandardBridge:     l1StandardBridge,
 		L2OutputOracleCaller: l2OutputOracleCaller,
 		L2Client:             l2Client,
