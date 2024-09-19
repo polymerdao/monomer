@@ -11,10 +11,12 @@ const (
 	AttributeKeyGasLimit          = "gas_limit"
 	AttributeKeyData              = "data"
 	AttributeKeyNonce             = "nonce"
+	AttributeKeyERC20Address      = "erc20_address"
 
 	L1UserDepositTxType = "l1_user_deposit"
 
 	EventTypeMintETH             = "mint_eth"
+	EventTypeMintERC20           = "mint_erc20"
 	EventTypeBurnETH             = "burn_eth"
 	EventTypeWithdrawalInitiated = "withdrawal_initiated"
 )
