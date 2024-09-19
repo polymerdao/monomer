@@ -16,6 +16,7 @@ import (
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/types/module/testutil"
+	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	ope2econfig "github.com/ethereum-optimism/optimism/op-e2e/config"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
@@ -42,9 +43,11 @@ type EventListener interface {
 
 type StackConfig struct {
 	Ctx                  context.Context
-	User                 *ecdsa.PrivateKey
+	Users                []*ecdsa.PrivateKey
 	L1Client             *L1Client
+	L1Deployments        *opgenesis.L1Deployments
 	L1Portal             *bindings.OptimismPortal
+	L1StandardBridge     *opbindings.L1StandardBridge
 	L2OutputOracleCaller *bindings.L2OutputOracleCaller
 	L2Client             *bftclient.HTTP
 	MonomerClient        *MonomerClient
@@ -159,6 +162,11 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("new optimism portal: %v", err)
 	}
 
+	l1StandardBridge, err := opbindings.NewL1StandardBridge(ope2econfig.L1Deployments.L1StandardBridgeProxy, l1Client)
+	if err != nil {
+		return nil, fmt.Errorf("new l1 standard bridge: %v", err)
+	}
+
 	l2OutputOracleCaller, err := bindings.NewL2OutputOracleCaller(ope2econfig.L1Deployments.L2OutputOracleProxy, l1Client)
 	if err != nil {
 		return nil, fmt.Errorf("new l2 output oracle caller: %v", err)
@@ -225,11 +233,13 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 	return &StackConfig{
 		Ctx:                  ctx,
 		L1Client:             l1Client,
+		L1Deployments:        ope2econfig.L1Deployments,
 		L1Portal:             opPortal,
+		L1StandardBridge:     l1StandardBridge,
 		L2OutputOracleCaller: l2OutputOracleCaller,
 		L2Client:             l2Client,
 		MonomerClient:        monomerClient,
-		User:                 secrets.Alice,
+		Users:                []*ecdsa.PrivateKey{secrets.Alice, secrets.Bob},
 		RollupConfig:         rollupConfig,
 		WaitL1: func(numBlocks int) error {
 			return wait(numBlocks, 1)
