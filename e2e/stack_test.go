@@ -265,7 +265,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// send user Deposit Tx
 	depositAmount := big.NewInt(params.Ether)
-	depositTx, err := stack.L1Portal.DepositTransaction(
+	depositTx, err := stack.OptimismPortal.DepositTransaction(
 		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, depositAmount),
 		userAddress,
 		big.NewInt(0),
@@ -287,7 +287,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NotNil(t, receipt, "deposit tx receipt")
 	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "deposit tx reverted")
 
-	depositLogs, err := stack.L1Portal.FilterTransactionDeposited(
+	depositLogs, err := stack.OptimismPortal.FilterTransactionDeposited(
 		&bind.FilterOpts{
 			Start:   0,
 			End:     nil,
@@ -357,7 +357,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err)
 
 	// send a withdrawal proving tx to prove the withdrawal on L1
-	proveWithdrawalTx, err := stack.L1Portal.ProveWithdrawalTransaction(
+	proveWithdrawalTx, err := stack.OptimismPortal.ProveWithdrawalTransaction(
 		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
 		withdrawalTx.WithdrawalTransaction(),
 		provenWithdrawalParams.L2OutputIndex,
@@ -377,7 +377,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	withdrawalTxHash, err := withdrawalTx.Hash()
 	require.NoError(t, err)
-	proveWithdrawalLogs, err := stack.L1Portal.FilterWithdrawalProven(
+	proveWithdrawalLogs, err := stack.OptimismPortal.FilterWithdrawalProven(
 		&bind.FilterOpts{
 			Start:   0,
 			End:     nil,
@@ -401,7 +401,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err)
 
 	// send a withdrawal finalizing tx to finalize the withdrawal on L1
-	finalizeWithdrawalTx, err := stack.L1Portal.FinalizeWithdrawalTransaction(
+	finalizeWithdrawalTx, err := stack.OptimismPortal.FinalizeWithdrawalTransaction(
 		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
 		withdrawalTx.WithdrawalTransaction(),
 	)
@@ -416,7 +416,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NotNil(t, receipt, "finalize withdrawal tx receipt")
 	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "finalize withdrawal tx failed")
 
-	finalizeWithdrawalLogs, err := stack.L1Portal.FilterWithdrawalFinalized(
+	finalizeWithdrawalLogs, err := stack.OptimismPortal.FilterWithdrawalFinalized(
 		&bind.FilterOpts{
 			Start:   0,
 			End:     nil,
@@ -515,7 +515,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err)
 
 	// check that the deposit tx went through the OptimismPortal successfully
-	_, err = receipts.FindLog(depositReceipt.Logs, stack.L1Portal.ParseTransactionDeposited)
+	_, err = receipts.FindLog(depositReceipt.Logs, stack.OptimismPortal.ParseTransactionDeposited)
 	require.NoError(t, err, "should emit deposit event")
 
 	// assert the user's bridged WETH is no longer on L1
