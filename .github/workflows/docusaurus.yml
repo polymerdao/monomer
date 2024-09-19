@@ -13,12 +13,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version-file: doc/.nvmrc
+          node-version-file: docs/.nvmrc
 
       - name: Install dependencies
-        working-directory: ./doc
+        working-directory: ./docs
         run: yarn install --frozen-lockfile
 
       - name: Build website
-        working-directory: ./doc
+        working-directory: ./docs
         run: yarn build
