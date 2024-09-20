@@ -147,6 +147,9 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("dial monomer: %v", err)
 	}
 	monomerClient := NewMonomerClient(monomerRPCClient)
+	fmt.Printf("Monomer executionEngine running at %s\n", s.monomerEngineURL.String())
+	fmt.Printf("Monomer cometBFT running at %s\n", s.monomerCometURL.String())
+
 	l2GenesisBlockHash, err := monomerClient.GenesisHash(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get Monomer genesis block hash: %v", err)
