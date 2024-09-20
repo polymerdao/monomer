@@ -3,7 +3,7 @@ COVER_OUT ?= cover.out
 COVER_HTML ?= cover.html
 SCRIPTS_PATH ?= scripts
 BIN ?= bin
-GO_WRAPPER := $(SCRIPTS_PATH)/go-wrapper.sh
+GO_WRAPPER ?= $(SCRIPTS_PATH)/go-wrapper.sh
 
 E2E_ARTIFACTS_PATH ?= e2e/artifacts
 E2E_STATE_SETUP_PATH ?= e2e/optimism/.devnet
