@@ -3,6 +3,7 @@ COVER_OUT ?= cover.out
 COVER_HTML ?= cover.html
 SCRIPTS_PATH ?= scripts
 BIN ?= bin
+GO_WRAPPER := $(SCRIPTS_PATH)/go-wrapper.sh
 
 E2E_ARTIFACTS_PATH ?= e2e/artifacts
 E2E_STATE_SETUP_PATH ?= e2e/optimism/.devnet
@@ -16,15 +17,15 @@ monogen:
 
 .PHONY: test
 test:
-	go test -short ./...
+	$(GO_WRAPPER) test -short ./...
 
 .PHONY: test-all
 test-all:
-	go test ./...
+	$(GO_WRAPPER) test ./...
 
 .PHONY: e2e
 e2e:
-	go test -v ./e2e \
+	$(GO_WRAPPER) test -v ./e2e \
 	-l1-allocs ./optimism/.devnet/allocs-l1.json \
 	-l2-allocs-dir ./optimism/.devnet/ \
 	-l1-deployments ./optimism/.devnet/addresses.json \
@@ -77,7 +78,7 @@ gen-mocks:
 	mockgen -source=x/rollup/types/expected_keepers.go -package testutil -destination x/rollup/testutil/expected_keepers_mocks.go
 
 $(COVER_OUT):
-	go test -short ./... -coverprofile=$@ -covermode=atomic -coverpkg=./...
+	$(GO_WRAPPER) test -short ./... -coverprofile=$@ -covermode=atomic -coverpkg=./...
 
 .PHONY: check-cover
 check-cover: $(COVER_OUT)
