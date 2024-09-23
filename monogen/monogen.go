@@ -83,9 +83,8 @@ func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix strin
 	if err := gocmd.Fmt(ctx, appDir); err != nil {
 		return fmt.Errorf("go fmt: %v", err)
 	}
-	err = gocmd.GoImports(ctx, appDir) // From ignite: goimports installation could fail, so ignore the error
-	if err != nil {
-		fmt.Printf("Warning: goimports failed: %v\n", err)
+	if  err := gocmd.GoImports(ctx, appDir); err != nil {
+		return fmt.Errorf("run goimports: %v", err)
 	}
 	if err := gocmd.ModTidy(ctx, appDir); err != nil {
 		return fmt.Errorf("go mod tidy: %v", err)
