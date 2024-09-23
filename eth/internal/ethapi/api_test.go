@@ -14,16 +14,17 @@ import (
 )
 
 // generateProofAPI creates a ProofAPI instance for testing
-func generateProofAPI(t *testing.T, blocksNumber int) *eth.ProofAPI {
+func generateProofAPI(t *testing.T, blockStoreIsEmpty bool) *eth.ProofAPI {
 	t.Helper()
 	blockStore := testutils.NewLocalMemDB(t)
 	db := testutils.NewEthStateDB(t)
 
-	for i := 0; i < blocksNumber; i++ {
+	if !blockStoreIsEmpty {
 		block := testutils.GenerateBlock(t)
 		require.NoError(t, blockStore.AppendBlock(block))
 		require.NoError(t, blockStore.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
 	}
+
 	return eth.NewProofAPI(db, blockStore)
 }
 
@@ -36,20 +37,20 @@ func TestGetProof(t *testing.T) {
 	require.NoError(t, zeroBig.UnmarshalText([]byte("0x0")))
 
 	testCases := []struct {
-		name           string
-		blocksNumber   int
-		storageKeys    []string
-		expectedResult *ethapi.AccountResult
-		expectError    bool
+		name              string
+		blockStoreIsEmpty bool
+		storageKeys       []string
+		expectedResult    *ethapi.AccountResult
+		expectError       bool
 	}{
 		{
-			name:         "empty blockstore",
-			blocksNumber: 0,
-			expectError:  true,
+			name:              "empty blockstore",
+			blockStoreIsEmpty: true,
+			expectError:       true,
 		},
 		{
-			name:         "blockstore with block without storageKeys",
-			blocksNumber: 1,
+			name:              "blockstore with block without storageKeys",
+			blockStoreIsEmpty: false,
 			expectedResult: &ethapi.AccountResult{
 				Address:      someAddress,
 				AccountProof: nil,
@@ -61,9 +62,9 @@ func TestGetProof(t *testing.T) {
 			},
 		},
 		{
-			name:         "blockstore with block with storageKeys and nil storageTrie",
-			blocksNumber: 1,
-			storageKeys:  []string{zeroHashStr},
+			name:              "blockstore with block with storageKeys and nil storageTrie",
+			blockStoreIsEmpty: false,
+			storageKeys:       []string{zeroHashStr},
 			expectedResult: &ethapi.AccountResult{
 				Address:      someAddress,
 				AccountProof: nil,
@@ -84,7 +85,7 @@ func TestGetProof(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			proofAPI := generateProofAPI(t, tc.blocksNumber)
+			proofAPI := generateProofAPI(t, tc.blockStoreIsEmpty)
 			pf, err := proofAPI.GetProof(context.Background(), someAddress, tc.storageKeys, rpc.BlockNumberOrHash{BlockNumber: &blockNumber})
 
 			if tc.expectError {
