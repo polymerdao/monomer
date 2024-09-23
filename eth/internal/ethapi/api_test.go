@@ -13,11 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// Constants for commonly used values
-const (
-	zeroString = "0x0000000000000000000000000000000000000000000000000000000000000000"
-)
-
 // generateProofAPI creates a ProofAPI instance for testing
 func generateProofAPI(t *testing.T, blocksNumber int) *eth.ProofAPI {
 	t.Helper()
@@ -34,7 +29,8 @@ func generateProofAPI(t *testing.T, blocksNumber int) *eth.ProofAPI {
 
 func TestGetProof(t *testing.T) {
 	blockNumber := rpc.LatestBlockNumber
-	zeroHash := common.HexToHash(zeroString)
+	zeroHash := common.Hash{}
+	zeroHashStr := zeroHash.String()
 	someAddress := common.HexToAddress("0xabc")
 	zeroBig := new(hexutil.Big)
 	require.NoError(t, zeroBig.UnmarshalText([]byte("0x0")))
@@ -67,7 +63,7 @@ func TestGetProof(t *testing.T) {
 		{
 			name:         "blockstore with block with storageKeys and nil storageTrie",
 			blocksNumber: 1,
-			storageKeys:  []string{zeroString},
+			storageKeys:  []string{zeroHashStr},
 			expectedResult: &ethapi.AccountResult{
 				Address:      someAddress,
 				AccountProof: nil,
@@ -77,7 +73,7 @@ func TestGetProof(t *testing.T) {
 				StorageHash:  zeroHash,
 				StorageProof: []ethapi.StorageResult{
 					{
-						Key:   zeroString,
+						Key:   zeroHashStr,
 						Value: &hexutil.Big{},
 						Proof: []string{},
 					},
