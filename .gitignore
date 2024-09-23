@@ -1,5 +1,6 @@
 # Ignore side effects from e2e tests.
 e2e/artifacts
+e2e/devenv/artifacts
 
 # Ignore the forge artifacts and cache.
 bindings/artifacts
