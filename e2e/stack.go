@@ -263,6 +263,11 @@ func (s *stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		return fmt.Errorf("set up monomer comet listener: %v", err)
 	}
 	chainID := monomer.ChainID(chainIDU64)
+
+	// hook for importing & running custom apps in devnet?
+	// eg:
+	//
+	// app, err := hackathonApp.New(dbm.NewMemDB(), chainID.String()) ...
 	app, err := testapp.New(dbm.NewMemDB(), chainID.String())
 	if err != nil {
 		return fmt.Errorf("new test app: %v", err)
