@@ -15,8 +15,7 @@ import (
 
 // Constants for commonly used values
 const (
-	zeroString     = "0x0000000000000000000000000000000000000000000000000000000000000000"
-	someAddressHex = "0xabc"
+	zeroString = "0x0000000000000000000000000000000000000000000000000000000000000000"
 )
 
 // generateProofAPI creates a ProofAPI instance for testing
@@ -36,7 +35,7 @@ func generateProofAPI(t *testing.T, blocksNumber int) *eth.ProofAPI {
 func TestGetProof(t *testing.T) {
 	blockNumber := rpc.LatestBlockNumber
 	zeroHash := common.HexToHash(zeroString)
-	someAddress := common.HexToAddress(someAddressHex)
+	someAddress := common.HexToAddress("0xabc")
 	zeroBig := new(hexutil.Big)
 	require.NoError(t, zeroBig.UnmarshalText([]byte("0x0")))
 
