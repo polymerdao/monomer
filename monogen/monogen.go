@@ -83,7 +83,7 @@ func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix strin
 	if err := gocmd.Fmt(ctx, appDir); err != nil {
 		return fmt.Errorf("go fmt: %v", err)
 	}
-	if  err := gocmd.GoImports(ctx, appDir); err != nil {
+	if err := gocmd.GoImports(ctx, appDir); err != nil {
 		return fmt.Errorf("run goimports: %v", err)
 	}
 	if err := gocmd.ModTidy(ctx, appDir); err != nil {
