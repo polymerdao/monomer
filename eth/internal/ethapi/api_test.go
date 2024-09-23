@@ -2,6 +2,7 @@ package ethapi_test
 
 import (
 	"context"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -33,8 +34,7 @@ func TestGetProof(t *testing.T) {
 	zeroHash := common.Hash{}
 	zeroHashStr := zeroHash.String()
 	someAddress := common.HexToAddress("0xabc")
-	zeroBig := new(hexutil.Big)
-	require.NoError(t, zeroBig.UnmarshalText([]byte("0x0")))
+	zeroBig := (*hexutil.Big)(new(big.Int).SetBytes(zeroHash.Bytes()))
 
 	testCases := []struct {
 		name              string
