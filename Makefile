@@ -30,6 +30,14 @@ e2e:
 	-l1-deployments ./optimism/.devnet/addresses.json \
 	-deploy-config ./optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
 
+.PHONY: dev
+dev:
+	go test -v ./e2e/devenv \
+	-l1-allocs ../optimism/.devnet/allocs-l1.json \
+	-l2-allocs-dir ../optimism/.devnet/ \
+	-l1-deployments ../optimism/.devnet/addresses.json \
+	-deploy-config ../optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
+
 .PHONY: install-golangci-lint
 install-golangci-lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.1
