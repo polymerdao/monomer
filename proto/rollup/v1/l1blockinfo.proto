@@ -1,0 +1,21 @@
+syntax = "proto3";
+package rollup.v1;
+
+import "gogoproto/gogo.proto";
+
+option go_package = "github.com/polymerdao/monomer/x/rollup/types";
+
+// L1BlockInfo represents information about an L1 block and associated L2 data.
+message L1BlockInfo {
+  uint64 number = 1;
+  uint64 time = 2;
+  bytes base_fee = 3 [(gogoproto.nullable) = true]; // big.Int
+  bytes block_hash = 4; // common.Hash
+  uint64 sequence_number = 5; // Number of L2 blocks since the start of the epoch
+  bytes batcher_addr = 6; // common.Address, version 0 is just the address with 0 padding to the left
+  bytes l1_fee_overhead = 7; // eth.Bytes32, ignored after Ecotone upgrade
+  bytes l1_fee_scalar = 8; // eth.Bytes32, ignored after Ecotone upgrade
+  bytes blob_base_fee = 9 [(gogoproto.nullable) = true]; // big.Int, added by Ecotone upgrade
+  uint32 base_fee_scalar = 10; // added by Ecotone upgrade
+  uint32 blob_base_fee_scalar = 11; // added by Ecotone upgrade
+}

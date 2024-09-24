@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -28,8 +27,8 @@ import (
 //
 // Persisted data conforms to optimism specs on L1 attributes:
 // https://github.com/ethereum-optimism/optimism/blob/develop/specs/deposits.md#l1-attributes-predeployed-contract
-func (k *Keeper) setL1BlockInfo(ctx sdk.Context, info derive.L1BlockInfo) error { //nolint:gocritic
-	infoBytes, err := json.Marshal(info)
+func (k *Keeper) setL1BlockInfo(ctx sdk.Context, info types.L1BlockInfo) error { //nolint:gocritic
+	infoBytes, err := info.Marshal()
 	if err != nil {
 		return types.WrapError(err, "marshal L1 block info")
 	}
@@ -40,7 +39,7 @@ func (k *Keeper) setL1BlockInfo(ctx sdk.Context, info derive.L1BlockInfo) error 
 }
 
 // processL1AttributesTx processes the L1 Attributes tx and returns the L1 block info.
-func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive.L1BlockInfo, error) { //nolint:gocritic // hugeParam
+func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*types.L1BlockInfo, error) { //nolint:gocritic // hugeParam
 	var tx ethtypes.Transaction
 	if err := tx.UnmarshalBinary(txBytes); err != nil {
 		ctx.Logger().Error("Failed to unmarshal L1 attributes transaction", "index", 0, "err", err, "txBytes", txBytes)
@@ -50,12 +49,33 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive
 		ctx.Logger().Error("First L1 tx must be a L1 attributes tx", "type", tx.Type())
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "first L1 tx must be a L1 attributes tx, but got type %d", tx.Type())
 	}
+
 	l1blockInfo, err := derive.L1BlockInfoFromBytes(k.rollupCfg, uint64(ctx.BlockTime().Unix()), tx.Data())
 	if err != nil {
 		ctx.Logger().Error("Failed to derive L1 block info from L1 Info Deposit tx", "err", err, "txBytes", txBytes)
 		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to derive L1 block info from L1 Info Deposit tx: %v", err)
 	}
-	return l1blockInfo, nil
+
+	// Convert derive.L1BlockInfo to types.L1BlockInfo
+	protoL1BlockInfo := &types.L1BlockInfo{
+		Number:            l1blockInfo.Number,
+		Time:              l1blockInfo.Time,
+		BlockHash:         l1blockInfo.BlockHash[:],
+		SequenceNumber:    l1blockInfo.SequenceNumber,
+		BatcherAddr:       l1blockInfo.BatcherAddr[:],
+		L1FeeOverhead:     l1blockInfo.L1FeeOverhead[:],
+		L1FeeScalar:       l1blockInfo.L1FeeScalar[:],
+		BaseFeeScalar:     l1blockInfo.BaseFeeScalar,
+		BlobBaseFeeScalar: l1blockInfo.BlobBaseFeeScalar,
+	}
+
+	if l1blockInfo.BaseFee != nil {
+		protoL1BlockInfo.BaseFee = l1blockInfo.BaseFee.Bytes()
+	}
+	if l1blockInfo.BlobBaseFee != nil {
+		protoL1BlockInfo.BlobBaseFee = l1blockInfo.BlobBaseFee.Bytes()
+	}
+	return protoL1BlockInfo, nil
 }
 
 // processL1UserDepositTxs processes the L1 user deposit txs, mints ETH to the user's cosmos address,
@@ -63,7 +83,7 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*derive
 func (k *Keeper) processL1UserDepositTxs(
 	ctx sdk.Context, //nolint:gocritic // hugeParam
 	txs [][]byte,
-	l1blockInfo *derive.L1BlockInfo,
+	l1blockInfo *types.L1BlockInfo,
 ) (sdk.Events, error) {
 	mintEvents := sdk.Events{}
 

@@ -2,7 +2,6 @@ package keeper
 
 import (
 	"context"
-	"encoding/json"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -31,7 +30,7 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 		return nil, types.WrapError(types.ErrL1BlockInfo, "save error: %v", err)
 	}
 
-	ctx.Logger().Info("Save L1 block info", "l1blockInfo", string(lo.Must(json.Marshal(l1blockInfo))))
+	ctx.Logger().Info("Save L1 block info", "l1blockInfo", string(lo.Must(l1blockInfo.Marshal())))
 
 	// process L1 user deposit txs
 	mintEvents, err := k.processL1UserDepositTxs(ctx, msg.TxBytes, l1blockInfo)
