@@ -9,7 +9,6 @@ import (
 	appv1alpha1 "cosmossdk.io/api/cosmos/app/v1alpha1"
 	authmodulev1 "cosmossdk.io/api/cosmos/auth/module/v1"
 	bankmodulev1 "cosmossdk.io/api/cosmos/bank/module/v1"
-	stakingmodulev1 "cosmossdk.io/api/cosmos/staking/module/v1"
 	txconfigv1 "cosmossdk.io/api/cosmos/tx/config/v1"
 	"cosmossdk.io/core/appconfig"
 	"cosmossdk.io/depinject"
@@ -31,9 +30,6 @@ import (
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	_ "github.com/cosmos/cosmos-sdk/x/staking"
-	stakingkeeper "github.com/cosmos/cosmos-sdk/x/staking/keeper"
-	stakingtypes "github.com/cosmos/cosmos-sdk/x/staking/types"
 	rollupmodulev1 "github.com/polymerdao/monomer/gen/rollup/module/v1"
 	testappmodulev1 "github.com/polymerdao/monomer/gen/testapp/module/v1"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
@@ -83,7 +79,6 @@ func (a *App) RollbackToHeight(_ context.Context, targetHeight uint64) error {
 var modules = []string{
 	authtypes.ModuleName,
 	banktypes.ModuleName,
-	stakingtypes.ModuleName,
 	govtypes.ModuleName,
 	testmodule.ModuleName,
 	rolluptypes.ModuleName,
@@ -114,27 +109,12 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 							Account:     rolluptypes.ModuleName,
 							Permissions: []string{authtypes.Minter, authtypes.Burner},
 						},
-						{
-							Account:     stakingtypes.BondedPoolName,
-							Permissions: []string{authtypes.Burner, stakingtypes.ModuleName},
-						},
-						{
-							Account:     stakingtypes.NotBondedPoolName,
-							Permissions: []string{authtypes.Burner, stakingtypes.ModuleName},
-						},
 					},
 				}),
 			},
 			{
 				Name:   banktypes.ModuleName,
 				Config: appconfig.WrapAny(&bankmodulev1.Module{}),
-			},
-			{
-				Name: stakingtypes.ModuleName,
-				Config: appconfig.WrapAny(&stakingmodulev1.Module{
-					Bech32PrefixValidator: "cosmosvaloper",
-					Bech32PrefixConsensus: "cosmosvalcons",
-				}),
 			},
 			{
 				Name: "tx",
@@ -161,7 +141,6 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 
 		accountKeeper    authkeeper.AccountKeeper
 		bankKeeper       bankkeeper.Keeper
-		stakingKeeper    *stakingkeeper.Keeper
 		rollupKeeper     *rollupkeeper.Keeper
 		testmoduleKeeper *testmodulekeeper.Keeper
 	)
@@ -173,7 +152,6 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 		&interfaceRegistry,
 		&accountKeeper,
 		&bankKeeper,
-		&stakingKeeper,
 		&rollupKeeper,
 		&testmoduleKeeper,
 	); err != nil {
