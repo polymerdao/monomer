@@ -1,12 +1,10 @@
 package keeper_test
 
 import (
-	"encoding/json"
-
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
@@ -128,16 +126,17 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 
 				// Verify that the l1 block info and l1 block history are saved to the store
 				expectedBlockInfo := eth.BlockToInfo(testutils.GenerateL1Block())
+
 				l1BlockInfoBz := s.rollupStore.Get([]byte(types.KeyL1BlockInfo))
 				s.Require().NotNil(l1BlockInfoBz)
 
-				var l1BlockInfo *derive.L1BlockInfo
-				err = json.Unmarshal(l1BlockInfoBz, &l1BlockInfo)
+				l1BlockInfo := new(types.L1BlockInfo)
+				err = proto.Unmarshal(l1BlockInfoBz, l1BlockInfo)
 				s.Require().NoError(err)
 				s.Require().Equal(expectedBlockInfo.NumberU64(), l1BlockInfo.Number)
-				s.Require().Equal(expectedBlockInfo.BaseFee(), l1BlockInfo.BaseFee)
+				s.Require().Equal(expectedBlockInfo.BaseFee().Bytes(), l1BlockInfo.BaseFee)
 				s.Require().Equal(expectedBlockInfo.Time(), l1BlockInfo.Time)
-				s.Require().Equal(expectedBlockInfo.Hash(), l1BlockInfo.BlockHash)
+				s.Require().Equal(expectedBlockInfo.Hash().Bytes(), l1BlockInfo.BlockHash)
 			}
 		})
 	}
