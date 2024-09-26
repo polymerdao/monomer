@@ -9,8 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/ethereum/go-ethereum/core/state"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/rpc"
+	"github.com/holiman/uint256"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/eth"
 	"github.com/polymerdao/monomer/eth/internal/ethapi"
@@ -134,45 +137,32 @@ func TestGetBlockByHash(t *testing.T) {
 	}
 }
 
-// generateProofAPI creates a ProofAPI instance for testing
-func generateProofAPI(t *testing.T, blockStoreIsEmpty bool) *eth.ProofAPI {
-	t.Helper()
-	blockStore := testutils.NewLocalMemDB(t)
-	db := testutils.NewEthStateDB(t)
-
-	if !blockStoreIsEmpty {
-		block := testutils.GenerateBlock(t)
-		require.NoError(t, blockStore.AppendBlock(block))
-		require.NoError(t, blockStore.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
-	}
-
-	return eth.NewProofAPI(db, blockStore)
-}
-
 func TestGetProof(t *testing.T) {
 	blockNumber := rpc.LatestBlockNumber
 	zeroHash := common.Hash{}
 	zeroHashStr := zeroHash.String()
-	someAddress := common.HexToAddress("0xabc")
+	accountAddress := common.HexToAddress("0xabc")
 	zeroBig := (*hexutil.Big)(new(big.Int).SetBytes(zeroHash.Bytes()))
 
 	testCases := []struct {
 		name              string
 		blockStoreIsEmpty bool
+		ethStateIsEmpty   bool
 		storageKeys       []string
 		expectedResult    *ethapi.AccountResult
 		expectError       bool
 	}{
 		{
-			name:              "empty blockstore",
+			name:              "empty blockstore and eth state",
 			blockStoreIsEmpty: true,
+			ethStateIsEmpty:   true,
 			expectError:       true,
 		},
 		{
-			name:              "blockstore with block without storageKeys",
+			name:              "empty eth state and blockstore with block without storageKeys",
 			blockStoreIsEmpty: false,
 			expectedResult: &ethapi.AccountResult{
-				Address:      someAddress,
+				Address:      accountAddress,
 				AccountProof: nil,
 				Balance:      zeroBig,
 				CodeHash:     zeroHash,
@@ -182,11 +172,11 @@ func TestGetProof(t *testing.T) {
 			},
 		},
 		{
-			name:              "blockstore with block with storageKeys and nil storageTrie",
+			name:              "empty eth state and blockstore with block with storageKeys and nil storageTrie",
 			blockStoreIsEmpty: false,
 			storageKeys:       []string{zeroHashStr},
 			expectedResult: &ethapi.AccountResult{
-				Address:      someAddress,
+				Address:      accountAddress,
 				AccountProof: nil,
 				Balance:      zeroBig,
 				CodeHash:     zeroHash,
@@ -201,19 +191,74 @@ func TestGetProof(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:              "populated eth state and blockstore",
+			blockStoreIsEmpty: false,
+			storageKeys:       []string{zeroHashStr},
+			expectedResult: &ethapi.AccountResult{
+				Address:      accountAddress,
+				AccountProof: nil,
+				// TODO: extract vars for balance, nonce, etc?
+				Balance:     (*hexutil.Big)(big.NewInt(1000)),
+				CodeHash:    crypto.Keccak256Hash([]byte{1, 2, 3}),
+				Nonce:       hexutil.Uint64(1),
+				StorageHash: zeroHash,
+				StorageProof: []ethapi.StorageResult{
+					{
+						Key:   zeroHashStr,
+						Value: &hexutil.Big{},
+						Proof: []string{},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			proofAPI := generateProofAPI(t, tc.blockStoreIsEmpty)
-			pf, err := proofAPI.GetProof(context.Background(), someAddress, tc.storageKeys, rpc.BlockNumberOrHash{BlockNumber: &blockNumber})
+			blockStore := testutils.NewLocalMemDB(t)
+			ethStateDB := testutils.NewEthStateDB(t)
+
+			var stateRoot common.Hash
+
+			if !tc.ethStateIsEmpty {
+				ethState, err := state.New(ethtypes.EmptyRootHash, ethStateDB, nil)
+				require.NoError(t, err)
+
+				ethState.SetNonce(accountAddress, 1)
+				ethState.SetBalance(accountAddress, uint256.NewInt(1000))
+				ethState.SetCode(accountAddress, []byte{1, 2, 3})
+				//ethState.SetStorage() TODO: set storage
+
+				stateRoot, err = ethState.Commit(uint64(blockNumber.Int64()), true)
+				require.NoError(t, err)
+
+				err = ethState.Database().TrieDB().Commit(stateRoot, false)
+				require.NoError(t, err)
+			} else {
+				stateRoot = ethtypes.EmptyRootHash
+			}
+
+			if !tc.blockStoreIsEmpty {
+				block := testutils.GenerateBlock(t)
+				block.Header.StateRoot = stateRoot
+				require.NoError(t, blockStore.AppendBlock(block))
+				require.NoError(t, blockStore.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
+			}
+
+			proofAPI := eth.NewProofAPI(ethStateDB, blockStore)
+			pf, err := proofAPI.GetProof(context.Background(), accountAddress, tc.storageKeys, rpc.BlockNumberOrHash{BlockNumber: &blockNumber})
 
 			if tc.expectError {
 				require.Error(t, err, "should not succeed in generating proofs")
 				require.Nil(t, pf, "received proof when error was expected")
 			} else {
+				// TODO: this check may not be necessary if we're using verify proof. It may be nice asserting that the account proof/storage proof are populated when expected though
 				require.NoError(t, err, "should succeed in generating proofs")
 				require.Equal(t, tc.expectedResult, pf)
+
+				// TODO: verify proof here
+				//err = withdrawals.VerifyProof(stateRoot, tc.expectedResult)
 			}
 		})
 	}
