@@ -147,6 +147,9 @@ func (s *stack) run(ctx context.Context, env *environment.Env) (*StackConfig, er
 		return nil, fmt.Errorf("dial monomer: %v", err)
 	}
 	monomerClient := NewMonomerClient(monomerRPCClient)
+	fmt.Printf("Monomer executionEngine running at %s\n", s.monomerEngineURL.String())
+	fmt.Printf("Monomer cometBFT running at %s\n", s.monomerCometURL.String())
+
 	l2GenesisBlockHash, err := monomerClient.GenesisHash(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("get Monomer genesis block hash: %v", err)
@@ -260,6 +263,11 @@ func (s *stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		return fmt.Errorf("set up monomer comet listener: %v", err)
 	}
 	chainID := monomer.ChainID(chainIDU64)
+
+	// hook for importing & running custom apps in devnet?
+	// eg:
+	//
+	// app, err := hackathonApp.New(dbm.NewMemDB(), chainID.String()) ...
 	app, err := testapp.New(dbm.NewMemDB(), chainID.String())
 	if err != nil {
 		return fmt.Errorf("new test app: %v", err)

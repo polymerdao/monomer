@@ -37,5 +37,7 @@ func gethdevnet(env *environment.Env, blockTime uint64, genesis *core.Genesis) (
 
 	env.DeferErr("close geth node", node.Close)
 
+	fmt.Printf("Geth L1 node started at %s\n", node.WSEndpoint())
+
 	return node.Attach(), node.WSEndpoint(), nil
 }
