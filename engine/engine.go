@@ -20,14 +20,6 @@ import (
 	"github.com/polymerdao/monomer/monomerdb"
 )
 
-type blockType string
-
-const (
-	headBlock      blockType = "head block"
-	safeBlock      blockType = "safe block"
-	finalizedBlock blockType = "finalized block"
-)
-
 type DB interface {
 	HeaderByHash(hash common.Hash) (*monomer.Header, error)
 	Height() (uint64, error)
@@ -87,14 +79,14 @@ func (e *EngineAPI) ForkchoiceUpdatedV2(
 	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
 
-func handleHeaderError(err error, bt blockType) error {
+func handleHeaderError(err error, bt string) error {
 	if errors.Is(err, monomerdb.ErrNotFound) {
 		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s not found", bt))
 	}
 	return engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
 }
 
-func (e *EngineAPI) validateHeader(blockHash common.Hash, headHeader *monomer.Header, bt blockType) error {
+func (e *EngineAPI) validateHeader(blockHash common.Hash, headHeader *monomer.Header, bt string) error {
 	if header, err := e.blockStore.HeaderByHash(blockHash); err != nil {
 		return handleHeaderError(err, bt)
 	} else if header.Height > headHeader.Height {
@@ -124,17 +116,17 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	//   forkchoiceState.headBlockHash...
 	headHeader, err := e.blockStore.HeaderByHash(fcs.HeadBlockHash)
 	if err != nil {
-		return nil, handleHeaderError(err, headBlock)
+		return nil, handleHeaderError(err, "head block")
 	}
 
 	// Engine API spec:
 	//   Client software MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash
 	//   is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not
 	//   belong to the chain defined by forkchoiceState.headBlockHash.
-	if err := e.validateHeader(fcs.SafeBlockHash, headHeader, safeBlock); err != nil {
+	if err := e.validateHeader(fcs.SafeBlockHash, headHeader, "safe block"); err != nil {
 		return nil, err
 	}
-	if err := e.validateHeader(fcs.FinalizedBlockHash, headHeader, finalizedBlock); err != nil {
+	if err := e.validateHeader(fcs.FinalizedBlockHash, headHeader, "finalized block"); err != nil {
 		return nil, err
 	}
 
