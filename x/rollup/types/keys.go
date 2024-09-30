@@ -1,5 +1,7 @@
 package types
 
+import "github.com/cosmos/cosmos-sdk/types"
+
 const (
 	// ModuleName defines the module name
 	ModuleName = "rollup"
@@ -20,3 +22,5 @@ const (
 	// KeyL1BlockInfo is the key for the L1BlockInfo
 	KeyL1BlockInfo = "L1BlockInfo"
 )
+
+var L1FeeVaultAddress = types.AccAddress("l1_fee_collector")
