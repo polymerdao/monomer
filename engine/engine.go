@@ -86,14 +86,14 @@ func handleHeaderError(err error, blockType string) error {
 	return engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
 }
 
-func (e *EngineAPI) validateHeader(blockHash common.Hash, headHeader *monomer.Header, bt string) error {
+func (e *EngineAPI) validateHeader(blockHash common.Hash, headHeader *monomer.Header, blockType string) error {
 	header, err := e.blockStore.HeaderByHash(blockHash)
 	if err != nil {
-		return handleHeaderError(err, bt)
+		return handleHeaderError(err, blockType)
 	}
 	if header.Height > headHeader.Height {
 		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s at height %d comes after head block at height %d",
-			bt, header.Height, headHeader.Height))
+			blockType, header.Height, headHeader.Height))
 	}
 
 	return nil
