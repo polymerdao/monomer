@@ -79,9 +79,9 @@ func (e *EngineAPI) ForkchoiceUpdatedV2(
 	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
 
-func handleHeaderError(err error, bt string) error {
+func handleHeaderError(err error, blockType string) error {
 	if errors.Is(err, monomerdb.ErrNotFound) {
-		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s not found", bt))
+		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s not found", blockType))
 	}
 	return engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
 }
