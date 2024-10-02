@@ -25,7 +25,6 @@ import (
 	"github.com/polymerdao/monomer/e2e/url"
 	testapp "github.com/polymerdao/monomer/testapp"
 	"github.com/sourcegraph/conc"
-	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 )
 
@@ -55,8 +54,7 @@ func TestStartCommandHandler(t *testing.T) {
 
 	// This flag must be set, because by default it's set to ""
 	svrCtx.Viper.Set("minimum-gas-prices", "0.025stake")
-	// This flag must be set to configure Monomer's Engine Websocket
-	viper.Set(monomerEngineWSFlag, "127.0.0.1:8089")
+	svrCtx.Viper.Set(flagEngineURL, "ws://127.0.0.1:9000")
 
 	clientCtx := client.Context{}
 	inProcessConsensus := true
@@ -74,7 +72,7 @@ func TestStartCommandHandler(t *testing.T) {
 	var wg conc.WaitGroup
 	defer wg.Wait()
 	wg.Go(func() {
-		err := StartCommandHandler(svrCtx, clientCtx, mockAppCreator, inProcessConsensus, opts)
+		err := startCommandHandler(svrCtx, clientCtx, mockAppCreator, inProcessConsensus, opts)
 		require.NoError(t, err)
 	})
 
