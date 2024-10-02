@@ -93,6 +93,10 @@ func (u *URL) String() string {
 	return u.url.String()
 }
 
+func (u *URL) Scheme() string {
+	return u.url.Scheme
+}
+
 func (u *URL) IsReachable(ctx context.Context) bool {
 	// TODO Use op-service/backoff when we upgrade to latest OP stack version.
 	// Ideally, we would accept a backoff timer. That would give the caller the opportunity
