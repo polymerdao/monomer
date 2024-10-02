@@ -10,7 +10,6 @@ import (
 	"github.com/ethereum-optimism/optimism/op-batcher/batcher"
 	"github.com/ethereum-optimism/optimism/op-batcher/flags"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	opnodemetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
 	opnode "github.com/ethereum-optimism/optimism/op-node/node"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
@@ -54,7 +53,7 @@ func BuildOPConfig(
 	newTxManagerCLIConfig := func(key *ecdsa.PrivateKey) txmgr.CLIConfig {
 		return txmgr.CLIConfig{
 			L1RPCURL:                  l1URL.String(),
-			PrivateKey:                e2eutils.EncodePrivKeyToString(key),
+			PrivateKey:                EncodePrivKeyToString(key),
 			NumConfirmations:          1,
 			SafeAbortNonceTooLowCount: 3,
 			FeeLimitMultiplier:        5,
@@ -99,7 +98,6 @@ func BuildOPConfig(
 			TxMgrConfig:       newTxManagerCLIConfig(proposerPrivKey),
 			RPCConfig: oprpc.CLIConfig{
 				ListenAddr: "127.0.0.1",
-				ListenPort: 9000,
 			},
 		},
 		Batcher: &batcher.CLIConfig{
@@ -115,7 +113,6 @@ func BuildOPConfig(
 			TxMgrConfig: newTxManagerCLIConfig(batcherPrivKey),
 			RPC: oprpc.CLIConfig{
 				ListenAddr: "127.0.0.1",
-				ListenPort: 9001,
 			},
 			DataAvailabilityType: flags.CalldataType,
 			TargetNumFrames:      1,
