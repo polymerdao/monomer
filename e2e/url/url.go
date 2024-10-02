@@ -38,7 +38,7 @@ func Parse(stdURL *url.URL) (*URL, error) {
 	}
 
 	if !stdURL.IsAbs() {
-		return nil, fmt.Errorf("url is not absolute (does not contain scheme) %s", stdURL)
+		return nil, fmt.Errorf("url is not absolute (does not contain scheme): %q", stdURL)
 	}
 
 	// Make a deep copy of the url.

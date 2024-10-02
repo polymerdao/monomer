@@ -232,14 +232,7 @@ func addMonomerCommand(r *genny.Runner, commandsGoPath string) error {
 
 	content = replacer.Replace(content, `
 	server.AddCommands(rootCmd, app.DefaultNodeHome, newApp, appExport, addModuleInitFlags)`, `
-	monomerCmd := &cobra.Command{
-		Use:   "monomer",
-		Short: "Monomer subcommands",
-	}
-	monomerCmd.AddCommand(server.StartCmdWithOptions(newApp, app.DefaultNodeHome, server.StartCmdOptions{
-		StartCommandHandler: integrations.StartCommandHandler,
-	}))
-	rootCmd.AddCommand(monomerCmd)`)
+	integrations.AddMonomerCommand(rootCmd, newApp, app.DefaultNodeHome)`)
 
 	if err := r.File(genny.NewFileS(commandsGoPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", commandsGoPath, err)
@@ -261,8 +254,10 @@ func addReplaceDirectives(r *genny.Runner, goModPath string) error {
 	github.com/crate-crypto/go-ipa => github.com/crate-crypto/go-ipa v0.0.0-20231205143816-408dbffb2041
 	github.com/crate-crypto/go-kzg-4844 v1.0.0 => github.com/crate-crypto/go-kzg-4844 v0.7.0
 	github.com/ethereum/go-ethereum => github.com/joshklop/op-geth v0.0.0-20240515205036-e3b990384a74
-	github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20240814165419-c6b91fa9f263
-`)
+	github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20241004015633-cfc9936c6811
+	github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.39.3
+	github.com/quic-go/webtransport-go => github.com/quic-go/webtransport-go v0.6.0
+	`)
 	if err := r.File(genny.NewFileS(goModPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", goModPath, err)
 	}
