@@ -33,10 +33,10 @@ linters-settings:
       - condition
       - return
     ignored-numbers:
-      - '0'
-      - '1'
-      - '2'
-      - '3'
+      - "0"
+      - "1"
+      - "2"
+      - "3"
     ignored-functions:
       - strings.SplitN
 
@@ -123,6 +123,8 @@ issues:
     - linters:
         - lll
       source: "^//go:generate "
+  exclude-files:
+    - opdevnet/secrets.go
   exclude-dirs:
     - app # This code is left over and will be changed soon.
     - eth/internal/ethapi

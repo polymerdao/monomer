@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math/big"
 	"net"
 	"os"
 	"os/signal"
@@ -26,15 +27,23 @@ import (
 	servergrpc "github.com/cosmos/cosmos-sdk/server/grpc"
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
+	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/ethclient"
+	ethlog "github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/polymerdao/monomer"
+	"github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/genesis"
 	"github.com/polymerdao/monomer/monomerdb/localdb"
 	"github.com/polymerdao/monomer/node"
+	"github.com/polymerdao/monomer/opdevnet"
 	"github.com/polymerdao/monomer/utils"
+	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
@@ -42,33 +51,65 @@ import (
 )
 
 const (
-	monomerEngineWSFlag = "monomer-engine-ws"
-	defaultCacheSize    = 16 // 16 MB
-	defaultHandlesSize  = 16
+	flagEngineURL         = "monomer.engine-url"
+	flagDev               = "monomer.dev-start"
+	flagL1AllocsPath      = "monomer.dev.l1-allocs"
+	flagL1DeploymentsPath = "monomer.dev.l1-deployments"
+	flagDeployConfigPath  = "monomer.dev.deploy-config"
+	flagMneumonicsPath    = "monomer.dev.mneumonics"
+	flagL1URL             = "monomer.dev.l1-url"
+	flagOPNodeURL         = "monomer.dev.op-node-url"
+	flagBatcherPrivKey    = "monomer.dev.batcher-privkey"
+	flagProposerPrivKey   = "monomer.dev.proposer-privkey"
+
+	defaultCacheSize   = 16 // 16 MB
+	defaultHandlesSize = 16
 )
 
 var sigCh = make(chan os.Signal, 1)
 
-// StartCommandHandler is a custom callback that overrides the default `start` function in the Cosmos
+func AddMonomerCommand(rootCmd *cobra.Command, appCreator servertypes.AppCreator, defaultNodeHome string) {
+	monomerCmd := &cobra.Command{
+		Use:   "monomer",
+		Short: "Monomer subcommands",
+	}
+	monomerCmd.AddCommand(server.StartCmdWithOptions(appCreator, defaultNodeHome, server.StartCmdOptions{
+		StartCommandHandler: startCommandHandler,
+		AddFlags: func(cmd *cobra.Command) {
+			cmd.Flags().String(flagEngineURL, "ws://127.0.0.1:9000", "url of Monomer's Engine API endpoint")
+			cmd.Flags().Bool(flagDev, false, "run the OP Stack devnet in-process for testing")
+			cmd.Flags().String(flagL1URL, "ws://127.0.0.1:9001", "")
+			cmd.Flags().String(flagOPNodeURL, "http://127.0.0.1:9002", "")
+			cmd.Flags().String(flagL1DeploymentsPath, "", "")
+			cmd.Flags().String(flagDeployConfigPath, "", "")
+			cmd.Flags().String(flagL1AllocsPath, "", "")
+			cmd.Flags().String(flagMneumonicsPath, "", "")
+		},
+	}))
+	rootCmd.AddCommand(monomerCmd)
+}
+
+// startCommandHandler is a custom callback that overrides the default `start` function in the Cosmos
 // SDK. It starts a Monomer node in-process instead of a CometBFT node.
-func StartCommandHandler(
+func startCommandHandler(
 	svrCtx *server.Context,
 	clientCtx client.Context, //nolint:gocritic // hugeParam
 	appCreator servertypes.AppCreator,
 	inProcessConsensus bool,
 	opts server.StartCmdOptions,
 ) error {
-	// We assume `inProcessConsensus` is true for now, so let's return an error if it's not.
-	if !inProcessConsensus {
-		return errors.New("in-process consensus must be enabled")
-	}
-
 	env := environment.New()
 	defer func() {
 		if err := env.Close(); err != nil {
 			svrCtx.Logger.Error("Failed to close environment", "err", err)
 		}
 	}()
+	monomerCtx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	// We assume `inProcessConsensus` is true for now, so let's return an error if it's not.
+	if !inProcessConsensus {
+		return errors.New("in-process consensus must be enabled")
+	}
 
 	svrCfg, err := serverconfig.GetConfig(svrCtx.Viper)
 	if err != nil {
@@ -83,16 +124,166 @@ func StartCommandHandler(
 		return fmt.Errorf("start application: %v", err)
 	}
 
+	engineURL, err := url.ParseString(svrCtx.Viper.GetString(flagEngineURL))
+	if err != nil {
+		return fmt.Errorf("parse engine url: %v", err)
+	} else if scheme := engineURL.Scheme(); scheme != "ws" && scheme != "wss" {
+		return fmt.Errorf("engine url needs to have scheme `ws` or `wss`, got %s", scheme)
+	}
+
+	monomerGenesisPath := svrCtx.Config.GenesisFile()
+	appGenesis, err := genutiltypes.AppGenesisFromFile(monomerGenesisPath)
+	if err != nil {
+		return fmt.Errorf("load application genesis file: %v", err)
+	}
+	l2ChainID, err := strconv.ParseUint(appGenesis.ChainID, 10, 64)
+	if err != nil {
+		return fmt.Errorf("parse chain ID: %v", err)
+	}
+
 	g, monomerCtx := getCtx(svrCtx)
 
 	// Would usually start a Comet node in-process here, but we replace the
 	// Comet node with a Monomer node.
-	if err = startInProcess(env, g, svrCtx, &svrCfg, &clientCtx, monomerCtx, app, opts); err != nil {
+	if err = startInProcess(
+		env,
+		g,
+		svrCtx,
+		&svrCfg, &clientCtx,
+		monomerCtx,
+		app,
+		opts,
+		engineURL,
+		l2ChainID,
+		appGenesis.AppState,
+		uint64(appGenesis.GenesisTime.Unix()),
+	); err != nil {
 		return fmt.Errorf("start Monomer node in-process: %v", err)
 	}
 
+	if svrCtx.Viper.GetBool(flagDev) {
+		if err := startOPDevnet(monomerCtx, env, &cosmosToETHLogger{
+			log: svrCtx.Logger,
+		}, svrCtx.Viper, engineURL, l2ChainID); err != nil {
+			return err
+		}
+	}
+
+	<-sigCh
 	if err = g.Wait(); err != nil {
 		return fmt.Errorf("unexpected error in errgroup: %v", err)
+	}
+
+	return nil
+}
+
+func readFromFileOrGetDefault[T any](path string, getDefault func() (*T, error)) (*T, error) {
+	if path == "" {
+		structuredData, err := getDefault()
+		if err != nil {
+			return nil, fmt.Errorf("get default: %v", err)
+		}
+		return structuredData, nil
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("read file: %v", err)
+	}
+	var structuredData T
+	if err := json.Unmarshal(data, &structuredData); err != nil {
+		return nil, fmt.Errorf("unmarshal json: %v", err)
+	}
+	return &structuredData, nil
+}
+
+func startOPDevnet(
+	ctx context.Context,
+	env *environment.Env,
+	logger ethlog.Logger,
+	v *viper.Viper,
+	engineURL *url.URL,
+	l2ChainID uint64,
+) error {
+	// TODO: can we get the L2 genesis block from the genesis state in the config?
+	engineClient, err := ethclient.DialContext(ctx, engineURL.String())
+	if err != nil {
+		return fmt.Errorf("dial engine: %v", err)
+	}
+	l2GenesisBlock, err := engineClient.BlockByNumber(ctx, new(big.Int).SetUint64(1))
+	if err != nil {
+		return fmt.Errorf("get l2 genesis block: %v", err)
+	}
+
+	l1Deployments, err := readFromFileOrGetDefault(v.GetString(flagL1DeploymentsPath), opdevnet.DefaultL1Deployments)
+	if err != nil {
+		return fmt.Errorf("get l1 deployments: %v", err)
+	}
+	deployConfig, err := readFromFileOrGetDefault(v.GetString(flagDeployConfigPath), func() (*opgenesis.DeployConfig, error) {
+		return opdevnet.DefaultDeployConfig(l1Deployments)
+	})
+	if err != nil {
+		return fmt.Errorf("get deploy config: %v", err)
+	}
+	deployConfig.L2ChainID = l2ChainID
+	if time := l2GenesisBlock.Time(); time == 0 {
+		// For some reason, Optimism's tooling (used in opdevnet.BuildL1Genesis) will convert a zero genesis timestamp into the current time.
+		// This will break the time invariant for the L2 block: its L1 origin (the L1 genesis block) will have a more recent timestamp.
+		// As a result, we disallow zero timestamps.
+		// TODO: should this check happen in github.com/polymerdao/monomer/genesis.Commit?
+		return errors.New("l2 genesis timestamp must be non-zero")
+	} else {
+		deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time)
+	}
+	l1Allocs, err := readFromFileOrGetDefault(v.GetString(flagL1AllocsPath), opdevnet.DefaultL1Allocs)
+	if err != nil {
+		return fmt.Errorf("get l1 allocs: %v", err)
+	}
+	mneumonics, err := readFromFileOrGetDefault(v.GetString(flagMneumonicsPath), func() (*opdevnet.MnemonicConfig, error) {
+		return opdevnet.DefaultMnemonicConfig, nil
+	})
+	if err != nil {
+		return fmt.Errorf("get mneumonic config: %v", err)
+	}
+	secrets, err := mneumonics.Secrets()
+	if err != nil {
+		return fmt.Errorf("derive secrets from mneumonics: %v", err)
+	}
+
+	l1URL, err := url.ParseString(v.GetString(flagL1URL))
+	if err != nil {
+		return fmt.Errorf("parse l1 url: %v", err)
+	}
+	opNodeURL, err := url.ParseString(v.GetString(flagOPNodeURL))
+	if err != nil {
+		return fmt.Errorf("parse op node url: %v", err)
+	}
+
+	l1Config, err := opdevnet.BuildL1Config(deployConfig, l1Deployments, l1Allocs, l1URL, os.TempDir())
+	if err != nil {
+		return fmt.Errorf("build l1 config: %v", err)
+	}
+	if err := l1Config.Run(ctx, env, logger); err != nil {
+		return fmt.Errorf("run l1: %v", err)
+	}
+
+	opConfig, err := opdevnet.BuildOPConfig(
+		deployConfig,
+		secrets.Batcher,
+		secrets.Proposer,
+		l1Config.Genesis.ToBlock(),
+		l1Deployments.L2OutputOracleProxy,
+		eth.HeaderBlockID(l2GenesisBlock.Header()),
+		l1URL,
+		opNodeURL,
+		engineURL,
+		engineURL,
+		[32]byte{},
+	)
+	if err != nil {
+		return fmt.Errorf("build op config: %v", err)
+	}
+	if err := opConfig.Run(ctx, env, logger); err != nil {
+		return fmt.Errorf("run op: %v", err)
 	}
 
 	return nil
@@ -141,12 +332,15 @@ func startInProcess(
 	monomerCtx context.Context,
 	app servertypes.Application,
 	opts server.StartCmdOptions,
+	engineWS *url.URL,
+	l2ChainID uint64,
+	appState json.RawMessage,
+	genesisTime uint64,
 ) error {
 	svrCtx.Logger.Info("Starting Monomer node in-process")
-	err := startMonomerNode(&WrappedApplication{
+	if err := startMonomerNode(&WrappedApplication{
 		app: app,
-	}, env, monomerCtx, svrCtx, clientCtx)
-	if err != nil {
+	}, env, monomerCtx, svrCtx, clientCtx, engineWS, l2ChainID, appState, genesisTime); err != nil {
 		return fmt.Errorf("start Monomer node: %v", err)
 	}
 
@@ -181,12 +375,11 @@ func startMonomerNode(
 	monomerCtx context.Context,
 	svrCtx *server.Context,
 	clientCtx *client.Context,
+	engineURL *url.URL,
+	l2ChainID uint64,
+	appStateJSON json.RawMessage,
+	genesisTime uint64,
 ) error {
-	engineWS, err := net.Listen("tcp", viper.GetString(monomerEngineWSFlag))
-	if err != nil {
-		return fmt.Errorf("create Engine websocket listener: %v", err)
-	}
-
 	cmtListenAddr := svrCtx.Config.RPC.ListenAddress
 	cmtListenAddr = strings.TrimPrefix(cmtListenAddr, "tcp://")
 	cometListener, err := net.Listen("tcp", cmtListenAddr)
@@ -238,29 +431,22 @@ func startMonomerNode(
 	env.DeferErr("close trieDB", trieDB.Close)
 	ethstatedb := state.NewDatabaseWithNodeDB(rawDB, trieDB)
 
-	monomerGenesisPath := svrCtx.Config.GenesisFile()
-
-	appGenesis, err := genutiltypes.AppGenesisFromFile(monomerGenesisPath)
-	if err != nil {
-		return fmt.Errorf("load application genesis file: %v", err)
-	}
-
-	genChainID, err := strconv.ParseUint(appGenesis.ChainID, 10, 64)
-	if err != nil {
-		return fmt.Errorf("parse chain ID: %v", err)
-	}
-
 	var appState map[string]json.RawMessage
-	if err := json.Unmarshal(appGenesis.AppState, &appState); err != nil {
+	if err := json.Unmarshal(appStateJSON, &appState); err != nil {
 		return fmt.Errorf("unmarshal app state: %v", err)
 	}
 
+	engineWS, err := net.Listen("tcp", engineURL.Host())
+	if err != nil {
+		return fmt.Errorf("create engine listener: %v", err)
+	}
 	n := node.New(
 		wrappedApp,
 		clientCtx,
 		&genesis.Genesis{
-			ChainID:  monomer.ChainID(genChainID),
+			ChainID:  monomer.ChainID(l2ChainID),
 			AppState: appState,
+			Time:     genesisTime,
 		},
 		engineWS,
 		cometListener,

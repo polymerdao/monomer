@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
-	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-service/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -101,7 +100,7 @@ func TestOPDevnet(t *testing.T) {
 	}()
 	l2EngineURL.IsReachable(ctx)
 
-	secrets, err := e2eutils.DefaultMnemonicConfig.Secrets()
+	secrets, err := opdevnet.DefaultMnemonicConfig.Secrets()
 	require.NoError(t, err)
 	opConfig, err := opdevnet.BuildOPConfig(
 		deployConfig,
