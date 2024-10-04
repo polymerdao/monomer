@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
@@ -38,7 +37,6 @@ func main() {
 	rootCmd.Flags().StringVar(&addressPrefix, "address-prefix", "cosmos", "address prefix")
 
 	if err := rootCmd.ExecuteContext(ctx); err != nil {
-		fmt.Fprintf(os.Stderr, "error: %v", err)
 		cancel()   // cancel is not called on os.Exit, we have to call it manually
 		os.Exit(1) //nolint:gocritic // Doesn't recognize that cancel() is called.
 	}
