@@ -14,3 +14,8 @@ type BankKeeper interface {
 	MintCoins(ctx context.Context, name string, amt sdk.Coins) error
 	BurnCoins(ctx context.Context, moduleName string, amt sdk.Coins) error
 }
+
+type AccountKeeper interface {
+	NewAccount(context.Context, sdk.AccountI) sdk.AccountI
+	SetAccount(context.Context, sdk.AccountI)
+}

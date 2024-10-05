@@ -6,15 +6,19 @@ import (
 
 	bfttypes "github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
+var PrivKey = secp256k1.GenPrivKeyFromSecret([]byte("monomer"))
+
 var errL1AttributesNotFound = errors.New("L1 attributes tx not found")
 
-type TxSigner func(tx *sdktx.Tx) error
+type TxSigner func([]sdktypes.Msg) (bfttypes.Tx, error)
 
 // AdaptPayloadTxsToCosmosTxs assumes the deposit transactions come first.
 func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx TxSigner, from string) (bfttypes.Txs, error) {
@@ -32,19 +36,23 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx TxSigner, from st
 		return nil, fmt.Errorf("pack deposit txs: %v", err)
 	}
 
-	if signTx != nil {
-		if err := signTx(depositTx); err != nil {
+	var depositTxBytes []byte
+	if signTx == nil {
+		var err error
+		depositTxBytes, err = depositTx.Marshal()
+		if err != nil {
+			return nil, fmt.Errorf("marshal tx: %v", err)
+		}
+	} else {
+		var err error
+		depositTxBytes, err = signTx(depositTx.GetMsgs())
+		if err != nil {
 			return nil, fmt.Errorf("sign tx: %v", err)
 		}
 	}
 
-	depositSDKMsgBytes, err := depositTx.Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("marshal tx: %v", err)
-	}
-
-	cosmosTxs := make(bfttypes.Txs, 0, 1+numDepositTxs)
-	cosmosTxs = append(cosmosTxs, depositSDKMsgBytes)
+	cosmosTxs := make(bfttypes.Txs, 0, 1+numDepositTxs) // TODO: I don't think this is right; we need to allow more than numDepositTxs+1
+	cosmosTxs = append(cosmosTxs, depositTxBytes)
 
 	cosmosNonDepositTxs, err := convertToCosmosNonDepositTxs(ethTxs[numDepositTxs:])
 	if err != nil {

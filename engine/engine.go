@@ -9,7 +9,6 @@ import (
 
 	abci "github.com/cometbft/cometbft/abci/types"
 	appchainClient "github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -50,11 +49,9 @@ func NewEngineAPI(
 	appchainCtx *appchainClient.Context,
 	metrics Metrics,
 ) *EngineAPI {
-	privKey := ed25519.GenPrivKeyFromSecret([]byte("monomer")) // TODO: configurable
-
 	return &EngineAPI{
 		txValidator: txValidator,
-		signer:      signer.New(appchainCtx, privKey),
+		signer:      signer.New(appchainCtx, monomer.PrivKey),
 		blockStore:  blockStore,
 		builder:     b,
 		metrics:     metrics,
@@ -204,6 +201,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		}); err != nil { // a catch-all for errors unrelated to the actual validation.
 			return nil, engine.GenericServerError.With(fmt.Errorf("CheckTx: %v", err))
 		} else if checkTxResult.IsErr() { // validation error.
+			fmt.Println(checkTxResult.Log)
 			return &eth.ForkchoiceUpdatedResult{
 				PayloadStatus: eth.PayloadStatusV1{
 					Status:          eth.ExecutionInvalid,
