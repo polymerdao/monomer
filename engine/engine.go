@@ -10,6 +10,7 @@ import (
 	abci "github.com/cometbft/cometbft/abci/types"
 	appchainClient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+	"github.com/ethereum-optimism/optimism/op-node/chaincfg"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -61,12 +62,21 @@ func NewEngineAPI(
 	}
 }
 
+func (e *EngineAPI) checkTimestamp(timestamp uint64) error {
+	if timestamp >= *chaincfg.Mainnet.EcotoneTime {
+		return engine.UnsupportedFork.With(fmt.Errorf("forkChoiceUpdate called post-cancun"))
+	}
+	return nil
+}
+
 func (e *EngineAPI) ForkchoiceUpdatedV1(
 	ctx context.Context,
 	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
-	// TODO should this be called after Ecotone?
+	if err := e.checkTimestamp(uint64(pa.Timestamp)); err != nil {
+		return nil, err
+	}
 	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
 
@@ -75,7 +85,9 @@ func (e *EngineAPI) ForkchoiceUpdatedV2(
 	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
-	// TODO should this be called after Ecotone?
+	if err := e.checkTimestamp(uint64(pa.Timestamp)); err != nil {
+		return nil, err
+	}
 	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
 
