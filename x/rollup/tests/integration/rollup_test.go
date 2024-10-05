@@ -141,6 +141,7 @@ func setupIntegrationApp(t *testing.T) *integration.App {
 		encodingCfg.Codec,
 		runtime.NewKVStoreService(keys[rolluptypes.StoreKey]),
 		bankKeeper,
+		accountKeeper,
 	)
 
 	authModule := auth.NewAppModule(encodingCfg.Codec, accountKeeper, authsims.RandomGenesisAccounts, nil)

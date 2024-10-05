@@ -18,6 +18,7 @@ import (
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
+	rpchttp "github.com/cometbft/cometbft/rpc/client/http"
 	dbm "github.com/cosmos/cosmos-db"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -391,6 +392,14 @@ func startMonomerNode(
 	if err != nil {
 		return fmt.Errorf("create CometBFT listener: %v", err)
 	}
+
+	// Set the client and chain id on the client ctx so the dummy signer works.
+	rpcclient, err := rpchttp.New(svrCtx.Config.RPC.ListenAddress, "/websocket")
+	if err != nil {
+		return err
+	}
+	*clientCtx = (*clientCtx).WithClient(rpcclient)
+	clientCtx.ChainID = fmt.Sprintf("%d", l2ChainID)
 
 	var blockPebbleDB *pebble.DB
 	if backendType := dbm.BackendType(svrCtx.Config.DBBackend); backendType == dbm.MemDBBackend {
