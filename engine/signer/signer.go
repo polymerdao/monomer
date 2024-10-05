@@ -4,25 +4,28 @@ import (
 	"context"
 	"fmt"
 
+	sdkmath "cosmossdk.io/math"
+	bfttypes "github.com/cometbft/cometbft/types"
 	appchainClient "github.com/cosmos/cosmos-sdk/client"
 	cosmostx "github.com/cosmos/cosmos-sdk/client/tx"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/ed25519"
+
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
-	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	authsigning "github.com/cosmos/cosmos-sdk/x/auth/signing"
+	"github.com/cosmos/gogoproto/proto"
+	"github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type Signer struct {
 	appchainCtx    *appchainClient.Context
-	privKey        *ed25519.PrivKey
+	privKey        *secp256k1.PrivKey
 	pubKey         *cryptotypes.PubKey
 	accountAddress *sdktypes.AccAddress
 }
 
-func New(appchainCtx *appchainClient.Context, privKey *ed25519.PrivKey) *Signer {
+func New(appchainCtx *appchainClient.Context, privKey *secp256k1.PrivKey) *Signer {
 	pubKey := privKey.PubKey()
 	accAddress := sdktypes.AccAddress(pubKey.Address())
 
@@ -50,55 +53,38 @@ func (s *Signer) AccountAddress() sdktypes.AccAddress {
 	return *s.accountAddress
 }
 
-// Applies a signiture and related metadata to the provided transaction using the signer's private key.
-func (s *Signer) Sign(tx *sdktx.Tx) (err error) {
-	defer func() {
-		if r := recover(); r != nil {
-			err = fmt.Errorf("panic during tx signing: %v", r)
-		}
-	}()
-
-	txConfig := s.appchainCtx.TxConfig
-	txBuilder := txConfig.NewTxBuilder()
-
+func (s *Signer) Sign(msgs []proto.Message) (_ bfttypes.Tx, err error) {
 	acc, err := s.appchainCtx.AccountRetriever.GetAccount(*s.appchainCtx, s.AccountAddress())
 	if err != nil {
-		return fmt.Errorf("get account: %v", err)
+		return nil, fmt.Errorf("get account: %v", err)
 	}
 
-	seq := acc.GetSequence()
+	txConfig := s.appchainCtx.TxConfig
 
-	signerData := authsigning.SignerData{
-		ChainID:       s.appchainCtx.ChainID,
-		AccountNumber: acc.GetAccountNumber(),
-		Sequence:      seq,
-		PubKey:        s.PubKey(),
-		Address:       acc.GetAddress().String(),
+	txBuilder := txConfig.NewTxBuilder()
+	if err := txBuilder.SetMsgs(msgs...); err != nil {
+		return nil, fmt.Errorf("set msgs: %v", err)
 	}
-
-	blankSig := signing.SignatureV2{
-		PubKey:   s.PubKey(),
+	txBuilder.SetFeeAmount(sdktypes.NewCoins(sdktypes.NewCoin(types.ETH, sdkmath.NewInt(1000000))))
+	txBuilder.SetGasLimit(1000000)
+	if err := txBuilder.SetSignatures(signing.SignatureV2{ // TODO
+		PubKey:   acc.GetPubKey(),
 		Sequence: acc.GetSequence(),
 		Data: &signing.SingleSignatureData{
 			SignMode:  signing.SignMode_SIGN_MODE_DIRECT,
 			Signature: nil,
 		},
+	}); err != nil {
+		return nil, fmt.Errorf("set blank signature: %v", err)
 	}
 
-	messages := make([]sdktypes.Msg, 0)
-	for _, m := range tx.Body.Messages {
-		messages = append(messages, m)
+	signerData := authsigning.SignerData{
+		ChainID:       s.appchainCtx.ChainID,
+		AccountNumber: acc.GetAccountNumber(),
+		Sequence:      acc.GetSequence(),
+		PubKey:        acc.GetPubKey(),
+		Address:       acc.GetAddress().String(),
 	}
-
-	err = txBuilder.SetMsgs(messages...)
-	if err != nil {
-		return fmt.Errorf("set msgs: %v", err)
-	}
-	err = txBuilder.SetSignatures(blankSig)
-	if err != nil {
-		return fmt.Errorf("set signatures: %v", err)
-	}
-
 	sig, err := cosmostx.SignWithPrivKey(
 		context.Background(),
 		signing.SignMode_SIGN_MODE_DIRECT,
@@ -106,38 +92,20 @@ func (s *Signer) Sign(tx *sdktx.Tx) (err error) {
 		txBuilder,
 		s.privKey,
 		txConfig,
-		seq,
+		acc.GetSequence(),
 	)
 	if err != nil {
-		return fmt.Errorf("sign with priv key: %v", err)
+		return nil, fmt.Errorf("sign with priv key: %v", err)
 	}
-	err = txBuilder.SetSignatures(sig)
+	if err = txBuilder.SetSignatures(sig); err != nil {
+		return nil, fmt.Errorf("set signatures: %v", err)
+	}
+
+	tx := txBuilder.GetTx()
+	txBytes, err := txConfig.TxEncoder()(tx)
 	if err != nil {
-		return fmt.Errorf("set signatures: %v", err)
+		return nil, fmt.Errorf("encode tx: %v", err)
 	}
 
-	pubKeyAny, err := codectypes.NewAnyWithValue(s.PubKey())
-	if err != nil {
-		return fmt.Errorf("new any with value: %v", err)
-	}
-
-	tx.AuthInfo = &sdktx.AuthInfo{
-		SignerInfos: []*sdktx.SignerInfo{
-			{
-				PublicKey: pubKeyAny,
-				ModeInfo: &sdktx.ModeInfo{
-					Sum: &sdktx.ModeInfo_Single_{
-						Single: &sdktx.ModeInfo_Single{
-							Mode: signing.SignMode_SIGN_MODE_DIRECT,
-						},
-					},
-				},
-				Sequence: seq,
-			},
-		},
-		Fee: &sdktx.Fee{},
-	}
-	tx.Signatures = [][]byte{sig.Data.(*signing.SingleSignatureData).Signature}
-
-	return nil
+	return txBytes, nil
 }
