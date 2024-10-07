@@ -107,7 +107,7 @@ func (lfd *L1FeeDecorator) CollectL1Fee(ctx *sdk.Context, feePayer sdk.AccAddres
 		return sdkerrors.Wrapf(errors.ErrInsufficientFunds, "failed to deduct L1 fee: %s", err)
 	}
 	// Update the tracked collected L1 fees
-	err := addCollectedL1Fees(*ctx, fee)
+	err := addCollectedL1Fees(ctx, fee)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func calculateRollupDataGas(txBytes []byte) *big.Int {
 }
 
 // AddCollectedL1Fees adds to the total collected L1 fees
-func addCollectedL1Fees(ctx sdk.Context, amount sdk.Coin) error {
+func addCollectedL1Fees(ctx *sdk.Context, amount sdk.Coin) error {
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
 	store := ctx.KVStore(storeKey)
 	feeBytes := store.Get([]byte(types.KeyCollectedFees))
