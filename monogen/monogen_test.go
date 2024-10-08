@@ -56,10 +56,10 @@ func testApp(t *testing.T, rootDirPath, appDirPath, appName string) {
 	require.NoError(t, cmd.Start())
 	defer func() {
 		cancel()
-		// TODO: handle this error.
 		// It is kind of harmless, just `signal: killed` or `signal: terminated`,
 		// but it would be nice to be able to say `require.NoError` here.
-		_ = cmd.Wait()
+		err := cmd.Wait()
+		require.NoError(t, err, "failed to shutdown successfully")
 	}()
 
 	// Hit a comet endpoint.
