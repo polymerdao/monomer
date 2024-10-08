@@ -8,7 +8,6 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	appchainClient "github.com/cosmos/cosmos-sdk/client"
 	cosmostx "github.com/cosmos/cosmos-sdk/client/tx"
-
 	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -65,9 +64,9 @@ func (s *Signer) Sign(msgs []proto.Message) (_ bfttypes.Tx, err error) {
 	if err := txBuilder.SetMsgs(msgs...); err != nil {
 		return nil, fmt.Errorf("set msgs: %v", err)
 	}
-	txBuilder.SetFeeAmount(sdktypes.NewCoins(sdktypes.NewCoin(types.ETH, sdkmath.NewInt(1000000))))
-	txBuilder.SetGasLimit(1000000)
-	if err := txBuilder.SetSignatures(signing.SignatureV2{ // TODO
+	txBuilder.SetFeeAmount(sdktypes.NewCoins(sdktypes.NewCoin(types.ETH, sdkmath.NewInt(1000000)))) //nolint:mnd
+	txBuilder.SetGasLimit(1000000)                                                                  //nolint:mnd
+	if err := txBuilder.SetSignatures(signing.SignatureV2{
 		PubKey:   acc.GetPubKey(),
 		Sequence: acc.GetSequence(),
 		Data: &signing.SingleSignatureData{
