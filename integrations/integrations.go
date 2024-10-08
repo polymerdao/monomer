@@ -367,7 +367,7 @@ func startMonomerNode(
 	if err != nil {
 		return err
 	}
-	*clientCtx = (*clientCtx).WithClient(rpcclient)
+	*clientCtx = clientCtx.WithClient(rpcclient)
 	clientCtx.ChainID = fmt.Sprintf("%d", l2ChainID)
 
 	var blockPebbleDB *pebble.DB
