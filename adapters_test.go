@@ -7,6 +7,7 @@ import (
 	bfttypes "github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	"github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/gogoproto/proto"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
@@ -40,22 +41,7 @@ var tests = []struct {
 		nonDepTxNum: 3,
 		from:        "from",
 	},
-	{
-		name:        "correctly converts multiple txs with signer but without from address",
-		depTxNum:    3,
-		nonDepTxNum: 3,
-		signTx:      noopSigner,
-	},
-	{
-		name:        "correctly converts multiple txs with both from address and signer",
-		depTxNum:    3,
-		nonDepTxNum: 3,
-		from:        "from",
-		signTx:      noopSigner,
-	},
 }
-
-func noopSigner(_ *tx.Tx) error { return nil }
 
 func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	t.Run("returns empty slice when input txs is nil", func(t *testing.T) {
@@ -113,8 +99,8 @@ func TestAdaptPayloadTxsToCosmosTxs(t *testing.T) {
 	})
 
 	t.Run("returns error when signing tx fails", func(t *testing.T) {
-		_, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes(depositTxBytes)}, func(_ *tx.Tx) error {
-			return errors.New("sign tx error")
+		_, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{hexutil.Bytes(depositTxBytes)}, func(_ []proto.Message) (bfttypes.Tx, error) {
+			return nil, errors.New("sign tx error")
 		}, "")
 		require.Error(t, err)
 	})
@@ -188,19 +174,21 @@ func TestAdaptCosmosTxsToEthTxs(t *testing.T) {
 	})
 
 	t.Run("returns error when unable to unmarshal binary data within MsgApplyL1Tx", func(t *testing.T) {
-		msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{TxBytes: [][]byte{[]byte("invalid")}})
-		require.NoError(t, err)
-		depositSDKMsgBytes := generateDepositSDKMsgBytes(t, msgAny, nil)
-		_, err = monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{depositSDKMsgBytes})
+		msg := &rolluptypes.MsgApplyL1Txs{TxBytes: [][]byte{[]byte("invalid")}}
+		depositSDKMsgBytes := generateDepositSDKMsgBytes(t, msg, nil)
+		_, err := monomer.AdaptCosmosTxsToEthTxs(bfttypes.Txs{depositSDKMsgBytes})
 		require.Error(t, err)
 	})
 }
 
-func generateDepositSDKMsgBytes(t *testing.T, msg *codectypes.Any, signTx monomer.TxSigner) []byte {
-	sdkTx := &tx.Tx{Body: &tx.TxBody{Messages: []*codectypes.Any{msg}}}
+func generateDepositSDKMsgBytes(t *testing.T, msg proto.Message, signTx monomer.TxSigner) []byte {
+	msgAny, err := codectypes.NewAnyWithValue(msg)
+	require.NoError(t, err)
+	sdkTx := &tx.Tx{Body: &tx.TxBody{Messages: []*codectypes.Any{msgAny}}}
 	if signTx != nil {
-		err := signTx(sdkTx)
+		txBytes, err := signTx([]proto.Message{msg})
 		require.NoError(t, err)
+		return txBytes
 	}
 	depositSDKMsgBytes, err := sdkTx.Marshal()
 	require.NoError(t, err)
