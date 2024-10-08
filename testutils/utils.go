@@ -1,6 +1,7 @@
 package testutils
 
 import (
+	"fmt"
 	"math/big"
 	"math/rand"
 	"strings"
@@ -11,8 +12,10 @@ import (
 	cometdb "github.com/cometbft/cometbft-db"
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/gogoproto/proto"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -191,9 +194,25 @@ func GenerateL1Block() *gethtypes.Block {
 	}, nil, nil, nil, trie.NewStackTrie(nil))
 }
 
-func generateSignTx(tx *sdktx.Tx) error {
-	tx.AuthInfo = &sdktx.AuthInfo{
-		Fee: &sdktx.Fee{},
+func generateSignTx(msgs []proto.Message) (bfttypes.Tx, error) {
+	var anys []*codectypes.Any
+	for _, msg := range msgs {
+		anyMsg, err := codectypes.NewAnyWithValue(msg)
+		if err != nil {
+			return nil, fmt.Errorf("new any with value: %v", err)
+		}
+		anys = append(anys, anyMsg)
 	}
-	return nil
+	txBytes, err := (&sdktx.Tx{
+		AuthInfo: &sdktx.AuthInfo{
+			Fee: &sdktx.Fee{},
+		},
+		Body: &sdktx.TxBody{
+			Messages: anys,
+		},
+	}).Marshal()
+	if err != nil {
+		return nil, fmt.Errorf("marshal: %v", err)
+	}
+	return txBytes, nil
 }

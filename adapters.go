@@ -51,7 +51,7 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx TxSigner, from st
 		}
 	}
 
-	cosmosTxs := make(bfttypes.Txs, 0, 1+numDepositTxs) // TODO: I don't think this is right; we need to allow more than numDepositTxs+1
+	cosmosTxs := make(bfttypes.Txs, 0, 1+numDepositTxs)
 	cosmosTxs = append(cosmosTxs, depositTxBytes)
 
 	cosmosNonDepositTxs, err := convertToCosmosNonDepositTxs(ethTxs[numDepositTxs:])
