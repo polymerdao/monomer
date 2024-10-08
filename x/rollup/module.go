@@ -42,7 +42,7 @@ func init() { //nolint:gochecknoinits
 	appmodule.Register(&modulev1.Module{}, appmodule.Provide(ProvideModule))
 }
 
-func ProvideModule(in ModuleInputs) ModuleOutputs {
+func ProvideModule(in ModuleInputs) ModuleOutputs { //nolint:gocritic // hugeParam
 	k := keeper.NewKeeper(in.Codec, in.StoreService, in.BankKeeper, in.AccountKeeper)
 	return ModuleOutputs{
 		Keeper: k,
@@ -159,7 +159,7 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
 // InitGenesis performs genesis initialization for the rollup module.
-func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, _ json.RawMessage) {
+func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, _ json.RawMessage) { //nolint:gocritic // hugeParam
 	if err := am.keeper.InitGenesis(ctx); err != nil {
 		panic(fmt.Errorf("keeper init genesis: %v", err))
 	}
