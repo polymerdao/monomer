@@ -170,7 +170,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		"health": cometserver.NewRPCFunc(func(_ *jsonrpctypes.Context) (*rpctypes.ResultHealth, error) {
 			return &rpctypes.ResultHealth{}, nil
 		}, ""),
-		"status": cometserver.NewRPCFunc(comet.NewStatus(n.blockdb, nil).Status, ""), // TODO start block
+		"status": cometserver.NewRPCFunc(comet.NewStatusAPI(n.blockdb, nil).Status, ""), // TODO start block
 
 		"abci_query": cometserver.NewRPCFunc(abci.Query, "path,data,height,prove"),
 		"abci_info":  cometserver.NewRPCFunc(abci.Info, "", cometserver.Cacheable()),
