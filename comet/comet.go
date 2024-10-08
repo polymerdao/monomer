@@ -73,13 +73,13 @@ type HeadHeader interface {
 	HeadHeader() (*monomer.Header, error)
 }
 
-type Status struct {
+type StatusAPI struct {
 	blockstore HeadHeader
 	startBlock *bfttypes.Block
 }
 
-func NewStatus(blockStore HeadHeader, startBlock *bfttypes.Block) *Status {
-	return &Status{
+func NewStatusAPI(blockStore HeadHeader, startBlock *bfttypes.Block) *StatusAPI {
+	return &StatusAPI{
 		blockstore: blockStore,
 		startBlock: startBlock,
 	}
@@ -88,7 +88,7 @@ func NewStatus(blockStore HeadHeader, startBlock *bfttypes.Block) *Status {
 // Status returns CometBFT status including node info, pubkey, latest block hash, app hash, block height, and block
 // time.
 // More: https://docs.cometbft.com/main/rpc/#/ABCI/status
-func (s *Status) Status(_ *jsonrpctypes.Context) (*rpctypes.ResultStatus, error) {
+func (s *StatusAPI) Status(_ *jsonrpctypes.Context) (*rpctypes.ResultStatus, error) {
 	headHeader, err := s.blockstore.HeadHeader()
 	if err != nil {
 		return nil, err

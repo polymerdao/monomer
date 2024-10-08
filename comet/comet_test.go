@@ -84,7 +84,7 @@ func TestStatus(t *testing.T) {
 			Time:    time.Now(),
 		},
 	}
-	statusAPI := comet.NewStatus(blockStore, startBlock)
+	statusAPI := comet.NewStatusAPI(blockStore, startBlock)
 	result, err := statusAPI.Status(&jsonrpctypes.Context{})
 	require.NoError(t, err)
 	require.Equal(t, &rpctypes.ResultStatus{
