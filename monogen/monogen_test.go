@@ -45,7 +45,6 @@ func initCommand(t *testing.T, cmd *exec.Cmd, appName, rootDirPath, appDirPath s
 func testApp(t *testing.T, rootDirPath, appDirPath, appName string) {
 	// Start the app.
 	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
 	cmd := initCommand(
 		t,
 		exec.CommandContext(ctx, filepath.Join(appDirPath, appName+"d"), "monomer", "start", "--minimum-gas-prices", "0.0001stake"),
