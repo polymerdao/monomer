@@ -105,8 +105,7 @@ func startCommandHandler(
 			svrCtx.Logger.Error("Failed to close environment", "err", err)
 		}
 	}()
-	monomerCtx, cancel := context.WithCancel(context.Background())
-	defer cancel()
+
 	// We assume `inProcessConsensus` is true for now, so let's return an error if it's not.
 	if !inProcessConsensus {
 		return errors.New("in-process consensus must be enabled")
