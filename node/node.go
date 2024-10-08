@@ -162,6 +162,13 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 	env.Defer(subscribeWg.Wait)
 	subscribeAPI := comet.NewSubscriberAPI(eventBus, subscribeWg, &comet.SelectiveListener{})
 	blockAPI := comet.NewBlockAPI(n.blockdb)
+
+	// Since the block DB doesn't have pruning, we can just use the genesis block as the earliest block for the status API.
+	startBlock, err := n.blockdb.BlockByHeight(1)
+	if err != nil {
+		return fmt.Errorf("get start block: %v", err)
+	}
+
 	// https://docs.cometbft.com/main/rpc/
 	routes := map[string]*cometserver.RPCFunc{
 		"echo": cometserver.NewRPCFunc(func(_ *jsonrpctypes.Context, msg string) (string, error) {
@@ -170,7 +177,7 @@ func (n *Node) Run(ctx context.Context, env *environment.Env) error {
 		"health": cometserver.NewRPCFunc(func(_ *jsonrpctypes.Context) (*rpctypes.ResultHealth, error) {
 			return &rpctypes.ResultHealth{}, nil
 		}, ""),
-		"status": cometserver.NewRPCFunc(comet.NewStatusAPI(n.blockdb, nil).Status, ""), // TODO start block
+		"status": cometserver.NewRPCFunc(comet.NewStatusAPI(n.blockdb, startBlock.ToCometLikeBlock()).Status, ""),
 
 		"abci_query": cometserver.NewRPCFunc(abci.Query, "path,data,height,prove"),
 		"abci_info":  cometserver.NewRPCFunc(abci.Info, "", cometserver.Cacheable()),
