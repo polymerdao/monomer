@@ -18,7 +18,7 @@ func TestGenerate(t *testing.T) {
 	rootDirPath := t.TempDir()
 	appDirPath := filepath.Join(rootDirPath, appName)
 	// Generate project.
-	require.NoError(t, monogen.Generate(context.Background(), appDirPath, "github.com/test/"+appName, "test", true))
+	require.NoError(t, monogen.Generate(context.Background(), appDirPath, "github.com/test/"+appName, "test", true, true))
 
 	// Run monogen.sh.
 	scriptPath, err := filepath.Abs("monogen.sh")
@@ -28,7 +28,7 @@ func TestGenerate(t *testing.T) {
 	testApp(t, rootDirPath, appDirPath, appName)
 
 	// Cannot overwrite existing directory.
-	require.ErrorContains(t, monogen.Generate(context.Background(), appDirPath, "github.com/test/"+appName, "test", true), "refusing to overwrite directory")
+	require.ErrorContains(t, monogen.Generate(context.Background(), appDirPath, "github.com/test/"+appName, "test", true, true), "refusing to overwrite directory")
 }
 
 func initCommand(t *testing.T, cmd *exec.Cmd, appName, rootDirPath, appDirPath string) *exec.Cmd {

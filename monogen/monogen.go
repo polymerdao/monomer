@@ -3,9 +3,10 @@ package monogen
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
-	"github.com/cometbft/cometbft/libs/os"
+	cometos "github.com/cometbft/cometbft/libs/os"
 	"github.com/gobuffalo/genny/v2"
 	"github.com/ignite/cli/v28/ignite/config"
 	"github.com/ignite/cli/v28/ignite/pkg/cache"
@@ -17,8 +18,8 @@ import (
 	"github.com/ignite/cli/v28/ignite/version"
 )
 
-func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix string, skipGit bool) error {
-	if os.FileExists(appDirPath) {
+func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix string, skipGit, isTest bool) error {
+	if cometos.FileExists(appDirPath) {
 		return fmt.Errorf("refusing to overwrite directory: %s", appDirPath)
 	}
 
@@ -67,7 +68,7 @@ func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix strin
 		if err := addMonomerCommand(r, filepath.Join(appDir, "cmd", appName+"d", "cmd", "commands.go")); err != nil {
 			return fmt.Errorf("add monomer command: %v", err)
 		}
-		if err := addReplaceDirectives(r, filepath.Join(appDir, "go.mod")); err != nil {
+		if err := addReplaceDirectives(r, filepath.Join(appDir, "go.mod"), isTest); err != nil {
 			return fmt.Errorf("add replace directives: %v", err)
 		}
 		return nil
@@ -127,6 +128,10 @@ func addRollupModule(r *genny.Runner, appGoPath, appConfigGoPath string) error {
 			},
 			%s`, module.PlaceholderSgAppModuleConfig))
 
+	// 4. Add rollup module to genesisModuleOrder
+	content = replacer.Replace(content, module.PlaceholderSgAppInitGenesis, fmt.Sprintf(`rolluptypes.ModuleName,
+			%s,`, module.PlaceholderSgAppInitGenesis))
+
 	if err := r.File(genny.NewFileS(appConfigGoPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", appConfigGoPath, err)
 	}
@@ -156,6 +161,12 @@ func addRollupModule(r *genny.Runner, appGoPath, appConfigGoPath string) error {
 	keeperDefinition := fmt.Sprintf(`&app.RollupKeeper,
 		%s`, module.PlaceholderSgAppKeeperDefinition)
 	content = replacer.Replace(content, module.PlaceholderSgAppKeeperDefinition, keeperDefinition)
+
+	// 4. Add InitChainer
+	content = replacer.Replace(content, "app.App = appBuilder.Build(db, traceStore, baseAppOptions...)", `
+	app.App = appBuilder.Build(db, traceStore, baseAppOptions...)
+
+	app.SetInitChainer(app.InitChainer)`)
 
 	if err := r.File(genny.NewFileS(appGoPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", appGoPath, err)
@@ -241,14 +252,26 @@ func addMonomerCommand(r *genny.Runner, commandsGoPath string) error {
 	return nil
 }
 
-func addReplaceDirectives(r *genny.Runner, goModPath string) error {
+func addReplaceDirectives(r *genny.Runner, goModPath string, isTest bool) error {
 	replacer := placeholder.New()
 
 	goMod, err := r.Disk.Find(goModPath)
 	if err != nil {
 		return fmt.Errorf("find: %v", err)
 	}
-	content := replacer.Replace(goMod.String(), "replace (", `replace (
+	var monomerReplace string
+	if isTest {
+		currentDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("get current working directory: %v", err)
+		}
+		currentDirAbs, err := filepath.Abs(currentDir)
+		if err != nil {
+			return fmt.Errorf("get absolute path: %v", err)
+		}
+		monomerReplace = fmt.Sprintf("github.com/polymerdao/monomer => %s", filepath.Dir(currentDirAbs))
+	}
+	content := replacer.Replace(goMod.String(), "replace (", fmt.Sprintf(`replace (
 	cosmossdk.io/core => cosmossdk.io/core v0.11.1
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 => github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/crate-crypto/go-ipa => github.com/crate-crypto/go-ipa v0.0.0-20231205143816-408dbffb2041
@@ -257,7 +280,8 @@ func addReplaceDirectives(r *genny.Runner, goModPath string) error {
 	github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20241004015633-cfc9936c6811
 	github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.39.3
 	github.com/quic-go/webtransport-go => github.com/quic-go/webtransport-go v0.6.0
-	`)
+	%s
+	`, monomerReplace))
 	if err := r.File(genny.NewFileS(goModPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", goModPath, err)
 	}
