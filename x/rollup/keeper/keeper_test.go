@@ -18,11 +18,12 @@ import (
 
 type KeeperTestSuite struct {
 	suite.Suite
-	ctx          context.Context
-	rollupKeeper *keeper.Keeper
-	bankKeeper   *rolluptestutil.MockBankKeeper
-	rollupStore  storetypes.KVStore
-	eventManger  sdk.EventManagerI
+	ctx           context.Context
+	rollupKeeper  *keeper.Keeper
+	bankKeeper    *rolluptestutil.MockBankKeeper
+	accountKeeper *rolluptestutil.MockAccountKeeper
+	rollupStore   storetypes.KVStore
+	eventManger   sdk.EventManagerI
 }
 
 func TestKeeperTestSuite(t *testing.T) {
@@ -40,6 +41,7 @@ func (s *KeeperTestSuite) SetupSubTest() {
 		moduletestutil.MakeTestEncodingConfig().Codec,
 		runtime.NewKVStoreService(storeKey),
 		s.bankKeeper,
+		s.accountKeeper,
 	)
 	sdkCtx := sdk.UnwrapSDKContext(s.ctx)
 	s.rollupStore = sdkCtx.KVStore(storeKey)

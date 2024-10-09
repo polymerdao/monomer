@@ -25,7 +25,7 @@ go build $ldflags -o testappd ./cmd/testappd
 address=$(./testappd keys show dummy-account -a --keyring-backend test)
 
 # Fund the dummy account at genesis.
-./testappd genesis add-genesis-account $address 100000000000stake
+./testappd genesis add-genesis-account $address 100000000000ETH,100000000000stake
 
 # Make the dummy account self-delegate as a validator.
 ./testappd genesis gentx dummy-account 1000000000stake --chain-id 1 --keyring-backend test
@@ -35,6 +35,6 @@ address=$(./testappd keys show dummy-account -a --keyring-backend test)
 
 # The testapp is ready to run with:
 # ```
-# ./testappd monomer start --minimum-gas-prices 0.01stake
+# ./testappd monomer start --minimum-gas-prices 0.01ETH
 # ```
 # (the input to minimum-gas-prices is configurable).
