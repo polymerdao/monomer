@@ -57,6 +57,9 @@ linters-settings:
     allow-unused: false # report any unused nolint directives
     require-explanation: false # don't require an explanation for nolint directives
     require-specific: false # don't require nolint directives to be specific about which linter is being skipped
+  gosec:
+    excludes:
+      - G115 #TODO: remove after fixing https://github.com/securego/gosec/issues/1212
 
 linters:
   disable-all: true
@@ -66,7 +69,7 @@ linters:
     - dogsled
     - dupl
     - errcheck
-    - exportloopref
+    - copyloopvar
     - gochecknoinits
     - goconst
     - gocritic
