@@ -31,6 +31,10 @@ e2e:
 	-l1-deployments ./optimism/.devnet/addresses.json \
 	-deploy-config ./optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
 
+.PHONY: keplr-integration
+keplr-integration:
+	go run github.com/eliben/static-server@v1.3.0 -port=0 e2e/keplr
+
 .PHONY: install-golangci-lint
 install-golangci-lint:
 	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.1
