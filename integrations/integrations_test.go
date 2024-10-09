@@ -23,7 +23,7 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/gogoproto/grpc"
 	"github.com/polymerdao/monomer/e2e/url"
-	testapp "github.com/polymerdao/monomer/testapp"
+	"github.com/polymerdao/monomer/testapp"
 	"github.com/sourcegraph/conc"
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
@@ -55,6 +55,8 @@ func TestStartCommandHandler(t *testing.T) {
 
 	// This flag must be set, because by default it's set to ""
 	svrCtx.Viper.Set("minimum-gas-prices", "0.025stake")
+	// Disable gRPC server (enabled by default)
+	svrCtx.Viper.Set("grpc.enable", false)
 	// This flag must be set to configure Monomer's Engine Websocket
 	viper.Set(monomerEngineWSFlag, "127.0.0.1:8089")
 
@@ -74,7 +76,7 @@ func TestStartCommandHandler(t *testing.T) {
 	var wg conc.WaitGroup
 	defer wg.Wait()
 	wg.Go(func() {
-		err := StartCommandHandler(svrCtx, clientCtx, mockAppCreator, inProcessConsensus, opts)
+		err = StartCommandHandler(svrCtx, clientCtx, mockAppCreator, inProcessConsensus, opts)
 		require.NoError(t, err)
 	})
 
@@ -94,6 +96,8 @@ func TestStartCommandHandler(t *testing.T) {
 	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
 	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash is not equal to bftTx.Hash")
 	t.Log("Monomer Tx broadcasted successfully", "txHash", putTx.Hash)
+
+	// TODO: expose gRPC and API server in the integrated testapp and assert endpoints behave as expected
 
 	sigCh <- syscall.SIGINT
 }
