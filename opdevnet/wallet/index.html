@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Keplr Integration</title>
+    <title>Monomer Devnet Wallet Integration</title>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body {
@@ -12,6 +12,7 @@
             margin: 0;
             padding: 0;
             display: flex;
+            flex-direction: column;
             justify-content: center;
             align-items: center;
             height: 100vh;
@@ -23,6 +24,7 @@
             padding: 40px;
             border-radius: 10px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            margin: 20px;
         }
 
         h1 {
@@ -45,21 +47,42 @@
         button:hover {
             background-color: #0056b3;
         }
+
+        input {
+            width: 100%;
+            max-width: 300px;
+            padding: 12px 20px;
+            margin: 10px 0 20px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-sizing: border-box;
+            font-size: 1rem;
+            transition: border-color 0.3s ease;
+        }
+
+        input:focus {
+            border-color: #007bff;
+            outline: none;
+        }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="bech32.js"></script>
+    <script src="metamask-integration.js?v=1.0" defer></script>
     <script src="keplr-integration.js?v=1.0" defer></script>
 </head>
 <body>
-<div class="container">
-    <h1>Monomer Devnet Keplr Integration</h1>
-    <button id="enable-keplr">Enable Keplr</button>
-</div>
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const enableKeplrButton = document.getElementById("enable-keplr");
-        enableKeplrButton.addEventListener("click", function() {
-            runKeplrIntegration();
-        });
-    });
-</script>
+    <div class="container">
+        <h1>Monomer L1 Wallet Integration</h1>
+        <p>Connected account: <span id="account">Not connected</span></p>
+        <input type="text" id="amount" placeholder="Amount in ETH" />
+        <input type="text" id="recipient" placeholder="Cosmos Recipient Address" />
+        <button id="deposit-button">Deposit ETH on L2</button>
+        <p id="status"></p>
+    </div>
+    <div class="container">
+        <h1>Monomer L2 Wallet Integration</h1>
+        <button id="enable-keplr">Enable Keplr</button>
+    </div>
 </body>
 </html>
