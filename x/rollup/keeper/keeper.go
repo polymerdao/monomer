@@ -9,7 +9,6 @@ import (
 	sdkmath "cosmossdk.io/math"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/x/rollup/types"
@@ -40,19 +39,18 @@ func NewKeeper(
 }
 
 func (k *Keeper) InitGenesis(ctx context.Context) error {
-	baseAccount, err := authtypes.NewBaseAccountWithPubKey(monomer.PrivKey.PubKey())
-	if err != nil {
-		return fmt.Errorf("new base account with pub key: %v", err)
+	acc := k.accountKeeper.NewAccountWithAddress(ctx, sdk.AccAddress(monomer.PrivKey.PubKey().Address().Bytes()))
+	if err := acc.SetPubKey(monomer.PrivKey.PubKey()); err != nil {
+		return fmt.Errorf("set pub key: %v", err)
 	}
-	k.accountKeeper.NewAccount(ctx, baseAccount)
-	k.accountKeeper.SetAccount(ctx, baseAccount)
+	k.accountKeeper.SetAccount(ctx, acc)
 
 	coin := sdk.NewCoin(types.ETH, sdkmath.NewInt(math.MaxInt)) // max out so the dummy signer doesn't run out of gas
 	if err := k.bankkeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(coin)); err != nil {
 		return fmt.Errorf("failed to mint ETH deposit coins to the rollup module: %v", err)
 	}
-	if err := k.bankkeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, baseAccount.GetAddress(), sdk.NewCoins(coin)); err != nil {
-		return fmt.Errorf("failed to send ETH deposit coins from rollup module to user account %v: %v", baseAccount.GetAddress(), err)
+	if err := k.bankkeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, acc.GetAddress(), sdk.NewCoins(coin)); err != nil {
+		return fmt.Errorf("failed to send ETH deposit coins from rollup module to user account %v: %v", acc.GetAddress(), err)
 	}
 	return nil
 }

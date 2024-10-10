@@ -16,6 +16,6 @@ type BankKeeper interface {
 }
 
 type AccountKeeper interface {
-	NewAccount(context.Context, sdk.AccountI) sdk.AccountI
+	NewAccountWithAddress(context.Context, sdk.AccAddress) sdk.AccountI
 	SetAccount(context.Context, sdk.AccountI)
 }

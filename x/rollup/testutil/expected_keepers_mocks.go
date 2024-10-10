@@ -119,18 +119,18 @@ func (m *MockAccountKeeper) EXPECT() *MockAccountKeeperMockRecorder {
 	return m.recorder
 }
 
-// NewAccount mocks base method.
-func (m *MockAccountKeeper) NewAccount(arg0 context.Context, arg1 types.AccountI) types.AccountI {
+// NewAccountWithAddress mocks base method.
+func (m *MockAccountKeeper) NewAccountWithAddress(arg0 context.Context, arg1 types.AccAddress) types.AccountI {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NewAccount", arg0, arg1)
+	ret := m.ctrl.Call(m, "NewAccountWithAddress", arg0, arg1)
 	ret0, _ := ret[0].(types.AccountI)
 	return ret0
 }
 
-// NewAccount indicates an expected call of NewAccount.
-func (mr *MockAccountKeeperMockRecorder) NewAccount(arg0, arg1 any) *gomock.Call {
+// NewAccountWithAddress indicates an expected call of NewAccountWithAddress.
+func (mr *MockAccountKeeperMockRecorder) NewAccountWithAddress(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewAccount", reflect.TypeOf((*MockAccountKeeper)(nil).NewAccount), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NewAccountWithAddress", reflect.TypeOf((*MockAccountKeeper)(nil).NewAccountWithAddress), arg0, arg1)
 }
 
 // SetAccount mocks base method.
