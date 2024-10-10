@@ -12,6 +12,7 @@ import (
 	tmtypes "github.com/cometbft/cometbft/proto/tendermint/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
@@ -313,14 +314,16 @@ func TestBuildRollupTxs(t *testing.T) {
 	depositTxETH := ethTxs[1]
 	require.NotNil(t, depositTxETH.Mint())
 	require.NotNil(t, depositTxETH.To(), "Deposit transaction must have a 'to' address")
+	recipientAddr := utils.EvmToCosmosAddress(*depositTxETH.To())
 
 	from, err := gethtypes.NewCancunSigner(depositTxETH.ChainId()).Sender(depositTxETH)
 	require.NoError(t, err)
-	cosmAddr := utils.EvmToCosmosAddress(from)
+	mintAddr := utils.EvmToCosmosAddress(from)
+
 	withdrawalTx := testapp.ToTx(t, &types.MsgInitiateWithdrawal{
-		Sender:   cosmAddr.String(),
+		Sender:   recipientAddr.String(),
 		Target:   common.HexToAddress("0x12345abcde").String(),
-		Value:    math.NewIntFromBigInt(depositTxETH.Mint()),
+		Value:    math.NewIntFromBigInt(depositTxETH.Value()),
 		GasLimit: big.NewInt(100_000).Bytes(),
 		Data:     []byte{},
 	})
@@ -348,7 +351,7 @@ func TestBuildRollupTxs(t *testing.T) {
 	builtBlock, preBuildInfo, postBuildInfo := buildBlock(t, b, env.app, payload)
 
 	// Test deposit was received
-	checkDepositTxResult(t, env.txStore, depositTxs, fmt.Sprintf("%sETH", depositTxETH.Mint().String()), cosmAddr.String())
+	checkDepositTxResult(t, env.txStore, depositTxs, depositTxETH.Mint(), depositTxETH.Value(), mintAddr.String(), recipientAddr.String())
 
 	withdrawalTxResult, err := env.txStore.Get(bfttypes.Tx(withdrawalTx).Hash())
 	require.NoError(t, err)
@@ -494,11 +497,7 @@ func checkWithdrawalTxResult(t *testing.T, withdrawalTxResult *abcitypes.TxResul
 	require.NotEmpty(t, nonceAttribute.Value, "Withdrawal nonce value should not be empty")
 }
 
-func checkDepositTxResult(t *testing.T, txStore txstore.TxStore, depositTx bfttypes.Tx, expectedDepositAmount, cosmAddr string) {
-	const (
-		receiverAttributeIndex = 1
-		valueAttributeIndex    = 2
-	)
+func checkDepositTxResult(t *testing.T, txStore txstore.TxStore, depositTx bfttypes.Tx, mintAmount, transferAmount *big.Int, mintAddr, recipientAddr string) {
 	hash := depositTx.Hash()
 	depositTxResult, err := txStore.Get(hash)
 	require.NoError(t, err, "Failed to get deposit transaction result")
@@ -510,19 +509,14 @@ func checkDepositTxResult(t *testing.T, txStore txstore.TxStore, depositTx bftty
 			break
 		}
 	}
+	require.NotNil(t, MintEthEvent, "Expected to find the mint_eth event")
 
-	require.NotNil(t, MintEthEvent, "Expected to find the second coin_received event")
+	remainingMintAmount := new(big.Int).Sub(mintAmount, transferAmount)
 
-	actualReceiver := MintEthEvent.Attributes[receiverAttributeIndex].Value
-	actualDepositAmount := MintEthEvent.Attributes[valueAttributeIndex].Value
-
-	decimalValue := new(big.Int)
-	decimalValue.SetString(actualDepositAmount[2:], 16)
-
-	actualDepositAmount = fmt.Sprintf("%sETH", decimalValue.String())
-
-	require.Equal(t, cosmAddr, actualReceiver, "Receiver address mismatch")
-	require.Equal(t, expectedDepositAmount, actualDepositAmount, "Deposit amount mismatch")
+	require.Equal(t, mintAddr, MintEthEvent.Attributes[1].Value, "Mint address mismatch")
+	require.Equal(t, hexutil.Encode(remainingMintAmount.Bytes()), MintEthEvent.Attributes[2].Value, "Mint amount mismatch")
+	require.Equal(t, recipientAddr, MintEthEvent.Attributes[3].Value, "Recipient address mismatch")
+	require.Equal(t, hexutil.Encode(transferAmount.Bytes()), MintEthEvent.Attributes[4].Value, "Transfer amount mismatch")
 }
 
 // getEventData retrieves event data from the subscription channel. The event data is retrieved in the order

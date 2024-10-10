@@ -268,7 +268,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	depositTx, err := stack.OptimismPortal.DepositTransaction(
 		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, depositAmount),
 		userAddress,
-		big.NewInt(0),
+		depositAmount,
 		l2GasLimit,
 		false,    // _isCreation
 		[]byte{}, // no data
