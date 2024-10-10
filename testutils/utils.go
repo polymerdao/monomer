@@ -82,6 +82,7 @@ func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transactio
 	rng := rand.New(rand.NewSource(1234))
 	depositRawTx := testutils.GenerateDeposit(testutils.RandomHash(rng), rng)
 	depositRawTx.Mint = big.NewInt(100)
+	depositRawTx.Value = big.NewInt(50)
 	depositTx := gethtypes.NewTx(depositRawTx)
 
 	cosmosEthTx := monomer.AdaptNonDepositCosmosTxToEthTx([]byte{1})

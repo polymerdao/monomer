@@ -48,13 +48,18 @@ func TestRollup(t *testing.T) {
 	depositTxBz := monomertestutils.TxToBytes(t, depositTx)
 	erc20DepositTxBz := monomertestutils.TxToBytes(t, erc20DepositTx)
 
-	depositAmount := depositTx.Mint()
+	mintAmount := depositTx.Mint()
+	transferAmount := depositTx.Value()
 	from, err := gethtypes.NewCancunSigner(depositTx.ChainId()).Sender(depositTx)
 	require.NoError(t, err)
-	userAddr := utils.EvmToCosmosAddress(from)
+	mintAddr := utils.EvmToCosmosAddress(from)
+	recipientAddr := utils.EvmToCosmosAddress(*depositTx.To())
 
-	// query the user's ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, userAddr, integrationApp))
+	// query the mint address ETH balance and assert it's zero
+	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, mintAddr, integrationApp))
+
+	// query the recipient address ETH balance and assert it's zero
+	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, recipientAddr, integrationApp))
 
 	// query the user's ERC20 balance and assert it's zero
 	require.Equal(t, math.ZeroInt(), queryUserERC20Balance(t, queryClient, utils.EvmToCosmosAddress(erc20userAddr), erc20tokenAddr, integrationApp))
@@ -73,17 +78,20 @@ func TestRollup(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// query the user's ETH balance and assert it's equal to the deposit amount
-	require.Equal(t, depositAmount, queryUserETHBalance(t, queryClient, userAddr, integrationApp).BigInt())
+	// query the mint address ETH balance and assert it's equal to the mint amount minus the transfer amount
+	require.Equal(t, new(big.Int).Sub(mintAmount, transferAmount), queryUserETHBalance(t, queryClient, mintAddr, integrationApp).BigInt())
+
+	// query the recipient address ETH balance and assert it's equal to the transfer amount
+	require.Equal(t, transferAmount, queryUserETHBalance(t, queryClient, recipientAddr, integrationApp).BigInt())
 
 	// query the user's ERC20 balance and assert it's equal to the deposit amount
 	require.Equal(t, erc20depositAmount, queryUserERC20Balance(t, queryClient, utils.EvmToCosmosAddress(erc20userAddr), erc20tokenAddr, integrationApp).BigInt())
 
 	// try to withdraw more than deposited and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
-		Sender:   userAddr.String(),
+		Sender:   mintAddr.String(),
 		Target:   l1WithdrawalAddr,
-		Value:    math.NewIntFromBigInt(depositAmount).Add(math.OneInt()),
+		Value:    math.NewIntFromBigInt(transferAmount).Add(math.OneInt()),
 		GasLimit: new(big.Int).SetUint64(100_000_000).Bytes(),
 		Data:     []byte{0x01, 0x02, 0x03},
 	})
@@ -91,16 +99,16 @@ func TestRollup(t *testing.T) {
 
 	// send a successful MsgInitiateWithdrawal
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
-		Sender:   userAddr.String(),
+		Sender:   recipientAddr.String(),
 		Target:   l1WithdrawalAddr,
-		Value:    math.NewIntFromBigInt(depositAmount),
+		Value:    math.NewIntFromBigInt(transferAmount),
 		GasLimit: new(big.Int).SetUint64(100_000_000).Bytes(),
 		Data:     []byte{0x01, 0x02, 0x03},
 	})
 	require.NoError(t, err)
 
-	// query the user's ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, userAddr, integrationApp))
+	// query the recipient address ETH balance and assert it's zero
+	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, recipientAddr, integrationApp))
 }
 
 func setupIntegrationApp(t *testing.T) *integration.App {
