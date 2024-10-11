@@ -64,7 +64,7 @@ func (s *Signer) Sign(msgs []proto.Message) (_ bfttypes.Tx, err error) {
 	if err := txBuilder.SetMsgs(msgs...); err != nil {
 		return nil, fmt.Errorf("set msgs: %v", err)
 	}
-	txBuilder.SetFeeAmount(sdktypes.NewCoins(sdktypes.NewCoin(types.ETH, sdkmath.NewInt(1000000)))) //nolint:mnd
+	txBuilder.SetFeeAmount(sdktypes.NewCoins(sdktypes.NewCoin(types.WEI, sdkmath.NewInt(1000000)))) //nolint:mnd
 	txBuilder.SetGasLimit(1000000)                                                                  //nolint:mnd
 	if err := txBuilder.SetSignatures(signing.SignatureV2{
 		PubKey:   acc.GetPubKey(),
