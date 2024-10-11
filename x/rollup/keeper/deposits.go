@@ -207,7 +207,7 @@ func (k *Keeper) mintETH(
 	mintAmount, transferAmount sdkmath.Int,
 ) (*sdk.Event, error) {
 	// Mint the deposit amount to the rollup module
-	if err := k.bankkeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin(types.ETH, mintAmount))); err != nil {
+	if err := k.bankkeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(sdk.NewCoin(types.WEI, mintAmount))); err != nil {
 		return nil, fmt.Errorf("failed to mint ETH deposit coins to the rollup module: %v", err)
 	}
 
@@ -221,7 +221,7 @@ func (k *Keeper) mintETH(
 			ctx,
 			types.ModuleName,
 			recipientAddr,
-			sdk.NewCoins(sdk.NewCoin(types.ETH, transferAmount)),
+			sdk.NewCoins(sdk.NewCoin(types.WEI, transferAmount)),
 		); err != nil {
 			return nil, fmt.Errorf("failed to send ETH deposit coins from rollup module to user account %v: %v", recipientAddr, err)
 		}
@@ -234,7 +234,7 @@ func (k *Keeper) mintETH(
 			ctx,
 			types.ModuleName,
 			mintAddr,
-			sdk.NewCoins(sdk.NewCoin(types.ETH, remainingCoins)),
+			sdk.NewCoins(sdk.NewCoin(types.WEI, remainingCoins)),
 		); err != nil {
 			return nil, fmt.Errorf("failed to send ETH deposit coins from rollup module to user account %v: %v", mintAddr, err)
 		}
