@@ -175,7 +175,7 @@ func queryUserBalance(t *testing.T, queryClient banktypes.QueryClient, userAddr 
 }
 
 func queryUserETHBalance(t *testing.T, queryClient banktypes.QueryClient, userAddr sdk.AccAddress, app *integration.App) math.Int {
-	return queryUserBalance(t, queryClient, userAddr, rolluptypes.ETH, app)
+	return queryUserBalance(t, queryClient, userAddr, rolluptypes.WEI, app)
 }
 
 func queryUserERC20Balance(t *testing.T, queryClient banktypes.QueryClient, userAddr sdk.AccAddress, erc20addr common.Address, app *integration.App) math.Int {

@@ -47,7 +47,7 @@ func (k *Keeper) InitGenesis(ctx context.Context) error {
 	k.accountKeeper.NewAccount(ctx, baseAccount)
 	k.accountKeeper.SetAccount(ctx, baseAccount)
 
-	coin := sdk.NewCoin(types.ETH, sdkmath.NewInt(math.MaxInt)) // max out so the dummy signer doesn't run out of gas
+	coin := sdk.NewCoin(types.WEI, sdkmath.NewInt(math.MaxInt)) // max out so the dummy signer doesn't run out of gas
 	if err := k.bankkeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(coin)); err != nil {
 		return fmt.Errorf("failed to mint ETH deposit coins to the rollup module: %v", err)
 	}
