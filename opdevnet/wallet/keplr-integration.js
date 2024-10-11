@@ -5,8 +5,7 @@ const L2_CHAIN_CONFIG = {
     rest: "http://127.0.0.1:1317",
     stakeCurrency: {
         coinDenom: "ETH",
-        // TODO: update coinMinimalDenom to be wei once updated in the x/rollup module
-        coinMinimalDenom: "ETH",
+        coinMinimalDenom: "wei",
         coinDecimals: 18,
     },
     bip44: {
@@ -23,14 +22,14 @@ const L2_CHAIN_CONFIG = {
     currencies: [
         {
             coinDenom: "ETH",
-            coinMinimalDenom: "ETH",
+            coinMinimalDenom: "wei",
             coinDecimals: 18,
         },
     ],
     feeCurrencies: [
         {
             coinDenom: "ETH",
-            coinMinimalDenom: "ETH",
+            coinMinimalDenom: "wei",
             coinDecimals: 18,
         },
     ],
