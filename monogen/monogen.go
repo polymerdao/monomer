@@ -128,10 +128,6 @@ func addRollupModule(r *genny.Runner, appGoPath, appConfigGoPath string) error {
 			},
 			%s`, module.PlaceholderSgAppModuleConfig))
 
-	// 4. Add rollup module to genesisModuleOrder
-	content = replacer.Replace(content, module.PlaceholderSgAppInitGenesis, fmt.Sprintf(`rolluptypes.ModuleName,
-			%s,`, module.PlaceholderSgAppInitGenesis))
-
 	if err := r.File(genny.NewFileS(appConfigGoPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", appConfigGoPath, err)
 	}
@@ -161,12 +157,6 @@ func addRollupModule(r *genny.Runner, appGoPath, appConfigGoPath string) error {
 	keeperDefinition := fmt.Sprintf(`&app.RollupKeeper,
 		%s`, module.PlaceholderSgAppKeeperDefinition)
 	content = replacer.Replace(content, module.PlaceholderSgAppKeeperDefinition, keeperDefinition)
-
-	// 4. Add InitChainer
-	content = replacer.Replace(content, "app.App = appBuilder.Build(db, traceStore, baseAppOptions...)", `
-	app.App = appBuilder.Build(db, traceStore, baseAppOptions...)
-
-	app.SetInitChainer(app.InitChainer)`)
 
 	if err := r.File(genny.NewFileS(appGoPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", appGoPath, err)

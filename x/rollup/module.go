@@ -2,7 +2,6 @@ package rollup
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/core/store"
@@ -12,7 +11,6 @@ import (
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
-	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -25,10 +23,9 @@ import (
 type ModuleInputs struct {
 	depinject.In
 
-	Codec         codec.Codec
-	StoreService  store.KVStoreService
-	AccountKeeper authkeeper.AccountKeeper
-	BankKeeper    bankkeeper.Keeper
+	Codec        codec.Codec
+	StoreService store.KVStoreService
+	BankKeeper   bankkeeper.Keeper
 }
 
 type ModuleOutputs struct {
@@ -43,7 +40,7 @@ func init() { //nolint:gochecknoinits
 }
 
 func ProvideModule(in ModuleInputs) ModuleOutputs { //nolint:gocritic // hugeParam
-	k := keeper.NewKeeper(in.Codec, in.StoreService, in.BankKeeper, in.AccountKeeper)
+	k := keeper.NewKeeper(in.Codec, in.StoreService, in.BankKeeper)
 	return ModuleOutputs{
 		Keeper: k,
 		Module: NewAppModule(in.Codec, k),
@@ -53,7 +50,6 @@ func ProvideModule(in ModuleInputs) ModuleOutputs { //nolint:gocritic // hugePar
 var (
 	_ module.AppModule      = AppModule{}
 	_ module.AppModuleBasic = AppModuleBasic{}
-	_ module.HasGenesis     = AppModule{}
 )
 
 // ----------------------------------------------------------------------------
@@ -157,13 +153,6 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 
 // RegisterInvariants registers the capability module's invariants.
 func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
-
-// InitGenesis performs genesis initialization for the rollup module.
-func (am AppModule) InitGenesis(ctx sdk.Context, _ codec.JSONCodec, _ json.RawMessage) { //nolint:gocritic // hugeParam
-	if err := am.keeper.InitGenesis(ctx); err != nil {
-		panic(fmt.Errorf("keeper init genesis: %v", err))
-	}
-}
 
 // ExportGenesis returns the capability module's exported genesis state as raw JSON bytes.
 func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawMessage { //nolint:gocritic

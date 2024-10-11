@@ -35,7 +35,6 @@ func TestRollup(t *testing.T) {
 	integrationApp := setupIntegrationApp(t)
 	queryClient := banktypes.NewQueryClient(integrationApp.QueryHelper())
 
-	monomerSigner := "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh"
 	erc20tokenAddr := common.HexToAddress("0xabcdef123456")
 	erc20userAddr := common.HexToAddress("0x123456abcdef")
 	erc20depositAmount := big.NewInt(100)
@@ -66,15 +65,13 @@ func TestRollup(t *testing.T) {
 
 	// send an invalid MsgApplyL1Txs and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
-		TxBytes:     [][]byte{l1AttributesTxBz, l1AttributesTxBz},
-		FromAddress: monomerSigner,
+		TxBytes: [][]byte{l1AttributesTxBz, l1AttributesTxBz},
 	})
 	require.Error(t, err)
 
 	// send a successful MsgApplyL1Txs and mint ETH to user
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
-		TxBytes:     [][]byte{l1AttributesTxBz, depositTxBz, erc20DepositTxBz},
-		FromAddress: monomerSigner,
+		TxBytes: [][]byte{l1AttributesTxBz, depositTxBz, erc20DepositTxBz},
 	})
 	require.NoError(t, err)
 
@@ -141,7 +138,6 @@ func setupIntegrationApp(t *testing.T) *integration.App {
 		encodingCfg.Codec,
 		runtime.NewKVStoreService(keys[rolluptypes.StoreKey]),
 		bankKeeper,
-		accountKeeper,
 	)
 
 	authModule := auth.NewAppModule(encodingCfg.Codec, accountKeeper, authsims.RandomGenesisAccounts, nil)

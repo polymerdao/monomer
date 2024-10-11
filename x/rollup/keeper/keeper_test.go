@@ -41,7 +41,6 @@ func (s *KeeperTestSuite) SetupSubTest() {
 		moduletestutil.MakeTestEncodingConfig().Codec,
 		runtime.NewKVStoreService(storeKey),
 		s.bankKeeper,
-		s.accountKeeper,
 	)
 	sdkCtx := sdk.UnwrapSDKContext(s.ctx)
 	s.rollupStore = sdkCtx.KVStore(storeKey)
