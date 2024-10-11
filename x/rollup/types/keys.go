@@ -15,8 +15,8 @@ const (
 )
 
 const (
-	// wrapped Ethers; cannonically bridged from Ethereum
-	ETH = "ETH"
+	// WEI is the denom for wrapped Ether (represented in wei) canonically bridged from Ethereum
+	WEI = "wei"
 	// KeyL1BlockInfo is the key for the L1BlockInfo
 	KeyL1BlockInfo = "L1BlockInfo"
 )
