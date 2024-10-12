@@ -3,9 +3,10 @@ package monogen
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 
-	"github.com/cometbft/cometbft/libs/os"
+	cometos "github.com/cometbft/cometbft/libs/os"
 	"github.com/gobuffalo/genny/v2"
 	"github.com/ignite/cli/v28/ignite/config"
 	"github.com/ignite/cli/v28/ignite/pkg/cache"
@@ -17,8 +18,8 @@ import (
 	"github.com/ignite/cli/v28/ignite/version"
 )
 
-func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix string, skipGit bool) error {
-	if os.FileExists(appDirPath) {
+func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix string, skipGit, isTest bool) error {
+	if cometos.FileExists(appDirPath) {
 		return fmt.Errorf("refusing to overwrite directory: %s", appDirPath)
 	}
 
@@ -67,7 +68,7 @@ func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix strin
 		if err := addMonomerCommand(r, filepath.Join(appDir, "cmd", appName+"d", "cmd", "commands.go")); err != nil {
 			return fmt.Errorf("add monomer command: %v", err)
 		}
-		if err := addReplaceDirectives(r, filepath.Join(appDir, "go.mod")); err != nil {
+		if err := addReplaceDirectives(r, filepath.Join(appDir, "go.mod"), isTest); err != nil {
 			return fmt.Errorf("add replace directives: %v", err)
 		}
 		return nil
@@ -232,14 +233,7 @@ func addMonomerCommand(r *genny.Runner, commandsGoPath string) error {
 
 	content = replacer.Replace(content, `
 	server.AddCommands(rootCmd, app.DefaultNodeHome, newApp, appExport, addModuleInitFlags)`, `
-	monomerCmd := &cobra.Command{
-		Use:   "monomer",
-		Short: "Monomer subcommands",
-	}
-	monomerCmd.AddCommand(server.StartCmdWithOptions(newApp, app.DefaultNodeHome, server.StartCmdOptions{
-		StartCommandHandler: integrations.StartCommandHandler,
-	}))
-	rootCmd.AddCommand(monomerCmd)`)
+	integrations.AddMonomerCommand(rootCmd, newApp, app.DefaultNodeHome)`)
 
 	if err := r.File(genny.NewFileS(commandsGoPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", commandsGoPath, err)
@@ -248,21 +242,36 @@ func addMonomerCommand(r *genny.Runner, commandsGoPath string) error {
 	return nil
 }
 
-func addReplaceDirectives(r *genny.Runner, goModPath string) error {
+func addReplaceDirectives(r *genny.Runner, goModPath string, isTest bool) error {
 	replacer := placeholder.New()
 
 	goMod, err := r.Disk.Find(goModPath)
 	if err != nil {
 		return fmt.Errorf("find: %v", err)
 	}
-	content := replacer.Replace(goMod.String(), "replace (", `replace (
+	var monomerReplace string
+	if isTest {
+		currentDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("get current working directory: %v", err)
+		}
+		currentDirAbs, err := filepath.Abs(currentDir)
+		if err != nil {
+			return fmt.Errorf("get absolute path: %v", err)
+		}
+		monomerReplace = fmt.Sprintf("github.com/polymerdao/monomer => %s", filepath.Dir(currentDirAbs))
+	}
+	content := replacer.Replace(goMod.String(), "replace (", fmt.Sprintf(`replace (
 	cosmossdk.io/core => cosmossdk.io/core v0.11.1
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 => github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/crate-crypto/go-ipa => github.com/crate-crypto/go-ipa v0.0.0-20231205143816-408dbffb2041
 	github.com/crate-crypto/go-kzg-4844 v1.0.0 => github.com/crate-crypto/go-kzg-4844 v0.7.0
 	github.com/ethereum/go-ethereum => github.com/joshklop/op-geth v0.0.0-20240515205036-e3b990384a74
-	github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20240814165419-c6b91fa9f263
-`)
+	github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20241004015633-cfc9936c6811
+	github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.39.3
+	github.com/quic-go/webtransport-go => github.com/quic-go/webtransport-go v0.6.0
+	%s
+	`, monomerReplace))
 	if err := r.File(genny.NewFileS(goModPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", goModPath, err)
 	}

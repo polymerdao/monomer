@@ -5,19 +5,21 @@ import (
 	"fmt"
 
 	bfttypes "github.com/cometbft/cometbft/types"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
+var PrivKey = secp256k1.GenPrivKeyFromSecret([]byte("monomer"))
+
 var errL1AttributesNotFound = errors.New("L1 attributes tx not found")
 
-type TxSigner func(tx *sdktx.Tx) error
+type TxSigner func([]sdktypes.Msg) (bfttypes.Tx, error)
 
 // AdaptPayloadTxsToCosmosTxs assumes the deposit transactions come first.
-func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx TxSigner, from string) (bfttypes.Txs, error) {
+func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, _ TxSigner, _ string) (bfttypes.Txs, error) {
 	if len(ethTxs) == 0 {
 		return bfttypes.Txs{}, nil
 	}
@@ -27,24 +29,17 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, signTx TxSigner, from st
 		return nil, fmt.Errorf("count deposit transactions: %v", err)
 	}
 
-	depositTx, err := packDepositTxsToCosmosTx(ethTxs[:numDepositTxs], from)
+	depositTx, err := packDepositTxsToCosmosTx(ethTxs[:numDepositTxs], "")
 	if err != nil {
 		return nil, fmt.Errorf("pack deposit txs: %v", err)
 	}
-
-	if signTx != nil {
-		if err := signTx(depositTx); err != nil {
-			return nil, fmt.Errorf("sign tx: %v", err)
-		}
-	}
-
-	depositSDKMsgBytes, err := depositTx.Marshal()
+	depositTxBytes, err := depositTx.Marshal()
 	if err != nil {
 		return nil, fmt.Errorf("marshal tx: %v", err)
 	}
 
 	cosmosTxs := make(bfttypes.Txs, 0, 1+numDepositTxs)
-	cosmosTxs = append(cosmosTxs, depositSDKMsgBytes)
+	cosmosTxs = append(cosmosTxs, depositTxBytes)
 
 	cosmosNonDepositTxs, err := convertToCosmosNonDepositTxs(ethTxs[numDepositTxs:])
 	if err != nil {
@@ -76,20 +71,14 @@ func countDepositTransactions(ethTxs []hexutil.Bytes) (int, error) {
 	return numDepositTxs, nil
 }
 
-func packDepositTxsToCosmosTx(depositTxs []hexutil.Bytes, from string) (*sdktx.Tx, error) {
+func packDepositTxsToCosmosTx(depositTxs []hexutil.Bytes, _ string) (*rolluptypes.MsgApplyL1Txs, error) { //nolint:unparam
 	depositTxsBytes := make([][]byte, 0, len(depositTxs))
 	for _, depositTx := range depositTxs {
 		depositTxsBytes = append(depositTxsBytes, depositTx)
 	}
-	msgAny, err := codectypes.NewAnyWithValue(&rolluptypes.MsgApplyL1Txs{
-		TxBytes:     depositTxsBytes,
-		FromAddress: from,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("new any with value: %v", err)
-	}
-
-	return &sdktx.Tx{Body: &sdktx.TxBody{Messages: []*codectypes.Any{msgAny}}}, nil
+	return &rolluptypes.MsgApplyL1Txs{
+		TxBytes: depositTxsBytes,
+	}, nil
 }
 
 func convertToCosmosNonDepositTxs(nonDepositTxs []hexutil.Bytes) (bfttypes.Txs, error) {
@@ -123,17 +112,9 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 }
 
 func GetDepositTxs(txsBytes [][]byte) (ethtypes.Transactions, error) {
-	cosmosEthTx := new(sdktx.Tx)
-	if err := cosmosEthTx.Unmarshal(txsBytes[0]); err != nil {
-		return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
-	}
-	msgs := cosmosEthTx.GetBody().GetMessages()
-	if num := len(msgs); num != 1 {
-		return nil, fmt.Errorf("unexpected number of msgs in Eth Cosmos tx: want 1, got %d", num)
-	}
 	msg := new(rolluptypes.MsgApplyL1Txs)
-	if err := msg.Unmarshal(msgs[0].GetValue()); err != nil {
-		return nil, fmt.Errorf("unmarshal MsgL1Txs smsg: %v", err)
+	if err := msg.Unmarshal(txsBytes[0]); err != nil {
+		return nil, fmt.Errorf("unmarshal MsgL1Txs msg: %v", err)
 	}
 	ethTxsBytes := msg.GetTxBytes()
 	if len(ethTxsBytes) == 0 {

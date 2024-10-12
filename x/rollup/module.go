@@ -6,18 +6,22 @@ import (
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/core/store"
 	"cosmossdk.io/depinject"
+	"cosmossdk.io/x/tx/signing"
 	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/codec"
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
 	modulev1 "github.com/polymerdao/monomer/gen/rollup/module/v1"
 	"github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/spf13/cobra"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
 )
 
 type ModuleInputs struct {
@@ -36,7 +40,17 @@ type ModuleOutputs struct {
 }
 
 func init() { //nolint:gochecknoinits
-	appmodule.Register(&modulev1.Module{}, appmodule.Provide(ProvideModule))
+	appmodule.Register(&modulev1.Module{}, appmodule.Provide(ProvideModule), appmodule.Provide(ProvideCustomGetSigner))
+}
+
+func ProvideCustomGetSigner() signing.CustomGetSigner {
+	return signing.CustomGetSigner{
+		// gocosmos is built on gogoproto, which generates protov1 protobufs, unfortunately.
+		MsgType: protoreflect.FullName(protov1.MessageName(&types.MsgApplyL1Txs{})), //nolint:staticcheck
+		Fn: func(msg proto.Message) ([][]byte, error) {
+			return [][]byte{}, nil
+		},
+	}
 }
 
 func ProvideModule(in ModuleInputs) ModuleOutputs {

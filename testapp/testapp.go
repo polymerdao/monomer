@@ -36,6 +36,7 @@ import (
 	testmodulekeeper "github.com/polymerdao/monomer/testapp/x/testmodule/keeper"
 	_ "github.com/polymerdao/monomer/x/rollup"
 	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
+	"github.com/polymerdao/monomer/x/rollup/tx/helpers"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
@@ -167,6 +168,8 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 		}
 		return runtimeApp.ModuleManager.InitGenesis(ctx, appCodec, genesisState)
 	})
+
+	runtimeApp.SetTxDecoder(helpers.NewTxDecoder(appCodec).Decode)
 
 	if err := runtimeApp.LoadLatestVersion(); err != nil {
 		return nil, fmt.Errorf("load latest version: %v", err)

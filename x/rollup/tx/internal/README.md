@@ -1,0 +1,1 @@
+The `gas.go` file is copied from an unreleased version of dydx at [this commit](https://github.com/dydxprotocol/v4-chain/blob/main/protocol/app/ante/types/free_gas_meter.go), with some changes to the imports so the code compiles with our version of the Cosmos SDK.

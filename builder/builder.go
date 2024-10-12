@@ -284,7 +284,10 @@ func (b *Builder) parseWithdrawalMessages(
 	if execTxResult.IsOK() {
 		cosmosTx := new(sdktx.Tx)
 		if err := cosmosTx.Unmarshal(tx); err != nil {
-			return nil, fmt.Errorf("unmarshal cosmos tx: %v", err)
+			// TODO we should check for withdrawal messages on all transaction types.
+			// Unfortunately, we can't get the app's TxDecoder inside the builder.
+			// We may want to explore using a PostHandler to manage withdrawals instead.
+			return execTxResult, nil
 		}
 		for _, msg := range cosmosTx.GetBody().GetMessages() {
 			withdrawalMsg := new(rolluptypes.MsgInitiateWithdrawal)
