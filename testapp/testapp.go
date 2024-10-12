@@ -169,17 +169,6 @@ func New(appdb dbm.DB, chainID string) (*App, error) {
 		return runtimeApp.ModuleManager.InitGenesis(ctx, appCodec, genesisState)
 	})
 
-	/*
-		anteHandler, err := helpers.NewAnteHandler(authante.HandlerOptions{
-			AccountKeeper:   accountKeeper,
-			BankKeeper:      bankKeeper,
-			SignModeHandler: txConfig.SignModeHandler(),
-		})
-		if err != nil {
-			return nil, fmt.Errorf("new ante handler: %v", err)
-		}
-		runtimeApp.SetAnteHandler(anteHandler.AnteHandle)*/
-
 	runtimeApp.SetTxDecoder(helpers.NewTxDecoder(appCodec).Decode)
 
 	if err := runtimeApp.LoadLatestVersion(); err != nil {
