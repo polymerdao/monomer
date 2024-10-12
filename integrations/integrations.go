@@ -60,8 +60,6 @@ const (
 	flagMneumonicsPath    = "monomer.dev.mneumonics"
 	flagL1URL             = "monomer.dev.l1-url"
 	flagOPNodeURL         = "monomer.dev.op-node-url"
-	flagBatcherPrivKey    = "monomer.dev.batcher-privkey"
-	flagProposerPrivKey   = "monomer.dev.proposer-privkey"
 
 	defaultCacheSize   = 16 // 16 MB
 	defaultHandlesSize = 16
