@@ -1,96 +1,145 @@
 package monogen
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
+	_ "embed"
+	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"strings"
 
-	cometos "github.com/cometbft/cometbft/libs/os"
+	"golang.org/x/mod/modfile"
+
 	"github.com/gobuffalo/genny/v2"
-	"github.com/ignite/cli/v28/ignite/config"
-	"github.com/ignite/cli/v28/ignite/pkg/cache"
-	"github.com/ignite/cli/v28/ignite/pkg/gocmd"
 	"github.com/ignite/cli/v28/ignite/pkg/placeholder"
 	"github.com/ignite/cli/v28/ignite/pkg/xast"
-	"github.com/ignite/cli/v28/ignite/services/scaffolder"
 	"github.com/ignite/cli/v28/ignite/templates/module"
-	"github.com/ignite/cli/v28/ignite/version"
+	"github.com/polymerdao/monomer/utils"
 )
 
-func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix string, skipGit, isTest bool) error {
-	if cometos.FileExists(appDirPath) {
-		return fmt.Errorf("refusing to overwrite directory: %s", appDirPath)
+//go:embed testapp.zip
+var appZip []byte
+
+func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix string, monomerPath string) (err error) {
+	if _, err := os.Stat(appDirPath); err == nil {
+		return fmt.Errorf("refusing to overwrite: %s", appDirPath)
+	} else if !errors.Is(err, os.ErrNotExist) {
+		return fmt.Errorf("stat: %v", err)
 	}
 
-	igniteRootDir, err := config.DirPath()
+	appName := filepath.Base(appDirPath)
+	appRoot := filepath.Dir(appDirPath)
+
+	// Unzip.
+	zipReader, err := zip.NewReader(bytes.NewReader(appZip), int64(len(appZip)))
 	if err != nil {
-		return fmt.Errorf("get ignite config directory: %v", err)
+		return fmt.Errorf("create zip reader: %v", err)
 	}
-	// https://github.com/ignite/cli/blob/2a968e8684cae0a1d79ccb11f0db067a4605173e/ignite/cmd/cmd.go#L33-L34
-	cacheDBPath := filepath.Join(igniteRootDir, "ignite_cache.db")
-	cacheStorage, err := cache.NewStorage(cacheDBPath, cache.WithVersion(version.Version))
-	if err != nil {
-		return fmt.Errorf("new ignite cache storage: %v", err)
+	for _, file := range zipReader.File {
+		filePath := filepath.Join(appRoot, strings.Replace(file.Name, "testapp", appName, -1))
+		// TODO vuln thing?
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(filePath, file.Mode()); err != nil {
+				return fmt.Errorf("create directory: %v", err)
+			}
+			continue
+		}
+		if err := writeFile(file, filePath); err != nil {
+			return err
+		}
 	}
 
-	// Initial ignite scaffolding.
-	appDir, err := scaffolder.Init(
-		ctx,
-		cacheStorage,
-		placeholder.New(),
-		appDirPath,
-		goModulePath,
-		addressPrefix,
-		true, // no default module
-		skipGit,
-		false, // skip proto
-		true,  // minimal
-		false, // consumer chain (ics)
-		nil,   // params
-	)
-	if err != nil {
-		return fmt.Errorf("use ignite to scaffold initial cosmos sdk project: %v", err)
+	if err := filepath.Walk(appDirPath, func(path string, info fs.FileInfo, err error) error {
+		return replaceModulePath(path, goModulePath, info, err)
+	}); err != nil {
+		return fmt.Errorf("replace module path everywhere: %v", err)
 	}
 
-	// monogen modifications.
-	g := genny.New()
-	g.RunFn(func(r *genny.Runner) error {
-		appGoPath := filepath.Join(appDir, "app", "app.go")
-		appConfigGoPath := filepath.Join(appDir, "app", "app_config.go")
-		if err := addRollupModule(r, appGoPath, appConfigGoPath); err != nil {
-			return fmt.Errorf("add rollup module: %v", err)
-		}
-		if err := removeConsensusModule(r, appGoPath, appConfigGoPath); err != nil {
-			return fmt.Errorf("remove consensus module: %v", err)
-		}
-		appName := filepath.Base(appDir)
-		if err := addMonomerCommand(r, filepath.Join(appDir, "cmd", appName+"d", "cmd", "commands.go")); err != nil {
-			return fmt.Errorf("add monomer command: %v", err)
-		}
-		if err := addReplaceDirectives(r, filepath.Join(appDir, "go.mod"), isTest); err != nil {
-			return fmt.Errorf("add replace directives: %v", err)
-		}
+	appGoPath := filepath.Join(appDirPath, "app", "app.go")
+	appGoBytes, err := os.ReadFile(appGoPath)
+	if err != nil {
+		return fmt.Errorf("read file: %v", err)
+	}
+	newAppGoString := strings.Replace(
+		string(appGoBytes),
+		`	AccountAddressPrefix = "cosmos"
+	Name                 = "testapp"`, // TODODODODOD replace all occrences of testapp -- something with tests as well
+		fmt.Sprintf(`	AccountAddressPrefix = "%s"
+	Name                 = "%s"`, addressPrefix, appName), 1)
+	if err := os.WriteFile(appGoPath, []byte(newAppGoString), 0); err != nil {
+		return fmt.Errorf("write file: %v", err)
+	}
+
+	if monomerPath == "" {
 		return nil
-	})
-	r := genny.WetRunner(ctx)
-	if err := r.With(g); err != nil {
-		return fmt.Errorf("attach genny generator to wet runner: %v", err)
-	}
-	if err := r.Run(); err != nil {
-		return fmt.Errorf("apply monogen modifications: %v", err)
 	}
 
-	if err := gocmd.Fmt(ctx, appDir); err != nil {
-		return fmt.Errorf("go fmt: %v", err)
+	// Add replace to go.mod.
+	goModPath := filepath.Join(appDirPath, "go.mod")
+	goModBytes, err := os.ReadFile(goModPath)
+	if err != nil {
+		return fmt.Errorf("read file: %v", err)
 	}
-	if err := gocmd.GoImports(ctx, appDir); err != nil {
-		return fmt.Errorf("run goimports: %v", err)
+	goMod, err := modfile.Parse(goModPath, goModBytes, nil)
+	if err != nil {
+		return fmt.Errorf("parse: %v", err)
 	}
-	if err := gocmd.ModTidy(ctx, appDir); err != nil {
-		return fmt.Errorf("go mod tidy: %v", err)
+	if err := goMod.AddReplace(goModulePath, "", monomerPath, ""); err != nil {
+		return fmt.Errorf("add replace: %v", err)
+	}
+	goModBytes, err = goMod.Format()
+	if err != nil {
+		return fmt.Errorf("format: %v", err)
+	}
+	if err := os.WriteFile(goModPath, goModBytes, 0); err != nil {
+		return fmt.Errorf("write file: %v", err)
 	}
 
+	return nil
+}
+
+func replaceModulePath(path, modulePath string, fileInfo fs.FileInfo, err error) error {
+	if err != nil {
+		return err
+	}
+	if fileInfo.IsDir() {
+		return nil
+	}
+	fileBytes, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read file: %v", err)
+	}
+	newString := strings.Replace(string(fileBytes), "github.com/polymerdao/monomer/monogen/testapp", modulePath, -1)
+	if err := os.WriteFile(path, []byte(newString), fileInfo.Mode()); err != nil {
+		return fmt.Errorf("write file: %v", err)
+	}
+	return nil
+}
+
+func writeFile(file *zip.File, outPath string) (err error) {
+	outFile, err := os.OpenFile(outPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, file.Mode())
+	if err != nil {
+		return fmt.Errorf("open file: %v", err)
+	}
+	defer func() {
+		err = utils.WrapCloseErr(err, outFile)
+	}()
+
+	rc, err := file.Open()
+	if err != nil {
+		return fmt.Errorf("open file in zip: %v", err)
+	}
+	defer func() {
+		err = utils.WrapCloseErr(err, rc)
+	}()
+	if _, err = io.Copy(outFile, rc); err != nil {
+		return fmt.Errorf("copy file content: %v", err)
+	}
 	return nil
 }
 

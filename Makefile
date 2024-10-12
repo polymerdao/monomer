@@ -81,6 +81,10 @@ gen-bindings:
 gen-mocks:
 	mockgen -source=x/rollup/types/expected_keepers.go -package testutil -destination x/rollup/testutil/expected_keepers_mocks.go
 
+.PHONY: zip-testapp
+zip-testapp:
+	$(MAKE) -C monogen zip-testapp
+
 $(COVER_OUT):
 	$(GO_WRAPPER) test -short ./... -coverprofile=$@ -covermode=atomic -coverpkg=./...
 
