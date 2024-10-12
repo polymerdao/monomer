@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	cometos "github.com/cometbft/cometbft/libs/os"
@@ -261,17 +262,28 @@ func addReplaceDirectives(r *genny.Runner, goModPath string, isTest bool) error 
 		}
 		monomerReplace = fmt.Sprintf("github.com/polymerdao/monomer => %s", filepath.Dir(currentDirAbs))
 	}
+
+	dependencies := []string{
+		"cosmossdk.io/core@v0.11.1",
+		"github.com/btcsuite/btcd/btcec/v2@v2.3.2",
+		"github.com/crate-crypto/go-ipa@v0.0.0-20231205143816-408dbffb2041",
+		"github.com/crate-crypto/go-kzg-4844@v0.7.0",
+		"github.com/joshklop/op-geth@v0.0.0-20240515205036-e3b990384a74",
+		"github.com/joshklop/go-libp2p@v0.0.0-20241004015633-cfc9936c6811",
+		"github.com/quic-go/quic-go@v0.39.3",
+		"github.com/quic-go/webtransport-go@v0.6.0",
+	}
+
+	for _, dep := range dependencies {
+		cmd := exec.Command("go", "get", dep)
+		cmd.Dir = filepath.Dir(goModPath)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("go get %s: %v", dep, err)
+		}
+	}
 	content := replacer.Replace(goMod.String(), "replace (", fmt.Sprintf(`replace (
-	cosmossdk.io/core => cosmossdk.io/core v0.11.1
-	github.com/btcsuite/btcd/btcec/v2 v2.3.4 => github.com/btcsuite/btcd/btcec/v2 v2.3.2
-	github.com/crate-crypto/go-ipa => github.com/crate-crypto/go-ipa v0.0.0-20231205143816-408dbffb2041
-	github.com/crate-crypto/go-kzg-4844 v1.0.0 => github.com/crate-crypto/go-kzg-4844 v0.7.0
-	github.com/ethereum/go-ethereum => github.com/joshklop/op-geth v0.0.0-20240515205036-e3b990384a74
-	github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20241004015633-cfc9936c6811
-	github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.39.3
-	github.com/quic-go/webtransport-go => github.com/quic-go/webtransport-go v0.6.0
-	%s
-	`, monomerReplace))
+		%s
+		`, monomerReplace))
 	if err := r.File(genny.NewFileS(goModPath, content)); err != nil {
 		return fmt.Errorf("write %s: %v", goModPath, err)
 	}
