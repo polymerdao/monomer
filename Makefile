@@ -37,7 +37,7 @@ wallet-integration:
 
 .PHONY: install-golangci-lint
 install-golangci-lint:
-	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.60.1
+	go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.61.0
 
 .PHONY: lint
 lint:
