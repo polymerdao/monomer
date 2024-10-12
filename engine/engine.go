@@ -76,6 +76,26 @@ func (e *EngineAPI) ForkchoiceUpdatedV2(
 	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
 
+func handleHeaderError(err error, blockType string) error {
+	if errors.Is(err, monomerdb.ErrNotFound) {
+		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s not found", blockType))
+	}
+	return engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
+}
+
+func (e *EngineAPI) validateHeader(blockHash common.Hash, headHeader *monomer.Header, blockType string) error {
+	header, err := e.blockStore.HeaderByHash(blockHash)
+	if err != nil {
+		return handleHeaderError(err, blockType)
+	}
+	if header.Height > headHeader.Height {
+		return engine.InvalidForkChoiceState.With(fmt.Errorf("%s at height %d comes after head block at height %d",
+			blockType, header.Height, headHeader.Height))
+	}
+
+	return nil
+}
+
 func (e *EngineAPI) ForkchoiceUpdatedV3(
 	ctx context.Context,
 	fcs eth.ForkchoiceState, //nolint:gocritic
@@ -94,32 +114,19 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 	//   Before updating the forkchoice state, client software MUST ensure the validity of the payload referenced by
 	//   forkchoiceState.headBlockHash...
 	headHeader, err := e.blockStore.HeaderByHash(fcs.HeadBlockHash)
-	if errors.Is(err, monomerdb.ErrNotFound) {
-		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf("head block not found"))
-	} else if err != nil {
-		return nil, engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
+	if err != nil {
+		return nil, handleHeaderError(err, "head block")
 	}
 
 	// Engine API spec:
 	//   Client software MUST return -38002: Invalid forkchoice state error if the payload referenced by forkchoiceState.headBlockHash
 	//   is VALID and a payload referenced by either forkchoiceState.finalizedBlockHash or forkchoiceState.safeBlockHash does not
 	//   belong to the chain defined by forkchoiceState.headBlockHash.
-	if safeHeader, err := e.blockStore.HeaderByHash(fcs.SafeBlockHash); errors.Is(err, monomerdb.ErrNotFound) {
-		return nil, engine.InvalidForkChoiceState.With(errors.New("safe block not found"))
-	} else if err != nil {
-		return nil, engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
-	} else if safeHeader.Height > headHeader.Height {
-		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf("safe block at height %d comes after head block at height %d",
-			safeHeader.Height, headHeader.Height))
+	if err := e.validateHeader(fcs.SafeBlockHash, headHeader, "safe block"); err != nil {
+		return nil, err
 	}
-	if finalizedHeader, err := e.blockStore.HeaderByHash(fcs.FinalizedBlockHash); errors.Is(err, monomerdb.ErrNotFound) {
-		return nil, engine.InvalidPayloadAttributes.With(errors.New("finalized block not found"))
-	} else if err != nil {
-		return nil, engine.GenericServerError.With(fmt.Errorf("get header by hash: %v", err))
-	} else if finalizedHeader.Height > headHeader.Height {
-		return nil, engine.InvalidForkChoiceState.With(fmt.Errorf(
-			"finalized block at height %d comes after head block at height %d", finalizedHeader.Height,
-			headHeader.Height))
+	if err := e.validateHeader(fcs.FinalizedBlockHash, headHeader, "finalized block"); err != nil {
+		return nil, err
 	}
 
 	// It is possible for reorgs to occur on unsafe block consolidation when the batcher's txs don't land on L1 in time.
