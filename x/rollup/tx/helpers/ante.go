@@ -1,4 +1,4 @@
-package integrations
+package helpers
 
 import (
 	"fmt"
@@ -12,7 +12,7 @@ type AnteHandler struct {
 	authAnte sdktypes.AnteHandler
 }
 
-func NewAnteHandler(options authante.HandlerOptions) (*AnteHandler, error) {
+func NewAnteHandler(options authante.HandlerOptions) (*AnteHandler, error) { //nolint:gocritic // hugeParam
 	authAnteHandler, err := authante.NewAnteHandler(options)
 	if err != nil {
 		return nil, fmt.Errorf("new auth ante handler: %v", err)
@@ -22,7 +22,11 @@ func NewAnteHandler(options authante.HandlerOptions) (*AnteHandler, error) {
 	}, nil
 }
 
-func (a *AnteHandler) AnteHandle(ctx sdktypes.Context, tx sdktypes.Tx, simulate bool) (sdktypes.Context, error) {
+func (a *AnteHandler) AnteHandle(
+	ctx sdktypes.Context, //nolint:gocritic // hugeParam
+	tx sdktypes.Tx,
+	simulate bool,
+) (sdktypes.Context, error) {
 	switch tx.(type) {
 	case *rolluptx.Deposit:
 		newCtx, err := rolluptx.DepositAnteHandler(ctx, tx, simulate)

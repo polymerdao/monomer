@@ -128,6 +128,7 @@ issues:
   exclude-dirs:
     - app # This code is left over and will be changed soon.
     - eth/internal/ethapi
+    - x/rollup/tx/internal
 
 run:
   timeout: 5m

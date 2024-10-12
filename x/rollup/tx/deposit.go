@@ -5,6 +5,7 @@ import (
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
+	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/polymerdao/monomer/x/rollup/tx/internal"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"google.golang.org/protobuf/reflect/protoreflect"
@@ -21,7 +22,7 @@ func (d *Deposit) GetMsgs() []proto.Message {
 }
 
 func (d *Deposit) GetMsgsV2() ([]protoreflect.ProtoMessage, error) {
-	return []protoreflect.ProtoMessage{}, nil
+	return []protoreflect.ProtoMessage{protov1.MessageV2(d.Msg)}, nil
 }
 
 // TODO split deposits into three types:
@@ -30,7 +31,7 @@ func (d *Deposit) GetMsgsV2() ([]protoreflect.ProtoMessage, error) {
 // 3. ForceInclude
 // also add an sdktypes.PreBlocker to check that these are in the propoer order.
 
-func DepositAnteHandler(ctx sdktypes.Context, tx sdktypes.Tx, simulate bool) (sdktypes.Context, error) {
+func DepositAnteHandler(ctx sdktypes.Context, tx sdktypes.Tx, simulate bool) (sdktypes.Context, error) { //nolint:gocritic // hugeparam
 	if _, ok := tx.(*Deposit); ok {
 		ctx = ctx.WithGasMeter(internal.NewFreeInfiniteGasMeter())
 	}
