@@ -15,6 +15,10 @@ FOUNDRY_CACHE_PATH ?= bindings/cache
 monogen:
 	go build -o $(BIN)/monogen ./monogen/cmd
 
+.PHONY: testapp
+testapp:
+	go build -o $(BIN)/testappd ./monogen/testapp/cmd/testappd/
+
 .PHONY: test
 test:
 	$(GO_WRAPPER) test -short ./...
