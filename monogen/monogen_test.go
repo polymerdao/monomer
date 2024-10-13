@@ -27,8 +27,8 @@ func TestGenerate(t *testing.T) {
 	// Generate project.
 	require.NoError(t, monogen.Generate(context.Background(), appDirPath, goModPath, addressPrefix, monomerPath))
 
-	// Run monogen.sh.
-	require.NoError(t, initCommand(t, exec.Command(filepath.Join(appDirPath, "monogen.sh")), appName, rootDirPath, appDirPath).Run())
+	// Run setup-helper.sh.
+	require.NoError(t, initCommand(t, exec.Command(filepath.Join(appDirPath, "setup-helper.sh")), appName, rootDirPath, appDirPath).Run())
 
 	testApp(t, rootDirPath, appDirPath, appName)
 
