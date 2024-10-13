@@ -17,7 +17,7 @@ var (
 		Long: "monogen scaffolds a Monomer project. " +
 			"The resulting project is compatible with the ignite tool (https://github.com/ignite/cli).",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return monogen.Generate(cmd.Context(), appDirPath, goModulePath, addressPrefix, false)
+			return monogen.Generate(cmd.Context(), appDirPath, goModulePath, addressPrefix, "")
 		},
 	}
 
