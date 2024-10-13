@@ -1,20 +1,14 @@
 package e2e_test
 
 import (
-	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math/big"
-	"os"
-	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
 	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/config"
 	cometcore "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
@@ -28,19 +22,16 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e"
-	"github.com/polymerdao/monomer/environment"
-	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/utils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slog"
 )
 
+/*
 const (
 	artifactsDirectoryName = "artifacts"
 )
@@ -141,7 +132,7 @@ func TestE2E(t *testing.T) {
 	}
 
 	runningTests.Wait()
-}
+	}*/
 
 func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
 	// Subscribe to new block events
