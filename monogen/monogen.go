@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"strings"
 
 	cometos "github.com/cometbft/cometbft/libs/os"
 	"github.com/gobuffalo/genny/v2"
@@ -17,6 +17,7 @@ import (
 	"github.com/ignite/cli/v28/ignite/services/scaffolder"
 	"github.com/ignite/cli/v28/ignite/templates/module"
 	"github.com/ignite/cli/v28/ignite/version"
+	"golang.org/x/mod/modfile"
 )
 
 func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix string, skipGit, isTest bool) error {
@@ -244,13 +245,29 @@ func addMonomerCommand(r *genny.Runner, commandsGoPath string) error {
 }
 
 func addReplaceDirectives(r *genny.Runner, goModPath string, isTest bool) error {
-	replacer := placeholder.New()
-
-	goMod, err := r.Disk.Find(goModPath)
+	goModBytes, err := os.ReadFile(goModPath)
 	if err != nil {
-		return fmt.Errorf("find: %v", err)
+		return fmt.Errorf("read go.mod: %v", err)
 	}
-	var monomerReplace string
+
+	mf, err := modfile.Parse(goModPath, goModBytes, nil)
+	if err != nil {
+		return fmt.Errorf("parse go.mod: %v", err)
+	}
+
+	dependencies := []string{
+		"github.com/crate-crypto/go-kzg-4844@v0.7.0",
+		"github.com/quic-go/quic-go@v0.39.3",
+		"github.com/quic-go/webtransport-go@v0.6.0",
+	}
+
+	for _, dep := range dependencies {
+		modulePath, version, _ := strings.Cut(dep, "@")
+		if err := mf.AddRequire(modulePath, version); err != nil {
+			return fmt.Errorf("add require %s: %v", dep, err)
+		}
+	}
+
 	if isTest {
 		currentDir, err := os.Getwd()
 		if err != nil {
@@ -260,32 +277,17 @@ func addReplaceDirectives(r *genny.Runner, goModPath string, isTest bool) error 
 		if err != nil {
 			return fmt.Errorf("get absolute path: %v", err)
 		}
-		monomerReplace = fmt.Sprintf("github.com/polymerdao/monomer => %s", filepath.Dir(currentDirAbs))
+		mf.AddReplace("github.com/polymerdao/monomer", "", filepath.Dir(currentDirAbs), "")
 	}
 
-	dependencies := []string{
-		"cosmossdk.io/core@v0.11.1",
-		"github.com/btcsuite/btcd/btcec/v2@v2.3.2",
-		"github.com/crate-crypto/go-ipa@v0.0.0-20231205143816-408dbffb2041",
-		"github.com/crate-crypto/go-kzg-4844@v0.7.0",
-		"github.com/joshklop/op-geth@v0.0.0-20240515205036-e3b990384a74",
-		"github.com/joshklop/go-libp2p@v0.0.0-20241004015633-cfc9936c6811",
-		"github.com/quic-go/quic-go@v0.39.3",
-		"github.com/quic-go/webtransport-go@v0.6.0",
+	newGoModBytes, err := mf.Format()
+	if err != nil {
+		return fmt.Errorf("format go.mod: %v", err)
 	}
 
-	for _, dep := range dependencies {
-		cmd := exec.Command("go", "get", dep)
-		cmd.Dir = filepath.Dir(goModPath)
-		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("go get %s: %v", dep, err)
-		}
-	}
-	content := replacer.Replace(goMod.String(), "replace (", fmt.Sprintf(`replace (
-		%s
-		`, monomerReplace))
-	if err := r.File(genny.NewFileS(goModPath, content)); err != nil {
+	if err := r.File(genny.NewFileS(goModPath, string(newGoModBytes))); err != nil {
 		return fmt.Errorf("write %s: %v", goModPath, err)
 	}
+
 	return nil
 }
