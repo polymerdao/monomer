@@ -43,4 +43,3 @@ address=$(./testappd keys show dummy-account -a --keyring-backend test)
 # ```
 # ./testappd monomer start --minimum-gas-prices 0.01wei --api.enable --monomer.dev-start
 # ```
-#

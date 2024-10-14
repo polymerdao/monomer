@@ -10,21 +10,34 @@
             font-family: 'Roboto', sans-serif;
             background-color: #f4f4f9;
             margin: 0;
-            padding: 0;
+            padding: 50px;
             display: flex;
             flex-direction: column;
             justify-content: center;
             align-items: center;
-            height: 100vh;
         }
 
-        .container {
+        div {
             text-align: center;
-            background-color: white;
             padding: 40px;
             border-radius: 10px;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
             margin: 20px;
+        }
+
+        .container {
+            background-color: ghostwhite;
+        }
+
+        .section {
+            background-color: white;
+        }
+
+        ul {
+            text-align: left;
+            padding-left: 40px;
+            margin: 0 auto 20px auto;
+            max-width: 750px;
         }
 
         h1 {
@@ -42,6 +55,7 @@
             font-size: 1rem;
             cursor: pointer;
             transition: background-color 0.3s ease;
+            margin: 10px 0;
         }
 
         button:hover {
@@ -52,13 +66,13 @@
             width: 100%;
             max-width: 300px;
             padding: 12px 20px;
-            margin: 10px 0 20px 0;
-            display: inline-block;
+            display: block;
             border: 1px solid #ccc;
             border-radius: 5px;
             box-sizing: border-box;
             font-size: 1rem;
             transition: border-color 0.3s ease;
+            margin: 10px auto 20px;
         }
 
         input:focus {
@@ -75,14 +89,49 @@
     <div class="container">
         <h1>Monomer L1 Wallet Integration</h1>
         <p>Connected account: <span id="account">Not connected</span></p>
-        <input type="text" id="amount" placeholder="Amount in ETH" />
-        <input type="text" id="recipient" placeholder="Cosmos Recipient Address" />
-        <button id="deposit-button">Deposit ETH on L2</button>
+        <div class="section">
+            <h2>Metamask Integration</h2>
+            <p>
+                Before adding the Monomer L1 Devnet to your Metamask wallet, please ensure that you perform the following steps:
+            </p>
+            <ul>
+                <li>
+                    Ensure that you use a separate test wallet for the Monomer L1 Devnet.
+                </li>
+                <li>
+                    If the Monomer L1 Devnet wallet was previously configured, remove the network from Metamask and click the "Clear activity and nonce data" button in the Metamask "Advanced" settings.
+                </li>
+                <li>
+                    Run the Monomer appchain with the flags to start the L1 devnet and OP Stack:
+                    <ul>
+                        <li>
+                            <code>./{AppName}d monomer start --minimum-gas-prices 0.01wei --api.enable --monomer.dev-start --monomer.dev.l1-user-address "0x{YourL1WalletAddress}"</code>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+            <button id="enable-metamask">Add L1 Chain to Metamask</button>
+        </div>
+        <div class="section">
+            <h2>L1 to L2 Deposits</h2>
+            <p>
+                Deposit ETH from L1 to L2 by entering the deposit amount and the Keplr recipient address below.
+            </p>
+            <input type="number" id="amount" placeholder="Deposit amount in ETH" />
+            <input type="text" id="recipient" placeholder="Cosmos L2 Recipient Address" />
+            <button id="deposit-button">Deposit ETH on L2</button>
+        </div>
         <p id="status"></p>
     </div>
     <div class="container">
         <h1>Monomer L2 Wallet Integration</h1>
-        <button id="enable-keplr">Enable Keplr</button>
+        <div class="section">
+            <h2>Keplr Integration</h2>
+            <p>
+                Before adding the Monomer L2 to your Keplr wallet, please remove the chain from your wallet if it was previously added.
+            </p>
+            <button id="enable-keplr">Add L2 Chain to Keplr</button>
+        </div>
     </div>
 </body>
 </html>

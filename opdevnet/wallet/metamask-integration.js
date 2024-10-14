@@ -9,6 +9,7 @@ const depositButton = document.getElementById('deposit-button');
 const statusParagraph = document.getElementById('status');
 const amountInput = document.getElementById('amount');
 const recipientInput = document.getElementById('recipient');
+const enableMetamaskButton = document.getElementById('enable-metamask');
 
 let optimismPortalContract;
 
@@ -32,6 +33,35 @@ async function connectMetamask() {
         console.log('Connected to MetaMask and contract instantiated.');
     } catch (error) {
         console.error('Error connecting to MetaMask:', error);
+    }
+}
+
+async function addL1ChainToMetaMask() {
+    try {
+        await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [{
+                chainId: '0x384', // 900
+                chainName: 'Ethereum (Monomer Devnet)',
+                nativeCurrency: {
+                    name: 'ETH',
+                    symbol: 'ETH',
+                    decimals: 18
+                },
+                rpcUrls: ['http://127.0.0.1:9001'],
+                blockExplorerUrls: []
+            }]
+        });
+        statusParagraph.innerText = 'L1 chain has been added to Metamask!';
+        console.log('Ethereum (Monomer Devnet) added successfully.');
+    } catch (error) {
+        if (error.code === 4001) {
+            console.error('User rejected the request to add the network.');
+            statusParagraph.innerText = 'Request to add network rejected by user.';
+        } else {
+            console.error('Failed to add the network:', error);
+            statusParagraph.innerText = `Error: ${error.message}`;
+        }
     }
 }
 
@@ -100,6 +130,7 @@ function cosmosToEthAddress(cosmosAddress) {
 }
 
 depositButton.addEventListener('click', depositETH);
+enableMetamaskButton.addEventListener('click', addL1ChainToMetaMask);
 
 // Connect to Metamask on page load
 window.addEventListener('load', () => {
