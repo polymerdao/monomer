@@ -60,6 +60,7 @@ const (
 	flagMneumonicsPath    = "monomer.dev.mneumonics"
 	flagL1URL             = "monomer.dev.l1-url"
 	flagOPNodeURL         = "monomer.dev.op-node-url"
+	flagL1UserAddress     = "monomer.dev.l1-user-address"
 
 	defaultCacheSize   = 16 // 16 MB
 	defaultHandlesSize = 16
@@ -83,6 +84,7 @@ func AddMonomerCommand(rootCmd *cobra.Command, appCreator servertypes.AppCreator
 			cmd.Flags().String(flagDeployConfigPath, "", "")
 			cmd.Flags().String(flagL1AllocsPath, "", "")
 			cmd.Flags().String(flagMneumonicsPath, "", "")
+			cmd.Flags().String(flagL1UserAddress, "", "address of the user's L1 account to mint ETH on genesis to")
 		},
 	}))
 	rootCmd.AddCommand(monomerCmd)
@@ -254,6 +256,13 @@ func startOPDevnet(
 	opNodeURL, err := url.ParseString(v.GetString(flagOPNodeURL))
 	if err != nil {
 		return fmt.Errorf("parse op node url: %v", err)
+	}
+
+	if l1UserAddress := v.GetString(flagL1UserAddress); l1UserAddress != "" {
+		l1Allocs.Accounts[l1UserAddress] = state.DumpAccount{
+			Balance: "0x152D02C7E14AF6800000", // 100,000 ETH
+			Nonce:   0,
+		}
 	}
 
 	l1Config, err := opdevnet.BuildL1Config(deployConfig, l1Deployments, l1Allocs, l1URL, os.TempDir())

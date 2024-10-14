@@ -58,8 +58,8 @@ func (cfg *L1Config) Run(ctx context.Context, env *environment.Env, logger log.L
 		func(_ *ethconfig.Config, nodeCfg *node.Config) error {
 			nodeCfg.WSHost = cfg.URL.Hostname()
 			nodeCfg.WSPort = int(cfg.URL.PortU16())
-			// TODO: make L1 http port configurable
-			nodeCfg.HTTPPort = 39473
+			nodeCfg.HTTPHost = cfg.URL.Hostname()
+			nodeCfg.HTTPPort = int(cfg.URL.PortU16())
 			nodeCfg.WSOrigins = []string{"*"}
 			nodeCfg.Logger = newLogger(logger, "l1")
 			return nil
