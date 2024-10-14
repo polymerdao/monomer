@@ -23,7 +23,7 @@ func Run(
 		"run", filepath.Join("..", "monogen", "cmd"),
 		"--app-dir-path", appDirPath,
 		"--gomod-path", "github.com/e2e/"+appName,
-		"--address-prefix", "e2e",
+		"--address-prefix", "e2e", // TODO need path to monomer
 	))
 	if err := monogenCmd.Run(); err != nil {
 		return fmt.Errorf("run monogen: %v", err)

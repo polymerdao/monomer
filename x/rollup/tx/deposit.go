@@ -1,10 +1,12 @@
 package tx
 
 import (
+	"errors"
 	"fmt"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/gogoproto/proto"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/polymerdao/monomer/x/rollup/tx/internal"
 	"github.com/polymerdao/monomer/x/rollup/types"
@@ -43,6 +45,15 @@ func DepositDecoder(txBytes []byte) (sdktypes.Tx, error) {
 	depositMsg := new(types.MsgApplyL1Txs)
 	if err := proto.Unmarshal(txBytes, depositMsg); err != nil {
 		return nil, fmt.Errorf("unmarshal proto: %v", err)
+	}
+	// Right now, MsgApplyL1Txs is not descriptive enough. Sometimes, non-deposit txs properly unmarshal.
+	// For the time being, we do a few sanity checks here.
+	if len(depositMsg.TxBytes) == 0 {
+		return nil, errors.New("there must be at least one deposit tx")
+	}
+	var tx ethtypes.Transaction
+	if err := tx.UnmarshalBinary(depositMsg.TxBytes[0]); err != nil {
+		return nil, fmt.Errorf("cannot unmarshal l1 attributes tx: %v", err)
 	}
 	return &Deposit{
 		Msg: depositMsg,

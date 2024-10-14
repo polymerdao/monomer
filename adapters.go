@@ -38,7 +38,7 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, _ TxSigner, _ string) (b
 		return nil, fmt.Errorf("marshal tx: %v", err)
 	}
 
-	cosmosTxs := make(bfttypes.Txs, 0, 1+numDepositTxs)
+	cosmosTxs := make(bfttypes.Txs, 0)
 	cosmosTxs = append(cosmosTxs, depositTxBytes)
 
 	cosmosNonDepositTxs, err := convertToCosmosNonDepositTxs(ethTxs[numDepositTxs:])
