@@ -83,7 +83,11 @@ func Generate(ctx context.Context, appDirPath, goModulePath, addressPrefix, mono
 	if err != nil {
 		return fmt.Errorf("parse: %v", err)
 	}
-	if err := goMod.AddReplace(goModulePath, "", monomerPath, ""); err != nil {
+	monomerPathAbs, err := filepath.Abs(monomerPath)
+	if err != nil {
+		return fmt.Errorf("absolute monomer path: %v", err)
+	}
+	if err := goMod.AddReplace("github.com/polymerdao/monomer", "", monomerPathAbs, ""); err != nil {
 		return fmt.Errorf("add replace: %v", err)
 	}
 	goModBytes, err = goMod.Format()

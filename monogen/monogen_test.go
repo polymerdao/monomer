@@ -19,7 +19,8 @@ func TestGenerate(t *testing.T) {
 	appDirPath := filepath.Join(rootDirPath, appName)
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
-	monomerPath := filepath.Clean(filepath.Join("..", pwd))
+	monomerPath, err := filepath.Abs(filepath.Dir(pwd))
+	require.NoError(t, err)
 
 	goModPath := "github.com/test/" + appName
 	const addressPrefix = "test"
