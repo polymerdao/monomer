@@ -33,7 +33,7 @@ address=$(./testappd keys show dummy-account -a --keyring-backend test)
 # Add the gentx to the genesis file.
 ./testappd genesis collect-gentxs
 
-# The testapp is ready to run with:
+# The app is ready to run with:
 # ```
 # ./testappd monomer start --minimum-gas-prices 0.01ETH
 # ```
