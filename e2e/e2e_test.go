@@ -6,7 +6,6 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -25,20 +24,16 @@ var e2eTests = []struct {
 	name string
 	run  func(t *testing.T, stack *e2e.StackConfig)
 }{
+	{
+		name: "ETH L1 Deposits and L2 Withdrawals",
+		run:  ethRollupFlow,
+	},
 	/*
-		{
-			name: "ETH L1 Deposits and L2 Withdrawals",
-			run:  ethRollupFlow,
-		},
 		{
 			name: "ERC-20 L1 Deposits",
 			run:  erc20RollupFlow,
-			},*/
-	{
-		name: "CometBFT Txs",
-		run:  cometBFTtx,
-	},
-	/*
+		},
+
 		{
 			name: "AttributesTX",
 			run:  containsAttributesTx,
@@ -67,7 +62,7 @@ func TestE2E2(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	stdoutFile, err := os.OpenFile(filepath.Join(artifactsDir, "stdout"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	stdoutFile, err := os.OpenFile(filepath.Join(artifactsDir, "stdout"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o666)
 	require.NoError(t, err)
 	env.DeferErr("close stdout file", stdoutFile.Close)
 	stdout := os.Stdout
@@ -75,7 +70,7 @@ func TestE2E2(t *testing.T) {
 	defer func() {
 		os.Stdout = stdout
 	}()
-	stderrFile, err := os.OpenFile(filepath.Join(artifactsDir, "stderr"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
+	stderrFile, err := os.OpenFile(filepath.Join(artifactsDir, "stderr"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o666)
 	require.NoError(t, err)
 	env.DeferErr("close stderr file", stderrFile.Close)
 	stderr := os.Stderr
@@ -87,19 +82,19 @@ func TestE2E2(t *testing.T) {
 	require.NoError(t, e2e.Run(context.Background(), env, t.TempDir()))
 
 	// Run tests concurrently, against the same stack.
-	runningTests := sync.WaitGroup{}
-	runningTests.Add(len(e2eTests))
+	// runningTests := sync.WaitGroup{}
+	// runningTests.Add(len(e2eTests))
 
 	for _, test := range e2eTests {
 		t.Run(test.name, func(t *testing.T) {
-			go func() {
-				defer runningTests.Done()
-				test.run(t, newStackConfig(t))
-			}()
+			//			go func() {
+			//			defer runningTests.Done()
+			test.run(t, newStackConfig(t))
+			//	}()
 		})
 	}
 
-	runningTests.Wait()
+	// runningTests.Wait()
 }
 
 func newStackConfig(t *testing.T) *e2e.StackConfig {

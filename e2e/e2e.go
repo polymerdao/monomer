@@ -16,6 +16,10 @@ func Run(
 	env *environment.Env,
 	outDir string,
 ) error {
+	monomerPath, err := filepath.Abs("..")
+	if err != nil {
+		return fmt.Errorf("absolute path to local monomer directory: %v", err)
+	}
 	const appName = "e2eapp"
 	appDirPath := filepath.Join(outDir, appName)
 	monogenCmd := setupCmd(exec.CommandContext(ctx,
@@ -23,7 +27,8 @@ func Run(
 		"run", filepath.Join("..", "monogen", "cmd"),
 		"--app-dir-path", appDirPath,
 		"--gomod-path", "github.com/e2e/"+appName,
-		"--address-prefix", "e2e", // TODO need path to monomer
+		"--address-prefix", "e2e",
+		"--monomer-path", monomerPath,
 	))
 	if err := monogenCmd.Run(); err != nil {
 		return fmt.Errorf("run monogen: %v", err)

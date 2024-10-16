@@ -1,16 +1,32 @@
 package e2e_test
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
+	basev1beta1 "cosmossdk.io/api/cosmos/base/v1beta1"
+	signingv1beta1 "cosmossdk.io/api/cosmos/tx/signing/v1beta1"
+	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
 	"cosmossdk.io/math"
+	sdkmath "cosmossdk.io/math"
+	txsigning "cosmossdk.io/x/tx/signing"
+	"cosmossdk.io/x/tx/signing/direct"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cometcore "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	"github.com/cosmos/cosmos-sdk/x/auth/tx"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	"github.com/cosmos/gogoproto/proto"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/receipts"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
@@ -23,12 +39,14 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/utils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/anypb"
 )
 
 /*
@@ -195,8 +213,99 @@ func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
 }
 
-func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
-	txBytes := testapp.ToTestTx(t, "userTxKey", "userTxValue")
+func cometBFTtx(t *testing.T, stack *e2e.StackConfig, fromPrivKey *secp256k1.PrivKey, fromSeqNum, fromAccNum uint64, to string) {
+	fromAddr := to // pubkey does not match signer address
+	anys, err := sdktx.SetMsgs([]proto.Message{&banktypes.MsgSend{
+		FromAddress: fromAddr,
+		ToAddress:   to,
+		Amount:      sdktypes.NewCoins(sdktypes.NewCoin(rolluptypes.ETH, sdkmath.NewInt(200000))),
+	}})
+	require.NoError(t, err)
+
+	modeInfo, _ := tx.SignatureDataToModeInfoAndSig(&signing.SingleSignatureData{
+		SignMode: signing.SignMode_SIGN_MODE_DIRECT,
+	})
+
+	pubKey, err := codectypes.NewAnyWithValue(fromPrivKey.PubKey())
+	require.NoError(t, err)
+
+	pubKeyAnyPB, err := anypb.New(protov1.MessageV2(pubKey))
+	require.NoError(t, err)
+
+	sendMsgAnyPB, err := anypb.New(protov1.MessageV2(&banktypes.MsgSend{
+		FromAddress: fromAddr,
+		ToAddress:   to,
+		Amount:      sdktypes.NewCoins(sdktypes.NewCoin(rolluptypes.ETH, sdkmath.NewInt(200000))),
+	}))
+	require.NoError(t, err)
+
+	body := &txv1beta1.TxBody{
+		Messages: []*anypb.Any{sendMsgAnyPB},
+	}
+	authInfo := &txv1beta1.AuthInfo{
+		SignerInfos: []*txv1beta1.SignerInfo{
+			{
+				PublicKey: pubKeyAnyPB,
+				ModeInfo: &txv1beta1.ModeInfo{
+					Sum: &txv1beta1.ModeInfo_Single_{
+						Single: &txv1beta1.ModeInfo_Single{
+							Mode: signingv1beta1.SignMode_SIGN_MODE_DIRECT,
+						},
+					},
+				},
+				Sequence: fromSeqNum,
+			},
+		},
+		Fee: &txv1beta1.Fee{
+			Amount: []*basev1beta1.Coin{
+				{
+					Denom:  rolluptypes.ETH,
+					Amount: "200000",
+				},
+			},
+			GasLimit: 200000,
+		},
+	}
+	bodyBytes, err := proto.Marshal(body)
+	require.NoError(t, err)
+	authInfoBytes, err := proto.Marshal(authInfo)
+	require.NoError(t, err)
+	signBytes, err := direct.SignModeHandler{}.GetSignBytes(context.Background(), txsigning.SignerData{
+		Address:       fromAddr,
+		ChainID:       stack.RollupConfig.L2ChainID.String(),
+		AccountNumber: fromAccNum,
+		Sequence:      fromSeqNum,
+		PubKey:        pubKeyAnyPB,
+	}, txsigning.TxData{
+		Body:          body,
+		AuthInfo:      authInfo,
+		BodyBytes:     bodyBytes,
+		AuthInfoBytes: authInfoBytes,
+	})
+	require.NoError(t, err)
+	signature, err := fromPrivKey.Sign(signBytes)
+	require.NoError(t, err)
+
+	tx := &sdktx.Tx{
+		Body: &sdktx.TxBody{
+			Messages: anys,
+		},
+		AuthInfo: &sdktx.AuthInfo{
+			Fee: &sdktx.Fee{
+				Amount:   sdktypes.Coins{sdktypes.NewCoin(rolluptypes.ETH, sdkmath.NewInt(1000000))},
+				GasLimit: 200000,
+			},
+			SignerInfos: []*sdktx.SignerInfo{{
+				PublicKey: pubKey,
+				ModeInfo:  modeInfo,
+				Sequence:  fromSeqNum,
+			}},
+		},
+		Signatures: [][]byte{signature},
+	}
+	txBytes, err := tx.Marshal()
+	require.NoError(t, err)
+
 	bftTx := bfttypes.Tx(txBytes)
 
 	putTx, err := stack.L2Client.BroadcastTxAsync(stack.Ctx, txBytes)
@@ -211,12 +320,10 @@ func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
 	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
 	t.Log("Monomer can reject malformed cometbft txs")
 
-	// wait for tx to be processed
 	err = stack.WaitL2(1)
 	require.NoError(t, err)
 
 	getTx, err := stack.L2Client.Tx(stack.Ctx, bftTx.Hash(), false)
-
 	require.NoError(t, err)
 	require.Equal(t, abcitypes.CodeTypeOK, getTx.TxResult.Code, "txResult.Code is not OK")
 	require.Equal(t, bftTx, getTx.Tx, "txBytes do not match")
@@ -229,11 +336,10 @@ func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
 
 func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
-	monomerClient := stack.MonomerClient
+	//monomerClient := stack.MonomerClient
 
-	b, err := monomerClient.BlockByNumber(stack.Ctx, nil)
-	require.NoError(t, err, "monomer block by number")
-	l2blockGasLimit := b.GasLimit()
+	//b, err := monomerClient.BlockByNumber(stack.Ctx, nil)
+	//require.NoError(t, err, "monomer block by number")
 
 	l1ChainID, err := l1Client.ChainID(stack.Ctx)
 	require.NoError(t, err, "chain id")
@@ -243,8 +349,9 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	userAddress := crypto.PubkeyToAddress(userPrivKey.PublicKey)
 	l1signer := types.NewEIP155Signer(l1ChainID)
 
-	l2GasLimit := l2blockGasLimit / 10
-	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+	latestL1Block, err := stack.L1Client.BlockByNumber(context.Background(), nil)
+	require.NoError(t, err)
+	l1GasLimit := latestL1Block.GasLimit() / 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
 
 	//////////////////////////
 	////// ETH DEPOSITS //////
@@ -260,7 +367,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, depositAmount),
 		userAddress,
 		depositAmount,
-		l2GasLimit,
+		l1GasLimit-100,
 		false,    // _isCreation
 		[]byte{}, // no data
 	)
@@ -307,11 +414,29 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// check that the user's balance has been updated on L1
 	require.Equal(t, expectedBalance, balanceAfterDeposit)
 
-	userCosmosAddr := utils.EvmToCosmosAddress(userAddress).String()
+	userCosmosAddr := utils.EvmToCosmosAddress("e2e", userAddress) // TODO: need to convert using pub key
 	depositValueHex := hexutil.Encode(depositAmount.Bytes())
 	requireEthIsMinted(t, stack, userCosmosAddr, depositValueHex)
 
 	t.Log("Monomer can ingest user deposit txs from L1 and mint ETH on L2")
+
+	////////////////////////////
+	/////// ETH Transfer ///////
+	////////////////////////////
+
+	requestBytes, err := (&authtypes.QueryAccountRequest{
+		Address: userCosmosAddr,
+	}).Marshal()
+	result, err := stack.L2Client.ABCIQuery(context.Background(), "/cosmos.auth.v1beta1.Query/Account", requestBytes)
+	require.NoError(t, err)
+	require.Zero(t, result.Response.Code)
+	response := new(authtypes.QueryAccountResponse)
+	require.NoError(t, proto.Unmarshal(result.Response.Value, response))
+	baseAccount := new(authtypes.BaseAccount)
+	require.NoError(t, proto.Unmarshal(response.GetAccount().Value, baseAccount))
+	cometBFTtx(t, stack, &secp256k1.PrivKey{
+		Key: crypto.FromECDSA(userPrivKey),
+	}, baseAccount.GetSequence(), baseAccount.GetAccountNumber(), userCosmosAddr) // Send and receive funds to same address.
 
 	/////////////////////////////
 	////// ETH WITHDRAWALS //////
@@ -324,7 +449,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
 		stack.Ctx,
 		testapp.ToTx(t, &rolluptypes.MsgInitiateWithdrawal{
-			Sender:   utils.EvmToCosmosAddress(*withdrawalTx.Sender).String(),
+			Sender:   utils.EvmToCosmosAddress("e2e", *withdrawalTx.Sender),
 			Target:   withdrawalTx.Target.String(),
 			Value:    math.NewIntFromBigInt(withdrawalTx.Value),
 			GasLimit: withdrawalTx.GasLimit.Bytes(),
@@ -521,7 +646,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, stack.WaitL2(1))
 
 	// assert the user's bridged WETH is on L2
-	requireERC20IsMinted(t, stack, utils.EvmToCosmosAddress(userAddress).String(), weth9Address.String(), hexutil.Encode(wethL2Amount.Bytes()))
+	requireERC20IsMinted(t, stack, utils.EvmToCosmosAddress("e2e", userAddress), weth9Address.String(), hexutil.Encode(wethL2Amount.Bytes()))
 
 	t.Log("Monomer can ingest ERC-20 deposit txs from L1 and mint ERC-20 tokens on L2")
 }
@@ -598,10 +723,10 @@ func createL1TransactOpts(
 		},
 		Nonce:    getCurrentUserNonce(t, stack, address),
 		GasPrice: getSuggestedL1GasPrice(t, stack),
-		GasLimit: l1GasLimit,
-		Value:    value,
-		Context:  stack.Ctx,
-		NoSend:   false,
+		//GasLimit: l1GasLimit,
+		Value:   value,
+		Context: stack.Ctx,
+		NoSend:  false,
 	}
 }
 

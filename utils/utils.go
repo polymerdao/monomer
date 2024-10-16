@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io"
 
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/types/bech32"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/hashicorp/go-multierror"
 )
@@ -25,6 +25,10 @@ func WrapCloseErr(err error, closer io.Closer) error {
 }
 
 // EvmToCosmosAddress converts an EVM address to a sdktypes.AccAddress
-func EvmToCosmosAddress(addr common.Address) sdktypes.AccAddress {
-	return addr.Bytes()
+func EvmToCosmosAddress(prefix string, ethAddr common.Address) string {
+	addr, err := bech32.ConvertAndEncode(prefix, ethAddr.Bytes())
+	if err != nil {
+		panic(fmt.Errorf("convert and encode: %v", err))
+	}
+	return addr
 }

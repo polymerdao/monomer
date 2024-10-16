@@ -1,11 +1,12 @@
 package helpers
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	authtx "github.com/cosmos/cosmos-sdk/x/auth/tx"
+	"github.com/hashicorp/go-multierror"
 	rolluptx "github.com/polymerdao/monomer/x/rollup/tx"
 )
 
@@ -20,13 +21,16 @@ func NewTxDecoder(cdc codec.Codec) *TxDecoder {
 }
 
 func (d *TxDecoder) Decode(txBytes []byte) (sdktypes.Tx, error) {
-	for _, decoder := range []sdktypes.TxDecoder{
-		d.authTxDecoder,
-		rolluptx.DepositDecoder,
+	var err error
+	for name, decoder := range map[string]sdktypes.TxDecoder{
+		"auth tx":    d.authTxDecoder,
+		"deposit tx": rolluptx.DepositDecoder,
 	} {
-		if tx, err := decoder(txBytes); err == nil {
+		tx, decodeErr := decoder(txBytes)
+		if decodeErr == nil {
 			return tx, nil
 		}
+		err = multierror.Append(err, fmt.Errorf("%s: %v", name, decodeErr))
 	}
-	return nil, errors.New("failed to decode tx")
+	return nil, err
 }

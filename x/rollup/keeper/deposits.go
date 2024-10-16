@@ -121,9 +121,16 @@ func (k *Keeper) processL1UserDepositTxs(
 			ctx.Logger().Error("Failed to get sender address", "evmAddress", from, "err", err)
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to get sender address: %v", err)
 		}
-		mintAddr := utils.EvmToCosmosAddress(from)
+		addrPrefix := sdk.GetConfig().GetBech32AccountAddrPrefix()
+		mintAddr, err := sdk.AccAddressFromBech32(utils.EvmToCosmosAddress(addrPrefix, from))
+		if err != nil {
+			return nil, fmt.Errorf("acc address from bech32: %v", err)
+		}
 		mintAmount := sdkmath.NewIntFromBigInt(tx.Mint())
-		recipientAddr := utils.EvmToCosmosAddress(*tx.To())
+		recipientAddr, err := sdk.AccAddressFromBech32(utils.EvmToCosmosAddress(addrPrefix, *tx.To()))
+		if err != nil {
+			return nil, fmt.Errorf("acc address from bech 32: %v", err)
+		}
 		transferAmount := sdkmath.NewIntFromBigInt(tx.Value())
 
 		mintEvent, err := k.mintETH(ctx, mintAddr, recipientAddr, mintAmount, transferAmount)
@@ -184,9 +191,13 @@ func (k *Keeper) parseAndExecuteCrossDomainMessage(ctx sdk.Context, txData []byt
 		}
 
 		// Mint the ERC-20 token to the specified Cosmos address
+		toAddr, err := sdk.AccAddressFromBech32(utils.EvmToCosmosAddress(sdk.GetConfig().GetBech32AccountAddrPrefix(), finalizeBridgeERC20.To))
+		if err != nil {
+			return nil, fmt.Errorf("acc address from bech32: %v", err)
+		}
 		mintEvent, err := k.mintERC20(
 			ctx,
-			utils.EvmToCosmosAddress(finalizeBridgeERC20.To),
+			toAddr,
 			finalizeBridgeERC20.RemoteToken.String(),
 			sdkmath.NewIntFromBigInt(finalizeBridgeERC20.Amount),
 		)
