@@ -27,10 +27,15 @@
 
         .container {
             background-color: ghostwhite;
+            width: 100%;
+            max-width: 800px;
         }
 
         .section {
             background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
         }
 
         ul {
@@ -44,6 +49,12 @@
             font-size: 2rem;
             color: #333;
             margin-bottom: 20px;
+        }
+
+        h2 {
+            font-size: 1.5rem;
+            color: #444;
+            margin-bottom: 15px;
         }
 
         button {
@@ -62,22 +73,41 @@
             background-color: #0056b3;
         }
 
-        input {
-            width: 100%;
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin: 20px auto;
             max-width: 300px;
+        }
+
+        .form-group label {
+            margin-bottom: 5px;
+            font-weight: 500;
+            color: #333;
+            font-size: 1rem;
+        }
+
+        .form-group input {
+            width: 100%;
             padding: 12px 20px;
-            display: block;
             border: 1px solid #ccc;
             border-radius: 5px;
             box-sizing: border-box;
             font-size: 1rem;
             transition: border-color 0.3s ease;
-            margin: 10px auto 20px;
+            margin-bottom: 15px;
         }
 
-        input:focus {
+        .form-group input:focus {
             border-color: #007bff;
             outline: none;
+        }
+
+        #status {
+            color: green;
+            font-weight: bold;
+            margin-top: 20px;
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
@@ -86,52 +116,80 @@
     <script src="keplr-integration.js?v=1.0" defer></script>
 </head>
 <body>
-    <div class="container">
-        <h1>Monomer L1 Wallet Integration</h1>
-        <p>Connected account: <span id="account">Not connected</span></p>
-        <div class="section">
-            <h2>Metamask Integration</h2>
-            <p>
-                Before adding the Monomer L1 Devnet to your Metamask wallet, please ensure that you perform the following steps:
-            </p>
-            <ul>
-                <li>
-                    Ensure that you use a separate test wallet for the Monomer L1 Devnet.
-                </li>
-                <li>
-                    If the Monomer L1 Devnet wallet was previously configured, remove the network from Metamask and click the "Clear activity and nonce data" button in the Metamask "Advanced" settings.
-                </li>
-                <li>
-                    Run the Monomer appchain with the flags to start the L1 devnet and OP Stack:
-                    <ul>
-                        <li>
-                            <code>./{AppName}d monomer start --minimum-gas-prices 0.01wei --api.enable --monomer.dev-start --monomer.dev.l1-user-address "0x{YourL1WalletAddress}"</code>
-                        </li>
-                    </ul>
-                </li>
-            </ul>
-            <button id="enable-metamask">Add L1 Chain to Metamask</button>
-        </div>
-        <div class="section">
-            <h2>L1 to L2 Deposits</h2>
-            <p>
-                Deposit ETH from L1 to L2 by entering the deposit amount and the Keplr recipient address below.
-            </p>
-            <input type="number" id="amount" placeholder="Deposit amount in ETH" />
-            <input type="text" id="recipient" placeholder="Cosmos L2 Recipient Address" />
-            <button id="deposit-button">Deposit ETH on L2</button>
-        </div>
-        <p id="status"></p>
+<div class="container">
+    <h1>Monomer L1 Wallet Integration</h1>
+    <p>Connected account: <span id="account">Not connected</span></p>
+
+    <div class="section">
+        <h2>Metamask Integration</h2>
+        <p>
+            Before adding the Monomer L1 Devnet to your Metamask wallet, please ensure that you perform the following steps:
+        </p>
+        <ul>
+            <li>
+                Ensure that you use a separate test wallet for the Monomer L1 Devnet.
+            </li>
+            <li>
+                If the Monomer L1 Devnet wallet was previously configured, remove the network from Metamask and click the "Clear activity and nonce data" button in the Metamask "Advanced" settings.
+            </li>
+            <li>
+                Run the Monomer appchain with the flags to start the L1 devnet and OP Stack:
+                <ul>
+                    <li>
+                        <code>./{AppName}d monomer start --minimum-gas-prices 0.01wei --api.enable --monomer.dev-start --monomer.dev.l1-user-address "0x{YourL1WalletAddress}"</code>
+                    </li>
+                </ul>
+            </li>
+        </ul>
+        <button id="enable-metamask">Add L1 Chain to Metamask</button>
     </div>
-    <div class="container">
-        <h1>Monomer L2 Wallet Integration</h1>
-        <div class="section">
-            <h2>Keplr Integration</h2>
-            <p>
-                Before adding the Monomer L2 to your Keplr wallet, please remove the chain from your wallet if it was previously added.
-            </p>
-            <button id="enable-keplr">Add L2 Chain to Keplr</button>
+
+    <div class="section">
+        <h2>L1 to L2 ETH Deposits</h2>
+        <p>
+            Deposit ETH from L1 to L2 by entering the deposit amount and the Keplr recipient address below.
+        </p>
+        <div class="form-group">
+            <label for="eth-amount">ETH Deposit Amount</label>
+            <input type="number" id="eth-amount" name="eth-amount" />
+
+            <label for="eth-recipient">Cosmos L2 Recipient Address</label>
+            <input type="text" id="eth-recipient" name="eth-recipient" />
         </div>
+        <button id="eth-deposit-button">Deposit ETH on L2</button>
     </div>
+
+    <div class="section">
+        <h2>L1 to L2 ERC-20 Deposits</h2>
+        <p>
+            Deposit ERC-20 Tokens from L1 to L2 by entering the deposit amount, the L1 token address, and Keplr recipient address below.
+            TODO: Do we need to add a step to approve the token transfer?
+        </p>
+        <div class="form-group">
+            <label for="erc20-amount">ERC-20 Deposit Amount</label>
+            <input type="number" id="erc20-amount" name="erc20-amount" />
+
+            <label for="erc20-token-addr">ERC-20 L1 Token Address</label>
+            <input type="text" id="erc20-token-addr" name="erc20-token-addr" />
+
+            <label for="erc20-recipient">Cosmos L2 Recipient Address</label>
+            <input type="text" id="erc20-recipient" name="erc20-recipient" />
+        </div>
+        <button id="erc20-deposit-button">Deposit ERC-20 on L2</button>
+    </div>
+
+    <p id="status"></p>
+</div>
+
+<div class="container">
+    <h1>Monomer L2 Wallet Integration</h1>
+    <div class="section">
+        <h2>Keplr Integration</h2>
+        <p>
+            Before adding the Monomer L2 to your Keplr wallet, please remove the chain from your wallet if it was previously added.
+        </p>
+        <button id="enable-keplr">Add L2 Chain to Keplr</button>
+    </div>
+</div>
 </body>
 </html>
