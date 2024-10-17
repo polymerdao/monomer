@@ -118,7 +118,9 @@ func startCommandHandler(
 		return fmt.Errorf("validate server config: %v", err)
 	}
 
-	app, err := startApp(env, svrCtx, appCreator, opts)
+	isDevnet := svrCtx.Viper.GetBool(flagDev)
+
+	app, err := startApp(env, svrCtx, appCreator, isDevnet, opts)
 	if err != nil {
 		return fmt.Errorf("start application: %v", err)
 	}
@@ -158,11 +160,12 @@ func startCommandHandler(
 		l2ChainID,
 		appGenesis.AppState,
 		uint64(appGenesis.GenesisTime.Unix()),
+		isDevnet,
 	); err != nil {
 		return fmt.Errorf("start Monomer node in-process: %v", err)
 	}
 
-	if svrCtx.Viper.GetBool(flagDev) {
+	if isDevnet {
 		if err := startOPDevnet(monomerCtx, env, &cosmosToETHLogger{
 			log: svrCtx.Logger,
 		}, svrCtx.Viper, engineURL, l2ChainID); err != nil {
@@ -313,9 +316,14 @@ func startApp(
 	env *environment.Env,
 	svrCtx *server.Context,
 	appCreator servertypes.AppCreator,
+	devnet bool,
 	opts server.StartCmdOptions,
 ) (servertypes.Application, error) {
-	db, err := opts.DBOpener(svrCtx.Config.RootDir, server.GetAppDBBackend(svrCtx.Viper))
+	backendType := server.GetAppDBBackend(svrCtx.Viper)
+	if devnet {
+		backendType = dbm.MemDBBackend
+	}
+	db, err := opts.DBOpener(svrCtx.Config.RootDir, backendType)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %v", err)
 	}
@@ -343,11 +351,12 @@ func startInProcess(
 	l2ChainID uint64,
 	appState json.RawMessage,
 	genesisTime uint64,
+	isDevnet bool,
 ) error {
 	svrCtx.Logger.Info("Starting Monomer node in-process")
 	if err := startMonomerNode(&WrappedApplication{
 		app: app,
-	}, env, monomerCtx, svrCtx, clientCtx, engineWS, l2ChainID, appState, genesisTime); err != nil {
+	}, env, monomerCtx, svrCtx, clientCtx, engineWS, l2ChainID, appState, genesisTime, isDevnet); err != nil {
 		return fmt.Errorf("start Monomer node: %v", err)
 	}
 
@@ -392,6 +401,7 @@ func startMonomerNode(
 	l2ChainID uint64,
 	appStateJSON json.RawMessage,
 	genesisTime uint64,
+	devnet bool,
 ) error {
 	cmtListenAddr := svrCtx.Config.RPC.ListenAddress
 	cmtListenAddr = strings.TrimPrefix(cmtListenAddr, "tcp://")
@@ -408,8 +418,14 @@ func startMonomerNode(
 	*clientCtx = clientCtx.WithClient(rpcclient)
 	clientCtx.ChainID = fmt.Sprintf("%d", l2ChainID)
 
+	backendType := dbm.BackendType(svrCtx.Config.DBBackend)
+	if devnet {
+		backendType = dbm.MemDBBackend
+		svrCtx.Logger.Info("Overriding provided db backend to use in-memory for devnet")
+	}
+
 	var blockPebbleDB *pebble.DB
-	if backendType := dbm.BackendType(svrCtx.Config.DBBackend); backendType == dbm.MemDBBackend {
+	if backendType == dbm.MemDBBackend {
 		blockPebbleDB, err = pebble.Open("", &pebble.Options{
 			FS: vfs.NewMem(),
 		})
@@ -424,13 +440,13 @@ func startMonomerNode(
 	}
 	env.DeferErr("close block db", blockPebbleDB.Close)
 
-	txdb, err := cometdb.NewDB("tx", cometdb.BackendType(svrCtx.Config.DBBackend), svrCtx.Config.RootDir)
+	txdb, err := cometdb.NewDB("tx", cometdb.BackendType(backendType), svrCtx.Config.RootDir)
 	if err != nil {
 		return fmt.Errorf("create tx db: %v", err)
 	}
 	env.DeferErr("close tx db", txdb.Close)
 
-	mempooldb, err := dbm.NewDB("mempool", dbm.BackendType(svrCtx.Config.DBBackend), svrCtx.Config.RootDir)
+	mempooldb, err := dbm.NewDB("mempool", backendType, svrCtx.Config.RootDir)
 	if err != nil {
 		return fmt.Errorf("create mempool db: %v", err)
 	}
