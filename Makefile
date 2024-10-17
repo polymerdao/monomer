@@ -11,10 +11,6 @@ E2E_CONFIG_SETUP_PATH ?= e2e/optimism/packages/contracts-bedrock/deploy-config/d
 FOUNDRY_ARTIFACTS_PATH ?= bindings/artifacts
 FOUNDRY_CACHE_PATH ?= bindings/cache
 
-.PHONY: monogen
-monogen:
-	go build -o $(BIN)/monogen ./monogen/cmd
-
 .PHONY: test
 test:
 	$(GO_WRAPPER) test -short ./...
