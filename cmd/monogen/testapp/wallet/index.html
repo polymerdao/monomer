@@ -108,7 +108,10 @@
                         configured, click the "Clear activity and nonce data"
                         button in the Metamask "Advanced" settings and remove
                         the network from Metamask in the "Networks" tab. Then,
-                        you can re-add the network.
+                        you can re-add the network. The network will need to be
+                        re-added every time you restart the devnet to ensure
+                        that your wallet can properly sign transactions on the
+                        chain.
                     </li>
                     <li>
                         Run the Monomer appchain with the flags to start the L1
@@ -116,7 +119,7 @@
                         <ul>
                             <li>
                                 <code
-                                    >./{AppName}d monomer start
+                                    >./testappd monomer start
                                     --minimum-gas-prices 0.01wei --api.enable
                                     --monomer.dev-start
                                     --monomer.dev.l1-user-address
