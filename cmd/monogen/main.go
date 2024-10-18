@@ -6,7 +6,6 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/polymerdao/monomer/monogen"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +16,7 @@ var (
 		Long: "monogen scaffolds a Monomer project. " +
 			"The resulting project is compatible with the ignite tool (https://github.com/ignite/cli).",
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			return monogen.Generate(cmd.Context(), appDirPath, goModulePath, addressPrefix, monomerPath)
+			return Generate(cmd.Context(), appDirPath, goModulePath, addressPrefix, monomerPath)
 		},
 	}
 

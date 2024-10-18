@@ -1,4 +1,4 @@
-module github.com/polymerdao/monomer/monogen/testapp
+module github.com/polymerdao/monomer/cmd/monogen/testapp
 
 go 1.22.0
 
@@ -9,11 +9,13 @@ replace (
 	github.com/btcsuite/btcd/btcec/v2 v2.3.4 => github.com/btcsuite/btcd/btcec/v2 v2.3.2
 	github.com/crate-crypto/go-ipa => github.com/crate-crypto/go-ipa v0.0.0-20231205143816-408dbffb2041
 	github.com/crate-crypto/go-kzg-4844 v1.0.0 => github.com/crate-crypto/go-kzg-4844 v0.7.0
+	github.com/ethereum-optimism/optimism => github.com/ethereum-optimism/optimism v1.7.4
 	github.com/ethereum/go-ethereum => github.com/joshklop/op-geth v0.0.0-20240515205036-e3b990384a74
 
 	// fix upstream GHSA-h395-qcrw-5vmq vulnerability.
 	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.7.0
 	github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20241004015633-cfc9936c6811
+	github.com/polymerdao/monomer => github.com/polymerdao/monomer v0.1.1
 	github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.39.3
 	github.com/quic-go/webtransport-go => github.com/quic-go/webtransport-go v0.6.0
 	// replace broken goleveldb

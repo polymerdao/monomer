@@ -39,7 +39,7 @@ import (
 	_ "github.com/polymerdao/monomer/x/rollup"
 	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/polymerdao/monomer/x/rollup/tx/helpers"
-	"github.com/polymerdao/monomer/monogen/testapp/docs"
+	"github.com/polymerdao/monomer/cmd/monogen/testapp/docs"
 )
 
 const (

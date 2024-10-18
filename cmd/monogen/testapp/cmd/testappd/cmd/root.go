@@ -20,7 +20,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 
-	"github.com/polymerdao/monomer/monogen/testapp/app"
+	"github.com/polymerdao/monomer/cmd/monogen/testapp/app"
 )
 
 // NewRootCmd creates a new root command for testappd. It is called once in the main function.

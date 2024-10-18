@@ -7,8 +7,8 @@ import (
 	clienthelpers "cosmossdk.io/client/v2/helpers"
 	svrcmd "github.com/cosmos/cosmos-sdk/server/cmd"
 
-	"github.com/polymerdao/monomer/monogen/testapp/app"
-	"github.com/polymerdao/monomer/monogen/testapp/cmd/testappd/cmd"
+	"github.com/polymerdao/monomer/cmd/monogen/testapp/app"
+	"github.com/polymerdao/monomer/cmd/monogen/testapp/cmd/testappd/cmd"
 )
 
 func main() {

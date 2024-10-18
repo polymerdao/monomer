@@ -1,4 +1,4 @@
-package monogen
+package main
 
 import (
 	"archive/zip"
@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/polymerdao/monomer/utils"
+	"github.com/hashicorp/go-multierror"
 	"golang.org/x/mod/modfile"
 )
 
@@ -112,7 +112,7 @@ func replaceModulePath(path, modulePath, appName string, fileInfo fs.FileInfo, e
 	if err != nil {
 		return fmt.Errorf("read file: %v", err)
 	}
-	newString := strings.ReplaceAll(string(fileBytes), "github.com/polymerdao/monomer/monogen/testapp", modulePath)
+	newString := strings.ReplaceAll(string(fileBytes), "github.com/polymerdao/monomer/cmd/monogen/testapp", modulePath)
 	newString = strings.ReplaceAll(newString, "testapp", appName)
 	if err := os.WriteFile(path, []byte(newString), fileInfo.Mode()); err != nil {
 		return fmt.Errorf("write file: %v", err)
@@ -126,7 +126,7 @@ func writeFile(file *zip.File, outPath string) (err error) {
 		return fmt.Errorf("open file: %v", err)
 	}
 	defer func() {
-		err = utils.WrapCloseErr(err, outFile)
+		err = wrapCloseErr(err, outFile)
 	}()
 
 	rc, err := file.Open()
@@ -134,10 +134,21 @@ func writeFile(file *zip.File, outPath string) (err error) {
 		return fmt.Errorf("open file in zip: %v", err)
 	}
 	defer func() {
-		err = utils.WrapCloseErr(err, rc)
+		err = wrapCloseErr(err, rc)
 	}()
 	if _, err = io.Copy(outFile, rc); err != nil { //nolint:gosec // G110: decompression bomb. Not a concern since we know the payload.
 		return fmt.Errorf("copy file content: %v", err)
+	}
+	return nil
+}
+
+func wrapCloseErr(err error, closer io.Closer) error {
+	closeErr := closer.Close()
+	if closeErr != nil {
+		closeErr = fmt.Errorf("close: %v", closeErr)
+	}
+	if err != nil || closeErr != nil {
+		return multierror.Append(err, closeErr)
 	}
 	return nil
 }
