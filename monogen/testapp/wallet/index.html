@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>Monomer Devnet Wallet Integration</title>
+        <link
+            href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            body {
+                font-family: "Roboto", sans-serif;
+                background-color: #f4f4f9;
+                margin: 0;
+                padding: 50px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                align-items: center;
+            }
+
+            div {
+                text-align: center;
+                padding: 40px;
+                border-radius: 10px;
+                box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                margin: 20px;
+            }
+
+            .container {
+                background-color: ghostwhite;
+            }
+
+            .section {
+                background-color: white;
+            }
+
+            ul {
+                text-align: left;
+                padding-left: 40px;
+                margin: 0 auto 20px auto;
+                max-width: 750px;
+            }
+
+            h1 {
+                font-size: 2rem;
+                color: #333;
+                margin-bottom: 20px;
+            }
+
+            button {
+                background-color: #007bff;
+                color: white;
+                border: none;
+                padding: 12px 24px;
+                border-radius: 5px;
+                font-size: 1rem;
+                cursor: pointer;
+                transition: background-color 0.3s ease;
+                margin: 10px 0;
+            }
+
+            button:hover {
+                background-color: #0056b3;
+            }
+
+            input {
+                width: 100%;
+                max-width: 300px;
+                padding: 12px 20px;
+                display: block;
+                border: 1px solid #ccc;
+                border-radius: 5px;
+                box-sizing: border-box;
+                font-size: 1rem;
+                transition: border-color 0.3s ease;
+                margin: 10px auto 20px;
+            }
+
+            input:focus {
+                border-color: #007bff;
+                outline: none;
+            }
+        </style>
+        <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+        <script src="bech32.js"></script>
+        <script src="metamask-integration.js?v=1.0" defer></script>
+        <script src="keplr-integration.js?v=1.0" defer></script>
+    </head>
+    <body>
+        <div class="container">
+            <h1>Monomer L1 Wallet Integration</h1>
+            <p>Connected account: <span id="account">Not connected</span></p>
+            <div class="section">
+                <h2>Metamask Integration</h2>
+                <p>
+                    Before adding the Monomer L1 Devnet to your Metamask wallet,
+                    please ensure that you perform the following steps:
+                </p>
+                <ul>
+                    <li>
+                        Ensure that you use a separate test wallet for the
+                        Monomer L1 Devnet.
+                    </li>
+                    <li>
+                        If the Monomer L1 Devnet wallet was previously
+                        configured, click the "Clear activity and nonce data"
+                        button in the Metamask "Advanced" settings and remove
+                        the network from Metamask in the "Networks" tab. Then,
+                        you can re-add the network.
+                    </li>
+                    <li>
+                        Run the Monomer appchain with the flags to start the L1
+                        devnet and OP Stack:
+                        <ul>
+                            <li>
+                                <code
+                                    >./{AppName}d monomer start
+                                    --minimum-gas-prices 0.01wei --api.enable
+                                    --monomer.dev-start
+                                    --monomer.dev.l1-user-address
+                                    "0x{your_l1_wallet_address}"</code
+                                >
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+                <button id="enable-metamask">Add L1 Chain to Metamask</button>
+            </div>
+            <div class="section">
+                <h2>L1 to L2 ETH Deposits</h2>
+                <p>
+                    Deposit ETH from L1 to L2 by entering the deposit amount and
+                    the Keplr recipient address below.
+                </p>
+                <br />
+
+                <label for="amount"><b>ETH Deposit Amount</b></label>
+                <input type="number" id="amount" name="amount" />
+                <label for="recipient"
+                    ><b>Cosmos L2 Recipient Address</b></label
+                >
+                <input type="text" id="recipient" name="recipient" />
+
+                <button id="deposit-button">Deposit ETH on L2</button>
+            </div>
+            <p id="status"></p>
+        </div>
+        <div class="container">
+            <h1>Monomer L2 Wallet Integration</h1>
+            <div class="section">
+                <h2>Keplr Integration</h2>
+                <p>
+                    Before adding the Monomer L2 to your Keplr wallet, please
+                    remove the chain from your wallet if it was previously
+                    added. After adding the Monomer L2 chain config to Keplr,
+                    you can make the chain visible in your wallet by navigating
+                    to the "General" settings and adding the chain through the
+                    "Add/Remove Non-Native Chains" page.
+                </p>
+                <button id="enable-keplr">Add L2 Chain to Keplr</button>
+            </div>
+        </div>
+    </body>
+</html>
