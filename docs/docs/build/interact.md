@@ -6,6 +6,13 @@ sidebar_position: 2
 
 This guide assumes you have a Monomer rollup chain running locally. If you don't, refer to the [prior tutorial](./create-an-app-with-monomer.md).
 
+We will need to have an account on L1 with funds.
+To give yourself funds on the devnet at genesis, run the devnet start command specified in the last tutorial with the `--monomer.dev.l1-user-address` flag:
+
+```bash
+./testappd monomer start --minimum-gas-prices 0.01wei --monomer.dev-start --api.enable --monomer.dev.l1-user-address "<address>"
+```
+
 ## Configuring L1 and L2 Wallets
 
 To interact with a Monomer rollup chain, you will need to configure wallets for both the L1 and L2 chains.

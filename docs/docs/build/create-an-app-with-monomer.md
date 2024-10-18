@@ -39,17 +39,16 @@ If using a Go version `<1.23.0`, run:
 go build -o testappd ./cmd/testappd
 ```
 
-If using a Go version `>=1.23.0`, run: 
+If using a Go version `>=1.23.0`, run:
 
 ```bash
 go build -ldflags=-checklinkname=0 -o testappd ./cmd/testappd
 ````
 
 Now that our application is configured, we can start the Monomer application by running the following command.
-Ensure that you specify the address of your L1 wallet address instead of `{your_l1_wallet_address}` to grant ETH to your L1 wallet on genesis.
 
 ```bash
-./testappd monomer start --minimum-gas-prices 0.01wei --monomer.dev-start --api.enable --monomer.dev.l1-user-address "{your_l1_wallet_address}"
+./testappd monomer start --minimum-gas-prices 0.01wei --monomer.dev-start --api.enable
 ````
 
 Congratulations! You've successfully integrated Monomer into your Cosmos SDK application.
