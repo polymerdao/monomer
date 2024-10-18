@@ -9,7 +9,7 @@ slug: /
 Monomer is pre-production software and should be used with caution.
 :::
 
-Monomer is a joint development by Nethermind and Polymer Labs that serves as a compatibility layer allowing Cosmos SDK applications to be deployed as Ethereum rollups on the OP Stack.
+Monomer is a compatibility layer allowing Cosmos SDK applications to be deployed as Ethereum rollups on the OP Stack.
 
 ## Getting Started
 
@@ -23,6 +23,6 @@ The [Build](./category/build) section provides a tutorial on how to build and in
 
 Join our community for support, engaging discussions, and updates:
 
-- [Discord](https://discord.gg/UR5ahaXwHH): Connect in real-time with the Juno team and community.
+- [Discord](https://discord.gg/UR5ahaXwHH): Connect in real-time with the Monomer team and community.
 - [Nethermind X (Twitter)](https://x.com/NethermindEth): Follow for the latest news and insights from Nethermind.
 - [Polymer Labs X (Twitter)](https://x.com/Polymer_Labs): Follow for the latest news and insights from Polymer Labs.
