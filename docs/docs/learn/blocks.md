@@ -9,13 +9,13 @@ Monomer applications must support both the usual Cosmos SDK application function
 
 In order to acheieve this, Monomer defines custom `Block` and block `Header` types, with helper functions to generate representations that are consistent with both the Cosmos SDK and the EVM.
 
-# State
+## State
 
 The main application state of a Monomer application is the Cosmos Appchain state.
 
-Supplimentary state, required for rollup bridging operations, is stored in an EVM sidecar. In principle, these requirements could be met in the Cosmos Appchain state, but this would have a knock-on effect of needing to modify some L1 components of the OP Stack. The sidecar approach allows for the reuse of existing components on both L1 and L2.
+Supplementary state, required for rollup withdrawal operations, is stored in an internal EVM sidecar state. In principle, these requirements could be met in the Cosmos Appchain state, but this would have a knock-on effect of needing to modify some L1 components of the OP Stack. The sidecar approach allows for the reuse of existing components on both L1 and L2.
 
-# State Transition Function
+## State Transition Function
 
 Monomer's block production function can be thought of in three phases. More detail on these processes is in the following sections.
 
@@ -31,4 +31,5 @@ After the deposit transactions have been adapted, they are combined with Cosmos 
 
 ### 3. Withdrawal Tx Post-Processing
 
-The created block is inspected for withdrawal initiating transactions. Wherever an L2 transaction initiates a withdrawal, the corresponding updates are made to the EVM sidecar state via the `L2ToL1MessagePasser` contract.
+The created block is inspected for withdrawal initiating transactions. Wherever an L2 transaction initiates a withdrawal, the corresponding updates are made to an internal EVM sidecar state via the `L2ToL1MessagePasser` contract.
+This allows Monomer to provide Ethereum state proofs back to L1 when proving the withdrawal occurred on L2.

@@ -3,33 +3,26 @@ sidebar_position: 1
 slug: /
 ---
 
-# Overview
-
-Monomer uses the OP stack to make Cosmos SDK applications deployable as
-Ethereum rollups.
+# Introduction
 
 :::warning
 Monomer is pre-production software and should be used with caution.
 :::
 
-## At a Glance
+Monomer is a joint development by Nethermind and Polymer Labs that serves as a compatibility layer allowing Cosmos SDK applications to be deployed as Ethereum rollups on the OP Stack.
 
-From the [OP stack](https://specs.optimism.io/protocol/overview.html#components)'s perspective, Monomer replaces the default Ethereum
-compatible execution engine. From the [Cosmos application](https://docs.cosmos.network/v0.50/learn/intro/why-app-specific#what-are-application-specific-blockchains)'s perspective,
-Monomer replaces the CometBFT consensus layer.
+## Getting Started
 
-In order to achieve this, Monomer performs three primary tasks:
+The [Overview](./overview) section provides a high level overview of Monomer, explaining its architecture and use cases.
 
-- It translates between Ethereum's `EngineAPI` and the Cosmos `ABCI` standards for `consensus<>execution` communication
-- It provides a custom Cosmos SDK module for handling rollup-specific logic and state
-- It defines a hybridized block head structure, and build process, where the Cosmos AppHash is stored as data in an EVM state tree
+The [Learn](./category/learn) section walks through specific data flows in Monomer.
 
-:::note[Architecture]
-![Architecture](/img/architecture.png)
-:::
+The [Build](./category/build) section provides a tutorial on how to build and interact with an application on Monomer.
 
-## This Documentation
+## Community and support
 
-The [Learn](./category/learn) section walks through specific data flows in Monomer, describing internal components along the way.
+Join our community for support, engaging discussions, and updates:
 
-The [Build](./category/build) section provides a tutorial on how to build an application with Monomer.
+- [Discord](https://discord.gg/UR5ahaXwHH): Connect in real-time with the Juno team and community.
+- [Nethermind X (Twitter)](https://x.com/NethermindEth): Follow for the latest news and insights from Nethermind.
+- [Polymer Labs X (Twitter)](https://x.com/Polymer_Labs): Follow for the latest news and insights from Polymer Labs.

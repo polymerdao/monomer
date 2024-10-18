@@ -55,16 +55,24 @@ const config: Config = {
     image: 'img/docusaurus-social-card.jpg',
     navbar: {
       title: 'Monomer Docs',
-      logo: {
-        alt: 'My Site Logo',
-        src: 'img/logo.svg',
-      },
       items: [
         {
           type: 'docSidebar',
           sidebarId: 'tutorialSidebar',
           position: 'left',
           label: 'Overview',
+        },
+        {
+          type: 'doc',
+          docId: '/category/learn',
+          position: 'left',
+          label: 'Learn',
+        },
+        {
+          type: 'doc',
+          docId: '/category/build',
+          position: 'left',
+          label: 'Build',
         },
         {
           href: 'https://github.com/polymerdao/monomer',
@@ -93,7 +101,7 @@ const config: Config = {
             },
             {
               label: 'Discord',
-              href: 'https://discord.gg/w9dhEEKh',
+              href: 'https://discord.gg/UR5ahaXwHH',
             }
           ],
         },
@@ -103,6 +111,7 @@ const config: Config = {
     prism: {
       theme: prismThemes.github,
       darkTheme: prismThemes.dracula,
+      additionalLanguages: ["bash", "protobuf"],
     },
   } satisfies Preset.ThemeConfig,
 };

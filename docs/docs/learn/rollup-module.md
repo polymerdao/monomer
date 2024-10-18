@@ -2,7 +2,7 @@
 sidebar_position: 1
 ---
 
-# The `x/rollup` Module
+# `x/rollup`
 The `x/rollup` module implements rollup-chain specific logic.
 
 Unlike other Cosmos SDK modules, its state mutation doesn't go through regular transaction flow. Instead, states are mutated
