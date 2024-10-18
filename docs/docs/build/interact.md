@@ -3,15 +3,7 @@ draft: true
 sidebar_position: 3
 ---
 
-# Interact with a Monomer Rollup Chain
-
-In this document, we will demonstrate how to interact with a Monomer rollup chain via its API endpoints.
-
-:::note
-For the most up-to-date examples of working directly with the Monomer implementation, refer to our e2e test suite in the Monomer repository.
-:::
-
-## Prerequisites
+# Interact with a Monomer Rollup Devnet
 
 This guide assumes you have a Monomer rollup chain running locally. If you don't, refer to the [prior tutorial](./create-an-app-with-monomer.md).
 
@@ -24,16 +16,14 @@ The L2 wallet will be used to submit transactions on the L2 chain and initiate w
 Monomer currently provides a simple wallet integration server that can automate the process of setting up wallets for both chains and depositing ETH from L1.
 However, the server currently requires that MetaMask be used for the L1 wallet and Keplr for the L2 wallet.
 
-Alternative wallets can be configured for the L1 and L2 chains, however the network configurations will need to be added manually.
-
 :::warning
 For additional safety, you should ensure that you're using a wallet specific to testing and not a wallet that stores any funds on Ethereum mainnet.
 :::
 
-To set up the wallets with the Monomer rollup chain, you can use the following command from the `monomer` repository to start the wallet integration server:
+Once the devnet is running, run the following command to set up the test server:
 
 ```bash
-make wallet-integrations
+go run github.com/eliben/static-server@v1.3.0 -port=0 wallet
 ```
 
 Then, open up the site and follow the instructions to add the L1 wallet to MetaMask and the L2 wallet to Keplr.
