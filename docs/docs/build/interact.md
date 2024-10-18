@@ -1,6 +1,6 @@
 ---
 draft: true
-sidebar_position: 3
+sidebar_position: 2
 ---
 
 # Interact with a Monomer Rollup Devnet
@@ -20,7 +20,7 @@ However, the server currently requires that MetaMask be used for the L1 wallet a
 For additional safety, you should ensure that you're using a wallet specific to testing and not a wallet that stores any funds on Ethereum mainnet.
 :::
 
-Once the devnet is running, run the following command to set up the test server:
+Once the devnet is running, run the following command from the generated application directory to set up the test server:
 
 ```bash
 go run github.com/eliben/static-server@v1.3.0 -port=0 wallet
