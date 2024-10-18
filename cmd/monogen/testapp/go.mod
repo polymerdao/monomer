@@ -1,4 +1,4 @@
-module github.com/polymerdao/monomer/monogen/testapp
+module github.com/polymerdao/monomer/cmd/monogen/testapp
 
 go 1.22.0
 

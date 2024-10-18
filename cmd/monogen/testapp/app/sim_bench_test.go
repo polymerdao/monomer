@@ -12,7 +12,7 @@ import (
 	simcli "github.com/cosmos/cosmos-sdk/x/simulation/client/cli"
 	"github.com/stretchr/testify/require"
 
-	"github.com/polymerdao/monomer/monogen/testapp/app"
+	"github.com/polymerdao/monomer/cmd/monogen/testapp/app"
 )
 
 // Profile with:

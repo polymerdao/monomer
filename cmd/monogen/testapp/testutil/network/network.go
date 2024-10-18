@@ -7,7 +7,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/testutil/network"
 	"github.com/stretchr/testify/require"
 
-	"github.com/polymerdao/monomer/monogen/testapp/app"
+	"github.com/polymerdao/monomer/cmd/monogen/testapp/app"
 )
 
 type (

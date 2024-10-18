@@ -24,7 +24,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/polymerdao/monomer/integrations"
-	"github.com/polymerdao/monomer/monogen/testapp/app"
+	"github.com/polymerdao/monomer/cmd/monogen/testapp/app"
 )
 
 func initRootCmd(

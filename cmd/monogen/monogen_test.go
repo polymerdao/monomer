@@ -1,16 +1,18 @@
-package monogen_test
+package main_test
 
 import (
 	"context"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"testing"
+	"time"
 
 	bftclient "github.com/cometbft/cometbft/rpc/client/http"
-	"github.com/polymerdao/monomer/e2e/url"
-	"github.com/polymerdao/monomer/monogen"
+	monogen "github.com/polymerdao/monomer/cmd/monogen"
 	"github.com/stretchr/testify/require"
+	"tailscale.com/logtail/backoff"
 )
 
 func TestGenerate(t *testing.T) {
@@ -19,7 +21,7 @@ func TestGenerate(t *testing.T) {
 	appDirPath := filepath.Join(rootDirPath, appName)
 	pwd, err := os.Getwd()
 	require.NoError(t, err)
-	monomerPath, err := filepath.Abs(filepath.Dir(pwd))
+	monomerPath, err := filepath.Abs(filepath.Dir(filepath.Dir(pwd)))
 	require.NoError(t, err)
 
 	goModPath := "github.com/test/" + appName
@@ -69,10 +71,17 @@ func testApp(t *testing.T, rootDirPath, appDirPath, appName string) {
 	}()
 
 	// Hit a comet endpoint.
-	cometURL, err := url.ParseString("http://127.0.0.1:26657")
-	require.NoError(t, err)
-	cometURL.IsReachable(context.Background())
-	client, err := bftclient.New(cometURL.String(), "/websocket")
+	backoffTimer := backoff.NewBackoff("", func(_ string, _ ...any) {}, time.Second)
+	var d net.Dialer
+	for {
+		conn, err := d.Dial("tcp", "127.0.0.1:26657")
+		if err == nil {
+			conn.Close()
+			break
+		}
+		backoffTimer.BackOff(ctx, err)
+	}
+	client, err := bftclient.New("http://127.0.0.1:26657", "/websocket")
 	require.NoError(t, err)
 	blockNumber := int64(1)
 	block, err := client.Block(context.Background(), &blockNumber)

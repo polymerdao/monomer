@@ -31,7 +31,7 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
 
-	"github.com/polymerdao/monomer/monogen/testapp/app"
+	"github.com/polymerdao/monomer/cmd/monogen/testapp/app"
 )
 
 const (

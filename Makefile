@@ -75,7 +75,7 @@ gen-mocks:
 
 .PHONY: zip-testapp
 zip-testapp:
-	$(MAKE) -C monogen zip-testapp
+	$(MAKE) -C cmd/monogen zip-testapp
 
 $(COVER_OUT):
 	$(GO_WRAPPER) test -short ./... -coverprofile=$@ -covermode=atomic -coverpkg=./...
