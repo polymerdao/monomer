@@ -36,7 +36,6 @@ func TestRun(t *testing.T) {
 	ethstatedb := testutils.NewEthStateDB(t)
 	n := node.New(
 		app,
-		nil,
 		&genesis.Genesis{
 			ChainID:  chainID,
 			AppState: testapp.MakeGenesisAppState(t, app),

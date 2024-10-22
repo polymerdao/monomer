@@ -14,8 +14,6 @@ import (
 	"github.com/cometbft/cometbft/config"
 	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	dbm "github.com/cosmos/cosmos-db"
-	"github.com/cosmos/cosmos-sdk/client"
-	"github.com/cosmos/cosmos-sdk/types/module/testutil"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	ope2econfig "github.com/ethereum-optimism/optimism/op-e2e/config"
@@ -265,17 +263,6 @@ func (s *stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 		return fmt.Errorf("new test app: %v", err)
 	}
 
-	sdkclient, err := client.NewClientFromNode(s.monomerCometURL.String())
-	if err != nil {
-		return fmt.Errorf("new client from node: %v", err)
-	}
-	appchainCtx := client.Context{}.
-		WithChainID(chainID.String()).
-		WithClient(sdkclient).
-		WithAccountRetriever(mockAccountRetriever{}).
-		WithTxConfig(testutil.MakeTestTxConfig()).
-		WithCodec(testutil.MakeTestEncodingConfig().Codec)
-
 	blockPebbleDB, err := pebble.Open("", &pebble.Options{
 		FS: vfs.NewMem(),
 	})
@@ -294,7 +281,6 @@ func (s *stack) runMonomer(ctx context.Context, env *environment.Env, genesisTim
 	ethstatedb := state.NewDatabaseWithNodeDB(rawDB, trieDB)
 	n := node.New(
 		app,
-		&appchainCtx,
 		&genesis.Genesis{
 			AppState: app.DefaultGenesis(),
 			ChainID:  chainID,

@@ -29,7 +29,7 @@ func TestMempool(t *testing.T) {
 		depositTxBytes, err := depositTx.MarshalBinary()
 		require.NoError(t, err)
 
-		cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes}, nil, "")
+		cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes})
 		require.NoError(t, err)
 		require.ErrorContains(t, pool.Enqueue(cosmosTxs[0]), "deposit txs are not allowed in the pool")
 	})

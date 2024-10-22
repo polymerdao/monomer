@@ -5,21 +5,15 @@ import (
 	"fmt"
 
 	bfttypes "github.com/cometbft/cometbft/types"
-	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
-var PrivKey = secp256k1.GenPrivKeyFromSecret([]byte("monomer"))
-
 var errL1AttributesNotFound = errors.New("L1 attributes tx not found")
 
-type TxSigner func([]sdktypes.Msg) (bfttypes.Tx, error)
-
 // AdaptPayloadTxsToCosmosTxs assumes the deposit transactions come first.
-func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes, _ TxSigner, _ string) (bfttypes.Txs, error) {
+func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 	if len(ethTxs) == 0 {
 		return bfttypes.Txs{}, nil
 	}

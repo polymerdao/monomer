@@ -479,7 +479,6 @@ func startMonomerNode(
 	}
 	n := node.New(
 		wrappedApp,
-		clientCtx,
 		&genesis.Genesis{
 			ChainID:  monomer.ChainID(l2ChainID),
 			AppState: appState,

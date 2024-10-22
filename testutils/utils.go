@@ -1,7 +1,6 @@
 package testutils
 
 import (
-	"fmt"
 	"math/big"
 	"math/rand"
 	"strings"
@@ -12,10 +11,6 @@ import (
 	cometdb "github.com/cometbft/cometbft-db"
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/cosmos/gogoproto/proto"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -153,7 +148,7 @@ func cosmosTxsFromEthTxs(t *testing.T, l1InfoTx *gethtypes.Transaction, depositT
 		require.NoError(t, err)
 		ethTxBytes = append(ethTxBytes, cosmosEthTxBytes)
 	}
-	cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(ethTxBytes, generateSignTx, sdk.AccAddress("addr").String())
+	cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(ethTxBytes)
 	require.NoError(t, err)
 	return cosmosTxs
 }
@@ -192,27 +187,4 @@ func GenerateL1Block() *gethtypes.Block {
 		Number:     big.NewInt(0),
 		Time:       uint64(0),
 	}, nil, nil, nil, trie.NewStackTrie(nil))
-}
-
-func generateSignTx(msgs []proto.Message) (bfttypes.Tx, error) {
-	var anys []*codectypes.Any
-	for _, msg := range msgs {
-		anyMsg, err := codectypes.NewAnyWithValue(msg)
-		if err != nil {
-			return nil, fmt.Errorf("new any with value: %v", err)
-		}
-		anys = append(anys, anyMsg)
-	}
-	txBytes, err := (&sdktx.Tx{
-		AuthInfo: &sdktx.AuthInfo{
-			Fee: &sdktx.Fee{},
-		},
-		Body: &sdktx.TxBody{
-			Messages: anys,
-		},
-	}).Marshal()
-	if err != nil {
-		return nil, fmt.Errorf("marshal: %v", err)
-	}
-	return txBytes, nil
 }
