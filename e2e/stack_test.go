@@ -316,7 +316,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// check that the user's balance has been updated on L1
 	require.Equal(t, expectedBalance, balanceAfterDeposit)
 
-	userCosmosAddr, err := utils.EvmToCosmosAddress("cosmos", userAddress)
+	userCosmosAddr, err := utils.EvmToCosmosAddress("e2e", userAddress)
 	require.NoError(t, err)
 	depositValueHex := hexutil.Encode(depositAmount.Bytes())
 	requireEthIsMinted(t, stack, userCosmosAddr, depositValueHex)
@@ -331,7 +331,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	withdrawalTx := e2e.NewWithdrawalTx(0, userAddress, userAddress, depositAmount, new(big.Int).SetUint64(params.TxGas))
 
 	// initiate the withdrawal of the deposited amount on L2
-	senderAddr, err := utils.EvmToCosmosAddress("cosmos", *withdrawalTx.Sender)
+	senderAddr, err := utils.EvmToCosmosAddress("e2e", *withdrawalTx.Sender)
 	require.NoError(t, err)
 	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
 		stack.Ctx,
@@ -533,7 +533,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, stack.WaitL2(1))
 
 	// assert the user's bridged WETH is on L2
-	userAddr, err := utils.EvmToCosmosAddress("cosmos", userAddress)
+	userAddr, err := utils.EvmToCosmosAddress("e2e", userAddress)
 	require.NoError(t, err)
 	requireERC20IsMinted(t, stack, userAddr, weth9Address.String(), hexutil.Encode(wethL2Amount.Bytes()))
 
