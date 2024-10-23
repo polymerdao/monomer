@@ -314,14 +314,16 @@ func TestBuildRollupTxs(t *testing.T) {
 	depositTxETH := ethTxs[1]
 	require.NotNil(t, depositTxETH.Mint())
 	require.NotNil(t, depositTxETH.To(), "Deposit transaction must have a 'to' address")
-	recipientAddr := utils.EvmToCosmosAddress(*depositTxETH.To())
+	recipientAddr, err := utils.EvmToCosmosAddress("cosmos", *depositTxETH.To())
+	require.NoError(t, err)
 
 	from, err := gethtypes.NewCancunSigner(depositTxETH.ChainId()).Sender(depositTxETH)
 	require.NoError(t, err)
-	mintAddr := utils.EvmToCosmosAddress(from)
+	mintAddr, err := utils.EvmToCosmosAddress("cosmos", from)
+	require.NoError(t, err)
 
 	withdrawalTx := testapp.ToTx(t, &types.MsgInitiateWithdrawal{
-		Sender:   recipientAddr.String(),
+		Sender:   recipientAddr,
 		Target:   common.HexToAddress("0x12345abcde").String(),
 		Value:    math.NewIntFromBigInt(depositTxETH.Value()),
 		GasLimit: big.NewInt(100_000).Bytes(),
@@ -351,7 +353,7 @@ func TestBuildRollupTxs(t *testing.T) {
 	builtBlock, preBuildInfo, postBuildInfo := buildBlock(t, b, env.app, payload)
 
 	// Test deposit was received
-	checkDepositTxResult(t, env.txStore, depositTxs, depositTxETH.Mint(), depositTxETH.Value(), mintAddr.String(), recipientAddr.String())
+	checkDepositTxResult(t, env.txStore, depositTxs, depositTxETH.Mint(), depositTxETH.Value(), mintAddr, recipientAddr)
 
 	withdrawalTxResult, err := env.txStore.Get(bfttypes.Tx(withdrawalTx).Hash())
 	require.NoError(t, err)
