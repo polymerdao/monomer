@@ -51,8 +51,11 @@ func TestRollup(t *testing.T) {
 	transferAmount := depositTx.Value()
 	from, err := gethtypes.NewCancunSigner(depositTx.ChainId()).Sender(depositTx)
 	require.NoError(t, err)
-	mintAddr := utils.EvmToCosmosAddress(from)
-	recipientAddr := utils.EvmToCosmosAddress(*depositTx.To())
+
+	mintAddr, err := utils.EvmToCosmosAddress(sdk.GetConfig().GetBech32AccountAddrPrefix(), from)
+	require.NoError(t, err)
+	recipientAddr, err := utils.EvmToCosmosAddress(sdk.GetConfig().GetBech32AccountAddrPrefix(), *depositTx.To())
+	require.NoError(t, err)
 
 	// query the mint address ETH balance and assert it's zero
 	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, mintAddr, integrationApp))
@@ -61,7 +64,9 @@ func TestRollup(t *testing.T) {
 	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, recipientAddr, integrationApp))
 
 	// query the user's ERC20 balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), queryUserERC20Balance(t, queryClient, utils.EvmToCosmosAddress(erc20userAddr), erc20tokenAddr, integrationApp))
+	erc20userCosmosAddr, err := utils.EvmToCosmosAddress(sdk.GetConfig().GetBech32AccountAddrPrefix(), erc20userAddr)
+	require.NoError(t, err)
+	require.Equal(t, math.ZeroInt(), queryUserERC20Balance(t, queryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp))
 
 	// send an invalid MsgApplyL1Txs and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
@@ -82,11 +87,11 @@ func TestRollup(t *testing.T) {
 	require.Equal(t, transferAmount, queryUserETHBalance(t, queryClient, recipientAddr, integrationApp).BigInt())
 
 	// query the user's ERC20 balance and assert it's equal to the deposit amount
-	require.Equal(t, erc20depositAmount, queryUserERC20Balance(t, queryClient, utils.EvmToCosmosAddress(erc20userAddr), erc20tokenAddr, integrationApp).BigInt())
+	require.Equal(t, erc20depositAmount, queryUserERC20Balance(t, queryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp).BigInt())
 
 	// try to withdraw more than deposited and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
-		Sender:   mintAddr.String(),
+		Sender:   mintAddr,
 		Target:   l1WithdrawalAddr,
 		Value:    math.NewIntFromBigInt(transferAmount).Add(math.OneInt()),
 		GasLimit: new(big.Int).SetUint64(100_000_000).Bytes(),
@@ -96,7 +101,7 @@ func TestRollup(t *testing.T) {
 
 	// send a successful MsgInitiateWithdrawal
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
-		Sender:   recipientAddr.String(),
+		Sender:   recipientAddr,
 		Target:   l1WithdrawalAddr,
 		Value:    math.NewIntFromBigInt(transferAmount),
 		GasLimit: new(big.Int).SetUint64(100_000_000).Bytes(),
@@ -161,19 +166,19 @@ func setupIntegrationApp(t *testing.T) *integration.App {
 	return integrationApp
 }
 
-func queryUserBalance(t *testing.T, queryClient banktypes.QueryClient, userAddr sdk.AccAddress, denom string, app *integration.App) math.Int {
+func queryUserBalance(t *testing.T, queryClient banktypes.QueryClient, userAddr, denom string, app *integration.App) math.Int {
 	resp, err := queryClient.Balance(app.Context(), &banktypes.QueryBalanceRequest{
-		Address: userAddr.String(),
+		Address: userAddr,
 		Denom:   denom,
 	})
 	require.NoError(t, err)
 	return resp.Balance.Amount
 }
 
-func queryUserETHBalance(t *testing.T, queryClient banktypes.QueryClient, userAddr sdk.AccAddress, app *integration.App) math.Int {
+func queryUserETHBalance(t *testing.T, queryClient banktypes.QueryClient, userAddr string, app *integration.App) math.Int {
 	return queryUserBalance(t, queryClient, userAddr, rolluptypes.WEI, app)
 }
 
-func queryUserERC20Balance(t *testing.T, queryClient banktypes.QueryClient, userAddr sdk.AccAddress, erc20addr common.Address, app *integration.App) math.Int {
+func queryUserERC20Balance(t *testing.T, queryClient banktypes.QueryClient, userAddr string, erc20addr common.Address, app *integration.App) math.Int {
 	return queryUserBalance(t, queryClient, userAddr, "erc20/"+erc20addr.String()[2:], app)
 }

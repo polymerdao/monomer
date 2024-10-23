@@ -121,9 +121,18 @@ func (k *Keeper) processL1UserDepositTxs(
 			ctx.Logger().Error("Failed to get sender address", "evmAddress", from, "err", err)
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to get sender address: %v", err)
 		}
-		mintAddr := utils.EvmToCosmosAddress(from)
+		addrPrefix := sdk.GetConfig().GetBech32AccountAddrPrefix()
+		mintAddr, err := utils.EvmToCosmosAddress(addrPrefix, from)
+		if err != nil {
+			ctx.Logger().Error("Failed to convert EVM to Cosmos address", "err", err)
+			return nil, fmt.Errorf("evm to cosmos address: %v", err)
+		}
 		mintAmount := sdkmath.NewIntFromBigInt(tx.Mint())
-		recipientAddr := utils.EvmToCosmosAddress(*tx.To())
+		recipientAddr, err := utils.EvmToCosmosAddress(addrPrefix, *tx.To())
+		if err != nil {
+			ctx.Logger().Error("Failed to convert EVM to Cosmos address", "err", err)
+			return nil, fmt.Errorf("evm to cosmos address: %v", err)
+		}
 		transferAmount := sdkmath.NewIntFromBigInt(tx.Value())
 
 		mintEvent, err := k.mintETH(ctx, mintAddr, recipientAddr, mintAmount, transferAmount)
@@ -183,10 +192,14 @@ func (k *Keeper) parseAndExecuteCrossDomainMessage(ctx sdk.Context, txData []byt
 			return nil, fmt.Errorf("failed to unpack relay message into finalizeBridgeERC20 interface: %v", err)
 		}
 
+		toAddr, err := utils.EvmToCosmosAddress(sdk.GetConfig().GetBech32AccountAddrPrefix(), finalizeBridgeERC20.To)
+		if err != nil {
+			return nil, fmt.Errorf("evm to cosmos address: %v", err)
+		}
 		// Mint the ERC-20 token to the specified Cosmos address
 		mintEvent, err := k.mintERC20(
 			ctx,
-			utils.EvmToCosmosAddress(finalizeBridgeERC20.To),
+			toAddr,
 			finalizeBridgeERC20.RemoteToken.String(),
 			sdkmath.NewIntFromBigInt(finalizeBridgeERC20.Amount),
 		)
@@ -203,7 +216,7 @@ func (k *Keeper) parseAndExecuteCrossDomainMessage(ctx sdk.Context, txData []byt
 // mintETH mints ETH to an account where the amount is in wei and returns the associated event.
 func (k *Keeper) mintETH(
 	ctx sdk.Context, //nolint:gocritic // hugeParam
-	mintAddr, recipientAddr sdk.AccAddress,
+	mintAddr, recipientAddr string,
 	mintAmount, transferAmount sdkmath.Int,
 ) (*sdk.Event, error) {
 	// Mint the deposit amount to the rollup module
@@ -215,25 +228,33 @@ func (k *Keeper) mintETH(
 		return nil, fmt.Errorf("transfer amount %v is greater than mint amount %v", transferAmount, mintAmount)
 	}
 
+	recipientSDKAddr, err := sdk.AccAddressFromBech32(recipientAddr)
+	if err != nil {
+		return nil, fmt.Errorf("account address from bech32: %v", err)
+	}
 	if !transferAmount.IsZero() {
 		// Send the transfer amount to the recipient address
 		if err := k.bankkeeper.SendCoinsFromModuleToAccount(
 			ctx,
 			types.ModuleName,
-			recipientAddr,
+			recipientSDKAddr,
 			sdk.NewCoins(sdk.NewCoin(types.WEI, transferAmount)),
 		); err != nil {
-			return nil, fmt.Errorf("failed to send ETH deposit coins from rollup module to user account %v: %v", recipientAddr, err)
+			return nil, fmt.Errorf("failed to send ETH deposit coins from rollup module to user account %v: %v", recipientSDKAddr, err)
 		}
 	}
 
+	mintSDKAddr, err := sdk.AccAddressFromBech32(mintAddr)
+	if err != nil {
+		return nil, fmt.Errorf("account address from bech32: %v", err)
+	}
 	remainingCoins := mintAmount.Sub(transferAmount)
 	if remainingCoins.IsPositive() {
 		// Send the remaining mint amount to the deposit tx sender address
 		if err := k.bankkeeper.SendCoinsFromModuleToAccount(
 			ctx,
 			types.ModuleName,
-			mintAddr,
+			mintSDKAddr,
 			sdk.NewCoins(sdk.NewCoin(types.WEI, remainingCoins)),
 		); err != nil {
 			return nil, fmt.Errorf("failed to send ETH deposit coins from rollup module to user account %v: %v", mintAddr, err)
@@ -243,9 +264,9 @@ func (k *Keeper) mintETH(
 	mintEvent := sdk.NewEvent(
 		types.EventTypeMintETH,
 		sdk.NewAttribute(types.AttributeKeyL1DepositTxType, types.L1UserDepositTxType),
-		sdk.NewAttribute(types.AttributeKeyMintCosmosAddress, mintAddr.String()),
+		sdk.NewAttribute(types.AttributeKeyMintCosmosAddress, mintAddr),
 		sdk.NewAttribute(types.AttributeKeyMint, hexutil.Encode(remainingCoins.BigInt().Bytes())),
-		sdk.NewAttribute(types.AttributeKeyToCosmosAddress, recipientAddr.String()),
+		sdk.NewAttribute(types.AttributeKeyToCosmosAddress, recipientAddr),
 		sdk.NewAttribute(types.AttributeKeyValue, hexutil.Encode(transferAmount.BigInt().Bytes())),
 	)
 
@@ -255,7 +276,7 @@ func (k *Keeper) mintETH(
 // mintERC20 mints a bridged ERC-20 token to an account and returns the associated event.
 func (k *Keeper) mintERC20(
 	ctx sdk.Context, //nolint:gocritic // hugeParam
-	userAddr sdk.AccAddress,
+	userAddr string,
 	erc20addr string,
 	amount sdkmath.Int,
 ) (*sdk.Event, error) {
@@ -264,14 +285,18 @@ func (k *Keeper) mintERC20(
 	if err := k.bankkeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(coin)); err != nil {
 		return nil, fmt.Errorf("failed to mint ERC-20 deposit coins to the rollup module: %v", err)
 	}
-	if err := k.bankkeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, userAddr, sdk.NewCoins(coin)); err != nil {
+	userSDKAddr, err := sdk.AccAddressFromBech32(userAddr)
+	if err != nil {
+		return nil, fmt.Errorf("account address from bech32: %v", err)
+	}
+	if err := k.bankkeeper.SendCoinsFromModuleToAccount(ctx, types.ModuleName, userSDKAddr, sdk.NewCoins(coin)); err != nil {
 		return nil, fmt.Errorf("failed to send ERC-20 deposit coins from rollup module to user account %v: %v", userAddr, err)
 	}
 
 	mintEvent := sdk.NewEvent(
 		types.EventTypeMintERC20,
 		sdk.NewAttribute(types.AttributeKeyL1DepositTxType, types.L1UserDepositTxType),
-		sdk.NewAttribute(types.AttributeKeyToCosmosAddress, userAddr.String()),
+		sdk.NewAttribute(types.AttributeKeyToCosmosAddress, userAddr),
 		sdk.NewAttribute(types.AttributeKeyERC20Address, erc20addr),
 		sdk.NewAttribute(types.AttributeKeyValue, hexutil.Encode(amount.BigInt().Bytes())),
 	)
