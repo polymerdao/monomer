@@ -45,14 +45,9 @@ In the `x/rollup` module, Monomer defines a custom Cosmos-SDK message type to ca
 ```go
 // MsgApplyL1Txs defines the message for applying all L1 system and user deposit txs.
 message MsgApplyL1Txs {
-  option (cosmos.msg.v1.signer) = "from_address";
-
   // Array of bytes where each bytes is a eth.Transaction.MarshalBinary tx.
   // The first tx must be the L1 system deposit tx, and the rest are user txs if present.
   repeated bytes tx_bytes = 1;
-
-  // The cosmos address of the L1 system and user deposit tx signer.
-  string from_address = 2;
 }
 ```
 

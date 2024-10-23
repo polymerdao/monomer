@@ -8,14 +8,12 @@ import (
 	"time"
 
 	abci "github.com/cometbft/cometbft/abci/types"
-	appchainClient "github.com/cosmos/cosmos-sdk/client"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/builder"
-	"github.com/polymerdao/monomer/engine/signer"
 	"github.com/polymerdao/monomer/monomerdb"
 )
 
@@ -32,7 +30,6 @@ type EngineAPI struct {
 	builder                  *builder.Builder
 	txValidator              TxValidator
 	blockStore               DB
-	signer                   *signer.Signer
 	currentPayloadAttributes *monomer.PayloadAttributes
 	metrics                  Metrics
 	lock                     sync.RWMutex
@@ -46,12 +43,10 @@ func NewEngineAPI(
 	b *builder.Builder,
 	txValidator TxValidator,
 	blockStore DB,
-	appchainCtx *appchainClient.Context,
 	metrics Metrics,
 ) *EngineAPI {
 	return &EngineAPI{
 		txValidator: txValidator,
-		signer:      signer.New(appchainCtx, monomer.PrivKey),
 		blockStore:  blockStore,
 		builder:     b,
 		metrics:     metrics,
@@ -178,11 +173,7 @@ func (e *EngineAPI) ForkchoiceUpdatedV3(
 		return nil, engine.InvalidPayloadAttributes.With(errors.New("gas limit not provided"))
 	}
 
-	cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(
-		pa.Transactions,
-		e.signer.Sign,
-		e.signer.AccountAddress().String(),
-	)
+	cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs(pa.Transactions)
 	if err != nil {
 		return nil, engine.InvalidPayloadAttributes.With(fmt.Errorf("convert payload attributes txs to cosmos txs: %v", err))
 	}
