@@ -35,7 +35,6 @@ import (
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/node"
 	"github.com/polymerdao/monomer/testapp"
-	"github.com/polymerdao/monomer/utils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slog"
@@ -249,25 +248,27 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// instantiate L1 user, tx signer.
 	userPrivKey := stack.Users[0]
-	userAddress := crypto.PubkeyToAddress(userPrivKey.PublicKey)
+	userETHAddress := crypto.PubkeyToAddress(userPrivKey.PublicKey)
 	l1signer := types.NewEIP155Signer(l1ChainID)
 
 	l2GasLimit := l2blockGasLimit / 10
 	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+
+	userCosmosETHAddress := monomer.CosmosETHAddress(userETHAddress)
 
 	//////////////////////////
 	////// ETH DEPOSITS //////
 	//////////////////////////
 
 	// get the user's balance before the deposit has been processed
-	balanceBeforeDeposit, err := l1Client.BalanceAt(stack.Ctx, userAddress, nil)
+	balanceBeforeDeposit, err := l1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
 	require.NoError(t, err)
 
 	// send user Deposit Tx
 	depositAmount := big.NewInt(params.Ether)
 	depositTx, err := stack.OptimismPortal.DepositTransaction(
 		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, depositAmount),
-		userAddress,
+		common.Address(userCosmosETHAddress),
 		depositAmount,
 		l2GasLimit,
 		false,    // _isCreation
@@ -293,8 +294,8 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 			End:     nil,
 			Context: stack.Ctx,
 		},
-		[]common.Address{userAddress},
-		[]common.Address{userAddress},
+		[]common.Address{userETHAddress},
+		[]common.Address{common.Address(userCosmosETHAddress)},
 		[]*big.Int{big.NewInt(0)},
 	)
 	require.NoError(t, err, "configuring 'TransactionDeposited' event listener")
@@ -302,7 +303,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, depositLogs.Close())
 
 	// get the user's balance after the deposit has been processed
-	balanceAfterDeposit, err := stack.L1Client.BalanceAt(stack.Ctx, userAddress, nil)
+	balanceAfterDeposit, err := stack.L1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
 	require.NoError(t, err)
 
 	//nolint:gocritic
@@ -316,7 +317,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// check that the user's balance has been updated on L1
 	require.Equal(t, expectedBalance, balanceAfterDeposit)
 
-	userCosmosAddr, err := utils.EvmToCosmosAddress("cosmos", userAddress)
+	userCosmosAddr, err := userCosmosETHAddress.Encode("cosmos")
 	require.NoError(t, err)
 	depositValueHex := hexutil.Encode(depositAmount.Bytes())
 	requireEthIsMinted(t, stack, userCosmosAddr, depositValueHex)
@@ -328,10 +329,10 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	/////////////////////////////
 
 	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
-	withdrawalTx := e2e.NewWithdrawalTx(0, userAddress, userAddress, depositAmount, new(big.Int).SetUint64(params.TxGas))
+	withdrawalTx := e2e.NewWithdrawalTx(0, common.Address(userCosmosETHAddress), userETHAddress, depositAmount, new(big.Int).SetUint64(params.TxGas))
 
 	// initiate the withdrawal of the deposited amount on L2
-	senderAddr, err := utils.EvmToCosmosAddress("cosmos", *withdrawalTx.Sender)
+	senderAddr, err := monomer.CosmosETHAddress(*withdrawalTx.Sender).Encode("cosmos")
 	require.NoError(t, err)
 	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
 		stack.Ctx,
@@ -400,7 +401,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	time.Sleep(time.Duration(finalizationPeriod.Uint64()) * time.Second)
 
 	// get the user's balance before the withdrawal has been finalized
-	balanceBeforeFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userAddress, nil)
+	balanceBeforeFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
 	require.NoError(t, err)
 
 	// send a withdrawal finalizing tx to finalize the withdrawal on L1
@@ -433,7 +434,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, finalizeWithdrawalLogs.Close())
 
 	// get the user's balance after the withdrawal has been finalized
-	balanceAfterFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userAddress, nil)
+	balanceAfterFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
 	require.NoError(t, err)
 
 	//nolint:gocritic
@@ -533,7 +534,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, stack.WaitL2(1))
 
 	// assert the user's bridged WETH is on L2
-	userAddr, err := utils.EvmToCosmosAddress("cosmos", userAddress)
+	userAddr, err := monomer.CosmosETHAddress(userAddress).Encode("cosmos")
 	require.NoError(t, err)
 	requireERC20IsMinted(t, stack, userAddr, weth9Address.String(), hexutil.Encode(wethL2Amount.Bytes()))
 

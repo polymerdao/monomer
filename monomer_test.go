@@ -7,6 +7,9 @@ import (
 	"time"
 
 	bfttypes "github.com/cometbft/cometbft/types"
+	cosmossecp256k1 "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
@@ -218,4 +221,19 @@ func TestPayloadAttributesValidForkchoiceUpdateResult(t *testing.T) {
 		},
 		PayloadID: payloadID,
 	}, result)
+}
+
+func TestCosmosETHAddress(t *testing.T) {
+	privKey, err := secp256k1.GeneratePrivateKey()
+	require.NoError(t, err)
+	pubKey := privKey.PubKey().ToECDSA()
+	got := monomer.PubkeyToCosmosETHAddress(pubKey)
+	wantBytes := (&cosmossecp256k1.PubKey{
+		Key: privKey.PubKey().SerializeCompressed(), // https://github.com/cosmos/cosmos-sdk/blob/346044afd0ecd4738c13993d2ac75da8e242266d/crypto/keys/secp256k1/secp256k1.go#L44-L45
+	}).Address().Bytes()
+	require.Equal(t, wantBytes, common.Address(got).Bytes())
+	// We have to use the `cosmos` hrp here because sdk.AccAddress.String() uses the global SDK config variable that uses the `cosmos` hrp.
+	gotEncoded, err := got.Encode("cosmos")
+	require.NoError(t, err)
+	require.Equal(t, sdk.AccAddress(wantBytes).String(), gotEncoded)
 }

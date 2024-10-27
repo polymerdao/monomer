@@ -23,8 +23,8 @@ import (
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/polymerdao/monomer"
 	monomertestutils "github.com/polymerdao/monomer/testutils"
-	"github.com/polymerdao/monomer/utils"
 	"github.com/polymerdao/monomer/x/rollup"
 	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
@@ -52,9 +52,9 @@ func TestRollup(t *testing.T) {
 	from, err := gethtypes.NewCancunSigner(depositTx.ChainId()).Sender(depositTx)
 	require.NoError(t, err)
 
-	mintAddr, err := utils.EvmToCosmosAddress(sdk.GetConfig().GetBech32AccountAddrPrefix(), from)
+	mintAddr, err := monomer.CosmosETHAddress(from).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
 	require.NoError(t, err)
-	recipientAddr, err := utils.EvmToCosmosAddress(sdk.GetConfig().GetBech32AccountAddrPrefix(), *depositTx.To())
+	recipientAddr, err := monomer.CosmosETHAddress(*depositTx.To()).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
 	require.NoError(t, err)
 
 	// query the mint address ETH balance and assert it's zero
@@ -64,7 +64,7 @@ func TestRollup(t *testing.T) {
 	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, recipientAddr, integrationApp))
 
 	// query the user's ERC20 balance and assert it's zero
-	erc20userCosmosAddr, err := utils.EvmToCosmosAddress(sdk.GetConfig().GetBech32AccountAddrPrefix(), erc20userAddr)
+	erc20userCosmosAddr, err := monomer.CosmosETHAddress(erc20userAddr).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
 	require.NoError(t, err)
 	require.Equal(t, math.ZeroInt(), queryUserERC20Balance(t, queryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp))
 

@@ -2,6 +2,7 @@ package monomer
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -13,14 +14,17 @@ import (
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	bfttypes "github.com/cometbft/cometbft/types"
+	"github.com/cosmos/cosmos-sdk/types/bech32"
 	opeth "github.com/ethereum-optimism/optimism/op-service/eth"
 	"github.com/ethereum/go-ethereum/beacon/engine"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/trie"
 	"github.com/polymerdao/monomer/utils"
+	"golang.org/x/crypto/ripemd160" //nolint:staticcheck
 )
 
 type Application interface {
@@ -236,4 +240,27 @@ func NewChainConfig(chainID *big.Int) *params.ChainConfig {
 		RegolithTime: utils.Ptr(uint64(0)),
 		CanyonTime:   utils.Ptr(uint64(0)),
 	}
+}
+
+// CosmosETHAddress is a Cosmos address packed into an Ethereum address.
+// Only addresses derived from secp256k1 keys can be packed into an Ethereum address.
+// See [ADR-28] for more details.
+//
+//nolint:lll // [ADR-28]: https://github.com/cosmos/cosmos-sdk/blob/8bfcf554275c1efbb42666cc8510d2da139b67fa/docs/architecture/adr-028-public-key-addresses.md?plain=1#L85
+type CosmosETHAddress common.Address
+
+// PubkeyToCosmosETHAddress converts a secp256k1 public key to a CosmosETHAddress.
+// Passing in a non-secp256k1 key results in undefined behavior.
+func PubkeyToCosmosETHAddress(pubKey *ecdsa.PublicKey) CosmosETHAddress {
+	sha := sha256.Sum256(secp256k1.CompressPubkey(pubKey.X, pubKey.Y))
+	hasherRIPEMD160 := ripemd160.New()
+	if _, err := hasherRIPEMD160.Write(sha[:]); err != nil {
+		// hash.Hash never returns an error on Write. This panic should never execute.
+		panic(fmt.Errorf("ripemd160: %v", err))
+	}
+	return CosmosETHAddress(hasherRIPEMD160.Sum(nil))
+}
+
+func (a CosmosETHAddress) Encode(hrp string) (string, error) {
+	return bech32.ConvertAndEncode(hrp, common.Address(a).Bytes())
 }
