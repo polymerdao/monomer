@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/ethereum/go-ethereum/ethdb"
 	ethlog "github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/polymerdao/monomer"
@@ -319,10 +320,10 @@ func startApp(
 	devnet bool,
 	opts server.StartCmdOptions,
 ) (servertypes.Application, error) {
-	backendType := server.GetAppDBBackend(svrCtx.Viper)
 	if devnet {
-		backendType = dbm.MemDBBackend
+		svrCtx.Viper.Set("app-db-backend", string(dbm.MemDBBackend))
 	}
+	backendType := server.GetAppDBBackend(svrCtx.Viper)
 	db, err := opts.DBOpener(svrCtx.Config.RootDir, backendType)
 	if err != nil {
 		return nil, fmt.Errorf("open db: %v", err)
@@ -452,16 +453,21 @@ func startMonomerNode(
 	}
 	env.DeferErr("close mempool db", mempooldb.Close)
 
-	rawDB, err := rawdb.NewPebbleDBDatabase(
-		svrCtx.Config.RootDir+"/ethstate",
-		defaultCacheSize,
-		defaultHandlesSize,
-		"",
-		false,
-		false,
-	)
-	if err != nil {
-		return fmt.Errorf("create raw db: %v", err)
+	var rawDB ethdb.Database
+	if backendType == dbm.MemDBBackend {
+		rawDB = rawdb.NewMemoryDatabase()
+	} else {
+		rawDB, err = rawdb.NewPebbleDBDatabase(
+			svrCtx.Config.RootDir+"/ethstate",
+			defaultCacheSize,
+			defaultHandlesSize,
+			"",
+			false,
+			false,
+		)
+		if err != nil {
+			return fmt.Errorf("create raw db: %v", err)
+		}
 	}
 	env.DeferErr("close raw db", rawDB.Close)
 	trieDB := triedb.NewDatabase(rawDB, nil)
