@@ -27,7 +27,6 @@ import (
 	_ "github.com/cosmos/cosmos-sdk/x/bank"           // import for side-effects
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	_ "github.com/cosmos/cosmos-sdk/x/distribution" // import for side-effects
-	distrkeeper "github.com/cosmos/cosmos-sdk/x/distribution/keeper"
 	"github.com/cosmos/cosmos-sdk/x/genutil"
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	_ "github.com/cosmos/cosmos-sdk/x/mint"    // import for side-effects
@@ -36,10 +35,10 @@ import (
 
 	// this line is used by starport scaffolding # stargate/app/moduleImport
 
+	"github.com/polymerdao/monomer/cmd/monogen/testapp/docs"
 	_ "github.com/polymerdao/monomer/x/rollup"
 	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
 	"github.com/polymerdao/monomer/x/rollup/tx/helpers"
-	"github.com/polymerdao/monomer/cmd/monogen/testapp/docs"
 )
 
 const (
@@ -71,7 +70,6 @@ type App struct {
 	AccountKeeper authkeeper.AccountKeeper
 	BankKeeper    bankkeeper.Keeper
 	StakingKeeper *stakingkeeper.Keeper
-	DistrKeeper   distrkeeper.Keeper
 
 	RollupKeeper *rollupkeeper.Keeper
 	// this line is used by starport scaffolding # stargate/app/keeperDeclaration
@@ -143,7 +141,6 @@ func New(
 		&app.AccountKeeper,
 		&app.BankKeeper,
 		&app.StakingKeeper,
-		&app.DistrKeeper,
 		&app.RollupKeeper,
 		// this line is used by starport scaffolding # stargate/app/keeperDefinition
 	); err != nil {
