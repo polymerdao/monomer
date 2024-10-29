@@ -21,7 +21,6 @@ import (
 	servertypes "github.com/cosmos/cosmos-sdk/server/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	_ "github.com/cosmos/cosmos-sdk/x/auth" // import for side-effects
-	"github.com/cosmos/cosmos-sdk/x/auth/ante"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	_ "github.com/cosmos/cosmos-sdk/x/auth/tx/config" // import for side-effects
 	_ "github.com/cosmos/cosmos-sdk/x/bank"           // import for side-effects
@@ -163,9 +162,10 @@ func New(
 	app.sm = module.NewSimulationManagerFromAppModules(app.ModuleManager.Modules, make(map[string]module.AppModuleSimulation))
 	app.sm.RegisterStoreDecoders()
 
-	anteHandler, err := helpers.NewAnteHandler(ante.HandlerOptions{
+	anteHandler, err := helpers.NewAnteHandler(helpers.HandlerOptions{
 		AccountKeeper:   app.AccountKeeper,
 		BankKeeper:      app.BankKeeper,
+		RollupKeeper:    app.RollupKeeper,
 		SignModeHandler: app.txConfig.SignModeHandler(),
 	})
 	if err != nil {
