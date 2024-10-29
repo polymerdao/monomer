@@ -458,7 +458,7 @@ func startMonomerNode(
 		rawDB = rawdb.NewMemoryDatabase()
 	} else {
 		rawDB, err = rawdb.NewPebbleDBDatabase(
-			svrCtx.Config.RootDir+"/ethstate",
+			filepath.Join(svrCtx.Config.RootDir, "ethstate"),
 			defaultCacheSize,
 			defaultHandlesSize,
 			"",
