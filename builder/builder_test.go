@@ -26,7 +26,6 @@ import (
 	"github.com/polymerdao/monomer/monomerdb/localdb"
 	"github.com/polymerdao/monomer/testapp"
 	"github.com/polymerdao/monomer/testutils"
-	"github.com/polymerdao/monomer/utils"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
@@ -314,12 +313,12 @@ func TestBuildRollupTxs(t *testing.T) {
 	depositTxETH := ethTxs[1]
 	require.NotNil(t, depositTxETH.Mint())
 	require.NotNil(t, depositTxETH.To(), "Deposit transaction must have a 'to' address")
-	recipientAddr, err := utils.EvmToCosmosAddress("cosmos", *depositTxETH.To())
+	recipientAddr, err := monomer.CosmosETHAddress(*depositTxETH.To()).Encode("cosmos")
 	require.NoError(t, err)
 
 	from, err := gethtypes.NewCancunSigner(depositTxETH.ChainId()).Sender(depositTxETH)
 	require.NoError(t, err)
-	mintAddr, err := utils.EvmToCosmosAddress("cosmos", from)
+	mintAddr, err := monomer.CosmosETHAddress(from).Encode("cosmos")
 	require.NoError(t, err)
 
 	withdrawalTx := testapp.ToTx(t, &types.MsgInitiateWithdrawal{

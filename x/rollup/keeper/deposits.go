@@ -18,7 +18,6 @@ import (
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/bindings"
-	"github.com/polymerdao/monomer/utils"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
 )
@@ -122,13 +121,13 @@ func (k *Keeper) processL1UserDepositTxs(
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to get sender address: %v", err)
 		}
 		addrPrefix := sdk.GetConfig().GetBech32AccountAddrPrefix()
-		mintAddr, err := utils.EvmToCosmosAddress(addrPrefix, from)
+		mintAddr, err := monomer.CosmosETHAddress(from).Encode(addrPrefix)
 		if err != nil {
 			ctx.Logger().Error("Failed to convert EVM to Cosmos address", "err", err)
 			return nil, fmt.Errorf("evm to cosmos address: %v", err)
 		}
 		mintAmount := sdkmath.NewIntFromBigInt(tx.Mint())
-		recipientAddr, err := utils.EvmToCosmosAddress(addrPrefix, *tx.To())
+		recipientAddr, err := monomer.CosmosETHAddress(*tx.To()).Encode(addrPrefix)
 		if err != nil {
 			ctx.Logger().Error("Failed to convert EVM to Cosmos address", "err", err)
 			return nil, fmt.Errorf("evm to cosmos address: %v", err)
@@ -192,7 +191,7 @@ func (k *Keeper) parseAndExecuteCrossDomainMessage(ctx sdk.Context, txData []byt
 			return nil, fmt.Errorf("failed to unpack relay message into finalizeBridgeERC20 interface: %v", err)
 		}
 
-		toAddr, err := utils.EvmToCosmosAddress(sdk.GetConfig().GetBech32AccountAddrPrefix(), finalizeBridgeERC20.To)
+		toAddr, err := monomer.CosmosETHAddress(finalizeBridgeERC20.To).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
 		if err != nil {
 			return nil, fmt.Errorf("evm to cosmos address: %v", err)
 		}
