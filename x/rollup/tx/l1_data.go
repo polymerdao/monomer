@@ -35,7 +35,7 @@ func L1DataAnteHandler(ctx sdk.Context, tx sdk.Tx, rollupKeeper *rollupkeeper.Ke
 	}
 
 	const baseFeeMultiplier = 16
-	const divisor = 16e6
+	const divisor = 16000000 // 16e6
 
 	// scaledBaseFee calculation: scaledBaseFee = l1BaseFee * lBaseFeeScalar * 16
 	scaledBaseFee := new(big.Int).Mul(new(big.Int).Mul(baseFee, baseFeeScalar), big.NewInt(baseFeeMultiplier))
