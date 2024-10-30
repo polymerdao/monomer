@@ -32,6 +32,7 @@ async function connectMetamask() {
 
     await addL1ChainToMetaMask();
     await switchToMonomerDevnet();
+    await runKeplrIntegration();
 
     console.log("Connected to MetaMask and contract instantiated.");
   } catch (error) {
