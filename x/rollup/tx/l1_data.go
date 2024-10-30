@@ -1,35 +1,25 @@
-package helpers
+package tx
 
 import (
 	"fmt"
 	"math/big"
 
+	errorsmod "cosmossdk.io/errors"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/rlp"
 	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
 )
 
-// ConsumeGasForL1DataDecorator will consume gas to compensate the sequencer
-// for posting the transaction to Ethereum. The gas cost is calculated based
-// on the Ecotone upgrade and the sequencer is expected to post the transaction
-// using blobs.
-type ConsumeGasForL1DataDecorator struct {
-	rollupKeeper *rollupkeeper.Keeper
-}
-
-func NewConsumeGasForL1DataDecorator(rollupKeeper *rollupkeeper.Keeper) ConsumeGasForL1DataDecorator {
-	return ConsumeGasForL1DataDecorator{
-		rollupKeeper: rollupKeeper,
+// L1DataAnteHandler will consume gas to compensate the sequencer for posting
+// the transaction to Ethereum. The gas cost is calculated based on the Ecotone
+// upgrade and the sequencer is expected to post the transaction using blobs.
+func L1DataAnteHandler(ctx sdk.Context, tx sdk.Tx, rollupKeeper *rollupkeeper.Keeper) (sdk.Context, error) { //nolint:gocritic // hugeparam
+	if rollupKeeper == nil {
+		return ctx, errorsmod.Wrap(sdkerrors.ErrLogic, "rollup keeper is required for l1 data ante handler")
 	}
-}
 
-func (d ConsumeGasForL1DataDecorator) AnteHandle(
-	ctx sdk.Context, //nolint:gocritic // hugeparam
-	tx sdk.Tx,
-	simulate bool,
-	next sdk.AnteHandler,
-) (sdk.Context, error) {
-	l1BlockInfo, err := d.rollupKeeper.GetL1BlockInfo(ctx)
+	l1BlockInfo, err := rollupKeeper.GetL1BlockInfo(ctx)
 	if err != nil {
 		return ctx, fmt.Errorf("get l1 block info: %w", err)
 	}
@@ -62,7 +52,7 @@ func (d ConsumeGasForL1DataDecorator) AnteHandle(
 
 	ctx.GasMeter().ConsumeGas(l1DataCost.Uint64(), "l1 data")
 
-	return next(ctx, tx, simulate)
+	return ctx, nil
 }
 
 // getL1GasUsed calculates the compressed size of a transaction when encoded with RLP. This is used to estimate
