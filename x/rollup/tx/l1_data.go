@@ -63,17 +63,19 @@ func getL1GasUsed(tx sdk.Tx) (*big.Int, error) {
 		return nil, fmt.Errorf("failed to rlp encode tx: %w", err)
 	}
 
+	const signatureCost = 68 * 16
 	const zeroCost = 4
 	const oneCost = 16
-	const signatureCost = 68 * 16
+	zeroCostBig := big.NewInt(zeroCost)
+	oneCostBig := big.NewInt(oneCost)
 
 	// l1GasUsed calculation: l1GasUsed = (zeroes * 4 + ones * 16) + signatureCost
 	l1GasUsed := big.NewInt(signatureCost)
 	for _, b := range txBz {
 		if b == 0 {
-			l1GasUsed.Add(l1GasUsed, big.NewInt(zeroCost))
+			l1GasUsed.Add(l1GasUsed, zeroCostBig)
 		} else {
-			l1GasUsed.Add(l1GasUsed, big.NewInt(oneCost))
+			l1GasUsed.Add(l1GasUsed, oneCostBig)
 		}
 	}
 
