@@ -7,7 +7,7 @@ sidebar_label: Block Transitions
 
 Monomer applications must support both the usual Cosmos SDK application functionality and rollup-specific workflows.
 
-In order to acheieve this, Monomer defines custom `Block` and block `Header` types, with helper functions to generate representations that are consistent with both the Cosmos SDK and the EVM.
+In order to achieve this, Monomer defines custom `Block` and block `Header` types, with helper functions to generate representations that are consistent with both the Cosmos SDK and the EVM.
 
 ## State
 
