@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 
 	"cosmossdk.io/core/store"
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -31,7 +32,7 @@ func NewKeeper(
 	}
 }
 
-// Helper. Prepares a `message` event with the module name and emits it
+// EmitEvents prepares a `message` event with the module name and emits it
 // along with the provided events.
 func (k *Keeper) EmitEvents(goCtx context.Context, events sdk.Events) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
@@ -43,4 +44,16 @@ func (k *Keeper) EmitEvents(goCtx context.Context, events sdk.Events) {
 	events = append(sdk.Events{moduleEvent}, events...)
 
 	ctx.EventManager().EmitEvents(events)
+}
+
+func (k *Keeper) GetL1BlockInfo(ctx sdk.Context) (*types.L1BlockInfo, error) { //nolint:gocritic // hugeParam
+	l1BlockInfoBz, err := k.storeService.OpenKVStore(ctx).Get([]byte(types.KeyL1BlockInfo))
+	if err != nil {
+		return nil, fmt.Errorf("get l1 block info: %w", err)
+	}
+	var l1BlockInfo types.L1BlockInfo
+	if err = l1BlockInfo.Unmarshal(l1BlockInfoBz); err != nil {
+		return nil, fmt.Errorf("unmarshal l1 block info: %w", err)
+	}
+	return &l1BlockInfo, nil
 }

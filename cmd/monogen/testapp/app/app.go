@@ -167,7 +167,7 @@ func New(
 		AccountKeeper:   app.AccountKeeper,
 		BankKeeper:      app.BankKeeper,
 		SignModeHandler: app.txConfig.SignModeHandler(),
-	})
+	}, app.RollupKeeper)
 	if err != nil {
 		return nil, fmt.Errorf("new ante handler: %v", err)
 	}
