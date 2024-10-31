@@ -9,7 +9,7 @@ import ThemedImage from '@theme/ThemedImage';
 Monomer supports ETH deposits through the [`OptimismPortal`](https://github.com/ethereum-optimism/optimism/blob/d48b45954c381f75a13e61312da68d84e9b41418/packages/contracts-bedrock/src/L1/OptimismPortal.sol) L1 contract. This is the canonical way to move assets from Ethereum to the Monomer rollup chain, and the easiest way to bootstrap liquidity on the rollup chain.
 
 :::note
-Currently, only `value` deposits are supported. General `transactions` originating form the L1 are a roadmap item.
+Currently, only `value` deposits are supported. General `transactions` originating from the L1 are a roadmap item.
 :::
 
 The deposit transaction flow is illustrated below. Broadly, the lifecycle moves from OP-Stack components, to the Monomer adapter layer, and finally into to the Cosmos-SDK appchain.
@@ -40,7 +40,7 @@ Because the OP stack and the EngineAPI are Ethereum specific, Monomer's chief re
 
 4. `AdaptPayloadTXsToCosmosTxs(...)` is called on each received EngineAPI call with transaction payloads.
 
-In the `x/rollup` module, Monomer defines a custom Cosmos-SDK message type to carry deposit tranasaction data.
+In the `x/rollup` module, Monomer defines a custom Cosmos-SDK message type to carry deposit transaction data.
 
 ```go
 // MsgApplyL1Txs defines the message for applying all L1 system and user deposit txs.
@@ -53,7 +53,7 @@ message MsgApplyL1Txs {
 
 For each rollup block, all deposit transactions sourced from the L1 are batched into a single `MsgApplyL1Txs` message, which in turn is bundled into a single `cometbft` style transaction and cached in the engine. The engine now awaits the `op-node`'s request to finalize a block. When that request comes:
 
-5. the cached trasnaction is passed to Monomer's `builder.Build()`, which encapsulates the Cosmos-SDK appchain. In accordace with the OP stack spec, the trasnaction that packs the `MsgApplyL1Txs` message is the first transaction in each L2 block.
+5. the cached transaction is passed to Monomer's `builder.Build()`, which encapsulates the Cosmos-SDK appchain. In accordance with the OP stack spec, the transaction that packs the `MsgApplyL1Txs` message is the first transaction in each L2 block.
 
 ## The Cosmos-SDK Appchain
 
