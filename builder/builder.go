@@ -11,6 +11,7 @@ import (
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/state"
@@ -290,27 +291,13 @@ func (b *Builder) parseWithdrawalMessages(
 			return execTxResult, nil
 		}
 		for _, msg := range cosmosTx.GetBody().GetMessages() {
-			withdrawalMsg := new(rolluptypes.MsgInitiateWithdrawal)
-			if msg.TypeUrl == cdctypes.MsgTypeURL(withdrawalMsg) {
-				if err := withdrawalMsg.Unmarshal(msg.GetValue()); err != nil {
-					return nil, fmt.Errorf("unmarshal MsgInitiateWithdrawal: %v", err)
-				}
-
-				// Store the withdrawal message hash in the monomer EVM state db.
-				nonce, err := b.storeWithdrawalMsgInEVM(withdrawalMsg, ethState, header)
+			userWithdrawalMsgType := cdctypes.MsgTypeURL(new(rolluptypes.MsgInitiateWithdrawal))
+			feeWithdrawalMsgType := cdctypes.MsgTypeURL(new(rolluptypes.MsgInitiateFeeWithdrawal))
+			if msg.TypeUrl == userWithdrawalMsgType || msg.TypeUrl == feeWithdrawalMsgType {
+				// Store the withdrawal message hash in the monomer EVM state db and populate the nonce in the event data.
+				err := b.storeWithdrawalMsgInEVM(execTxResult, ethState, header)
 				if err != nil {
 					return nil, fmt.Errorf("store withdrawal msg in EVM: %v", err)
-				}
-
-				// Populate the nonce in the tx event attributes.
-				for i := range execTxResult.Events {
-					event := &execTxResult.Events[i] // Get a pointer to the event, so we can modify it.
-					if event.Type == rolluptypes.EventTypeWithdrawalInitiated {
-						event.Attributes = append(event.Attributes, abcitypes.EventAttribute{
-							Key:   rolluptypes.AttributeKeyNonce,
-							Value: hexutil.Encode(nonce.Bytes()),
-						})
-					}
 				}
 			}
 		}
@@ -318,43 +305,92 @@ func (b *Builder) parseWithdrawalMessages(
 	return execTxResult, nil
 }
 
-// storeWithdrawalMsgInEVM stores the withdrawal message hash in the monomer evm state db and returns the L2ToL1MessagePasser
-// message nonce used for the withdrawal. This is used for proving withdrawals.
+// storeWithdrawalMsgInEVM stores the withdrawal message hash in the monomer evm state db and appends the L2ToL1MessagePasser
+// message nonce used for the withdrawal to the tx events. This is used for proving withdrawals.
 func (b *Builder) storeWithdrawalMsgInEVM(
-	withdrawalMsg *rolluptypes.MsgInitiateWithdrawal,
+	execTxResult *abcitypes.ExecTxResult,
 	ethState *state.StateDB,
 	header *monomer.Header,
-) (*big.Int, error) {
+) error {
 	monomerEVM, err := evm.NewEVM(ethState, header)
 	if err != nil {
-		return nil, fmt.Errorf("new EVM: %v", err)
+		return fmt.Errorf("new EVM: %v", err)
 	}
 	executer, err := bindings.NewL2ToL1MessagePasserExecuter(monomerEVM)
 	if err != nil {
-		return nil, fmt.Errorf("new L2ToL1MessagePasserExecuter: %v", err)
+		return fmt.Errorf("new L2ToL1MessagePasserExecuter: %v", err)
 	}
 
 	// Get the current message nonce before initiating the withdrawal.
 	messageNonce, err := executer.GetMessageNonce()
 	if err != nil {
-		return nil, fmt.Errorf("get message nonce: %v", err)
+		return fmt.Errorf("get message nonce: %v", err)
 	}
 
-	senderCosmosAddress, err := sdk.AccAddressFromBech32(withdrawalMsg.GetSender())
+	var event *abcitypes.Event
+	for i := range execTxResult.Events {
+		if execTxResult.Events[i].Type == rolluptypes.EventTypeWithdrawalInitiated {
+			event = &execTxResult.Events[i]
+			break
+		}
+	}
+	if event == nil {
+		return fmt.Errorf("withdrawal event not found")
+	}
+
+	params, err := parseWithdrawalEventAttributes(event)
 	if err != nil {
-		return nil, fmt.Errorf("convert sender to cosmos address: %v", err)
+		return fmt.Errorf("parse withdrawal attributes: %v", err)
 	}
 
 	// Initiate the withdrawal in the Monomer ethereum state.
-	if err = executer.InitiateWithdrawal(
-		common.BytesToAddress(senderCosmosAddress.Bytes()),
-		withdrawalMsg.Value.BigInt(),
-		common.HexToAddress(withdrawalMsg.GetTarget()),
-		new(big.Int).SetBytes(withdrawalMsg.GasLimit),
-		withdrawalMsg.GetData(),
-	); err != nil {
-		return nil, fmt.Errorf("initiate withdrawal: %v", err)
+	if err = executer.InitiateWithdrawal(params); err != nil {
+		return fmt.Errorf("initiate withdrawal: %v", err)
 	}
 
-	return messageNonce, nil
+	// Populate the nonce in the tx event attributes.
+	event.Attributes = append(event.Attributes, abcitypes.EventAttribute{
+		Key:   rolluptypes.AttributeKeyNonce,
+		Value: hexutil.EncodeBig(messageNonce),
+	})
+
+	return nil
+}
+
+// parseWithdrawalEventAttributes parses the withdrawal event attributes and returns the converted withdrawal parameters.
+func parseWithdrawalEventAttributes(withdrawalEvent *abcitypes.Event) (*crossdomain.Withdrawal, error) {
+	var params crossdomain.Withdrawal
+	for _, attr := range withdrawalEvent.Attributes {
+		switch attr.Key {
+		case rolluptypes.AttributeKeySender:
+			senderCosmosAddress, err := sdk.AccAddressFromBech32(attr.Value)
+			if err != nil {
+				return nil, fmt.Errorf("convert sender to cosmos address: %v", err)
+			}
+			sender := common.BytesToAddress(senderCosmosAddress.Bytes())
+			params.Sender = &sender
+		case rolluptypes.AttributeKeyL1Target:
+			target := common.HexToAddress(attr.Value)
+			params.Target = &target
+		case rolluptypes.AttributeKeyValue:
+			value, err := hexutil.DecodeBig(attr.Value)
+			if err != nil {
+				return nil, fmt.Errorf("decode value: %v", err)
+			}
+			params.Value = value
+		case rolluptypes.AttributeKeyGasLimit:
+			gasLimitBz, err := hexutil.Decode(attr.Value)
+			if err != nil {
+				return nil, fmt.Errorf("decode gas limit: %v", err)
+			}
+			params.GasLimit = new(big.Int).SetBytes(gasLimitBz)
+		case rolluptypes.AttributeKeyData:
+			data, err := hexutil.Decode(attr.Value)
+			if err != nil {
+				return nil, fmt.Errorf("decode data: %v", err)
+			}
+			params.Data = data
+		}
+	}
+	return &params, nil
 }

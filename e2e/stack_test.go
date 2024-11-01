@@ -319,7 +319,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	userCosmosAddr, err := userCosmosETHAddress.Encode("cosmos")
 	require.NoError(t, err)
-	depositValueHex := hexutil.Encode(depositAmount.Bytes())
+	depositValueHex := hexutil.EncodeBig(depositAmount)
 	requireEthIsMinted(t, stack, userCosmosAddr, depositValueHex)
 
 	t.Log("Monomer can ingest user deposit txs from L1 and mint ETH on L2")
@@ -536,7 +536,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// assert the user's bridged WETH is on L2
 	userAddr, err := monomer.CosmosETHAddress(userAddress).Encode("cosmos")
 	require.NoError(t, err)
-	requireERC20IsMinted(t, stack, userAddr, weth9Address.String(), hexutil.Encode(wethL2Amount.Bytes()))
+	requireERC20IsMinted(t, stack, userAddr, weth9Address.String(), hexutil.EncodeBig(wethL2Amount))
 
 	t.Log("Monomer can ingest ERC-20 deposit txs from L1 and mint ERC-20 tokens on L2")
 }

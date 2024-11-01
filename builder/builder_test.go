@@ -313,7 +313,7 @@ func TestBuildRollupTxs(t *testing.T) {
 	depositTxETH := ethTxs[1]
 	require.NotNil(t, depositTxETH.Mint())
 	require.NotNil(t, depositTxETH.To(), "Deposit transaction must have a 'to' address")
-	recipientAddr, err := monomer.CosmosETHAddress(*depositTxETH.To()).Encode("cosmos")
+	userCosmosAddr, err := monomer.CosmosETHAddress(*depositTxETH.To()).Encode("cosmos")
 	require.NoError(t, err)
 
 	from, err := gethtypes.NewCancunSigner(depositTxETH.ChainId()).Sender(depositTxETH)
@@ -322,11 +322,15 @@ func TestBuildRollupTxs(t *testing.T) {
 	require.NoError(t, err)
 
 	withdrawalTx := testapp.ToTx(t, &types.MsgInitiateWithdrawal{
-		Sender:   recipientAddr,
+		Sender:   userCosmosAddr,
 		Target:   common.HexToAddress("0x12345abcde").String(),
 		Value:    math.NewIntFromBigInt(depositTxETH.Value()),
 		GasLimit: big.NewInt(100_000).Bytes(),
 		Data:     []byte{},
+	})
+
+	feeWithdrawalTx := testapp.ToTx(t, &types.MsgInitiateFeeWithdrawal{
+		Sender: userCosmosAddr,
 	})
 
 	b := builder.New(
@@ -340,7 +344,7 @@ func TestBuildRollupTxs(t *testing.T) {
 	)
 
 	// Prepare the payload
-	txs := bfttypes.Txs{depositTxs, withdrawalTx}
+	txs := bfttypes.Txs{depositTxs, withdrawalTx, feeWithdrawalTx}
 	payload := &builder.Payload{
 		InjectedTransactions: txs,
 		GasLimit:             1000000000000,
@@ -352,12 +356,14 @@ func TestBuildRollupTxs(t *testing.T) {
 	builtBlock, preBuildInfo, postBuildInfo := buildBlock(t, b, env.app, payload)
 
 	// Test deposit was received
-	checkDepositTxResult(t, env.txStore, depositTxs, depositTxETH.Mint(), depositTxETH.Value(), mintAddr, recipientAddr)
+	checkDepositTxResult(t, env.txStore, depositTxs, depositTxETH.Mint(), depositTxETH.Value(), mintAddr, userCosmosAddr)
 
 	withdrawalTxResult, err := env.txStore.Get(bfttypes.Tx(withdrawalTx).Hash())
 	require.NoError(t, err)
 	require.NotNil(t, withdrawalTxResult)
-	require.Truef(t, withdrawalTxResult.Result.IsOK(), "Expected the withdrawal transaction to be successful, but it failed")
+	require.Truef(t, withdrawalTxResult.Result.IsOK(), "User withdrawal transaction not successful")
+
+	// TODO: Check fee withdrawal transaction result once a genesis state for the minimum fee withdrawal amount is added
 
 	// Verify block creation
 	genesisBlock, err := env.blockStore.BlockByHeight(uint64(preBuildInfo.GetLastBlockHeight()))
@@ -378,10 +384,9 @@ func TestBuildRollupTxs(t *testing.T) {
 	require.NoError(t, err)
 	verifyBlockContent(t, wantBlock, gotBlock, builtBlock)
 
-	// We expect two transactions: one combined transaction (l1InfoTx + depositTxs) and one withdrawal transaction (withdrawalTx).
-	require.Equal(t, 2, builtBlock.Txs.Len(), "Expected the built block to contain 2 transactions: depositTxs and withdrawalTx")
+	// We expect three transactions: one combined transaction (l1InfoTx + depositTxs) and two withdrawal transactions (withdrawalTx, feeWithdrawalTx).
+	require.Equal(t, 3, builtBlock.Txs.Len(), "Expected the built block to contain 3 transactions: depositTxs, withdrawalTx, feeWithdrawalTx")
 
-	// Test parseWithdrawalMessages
 	checkWithdrawalTxResult(t, withdrawalTxResult)
 
 	expectedStateRoot := wantBlock.Header.StateRoot
@@ -515,9 +520,9 @@ func checkDepositTxResult(t *testing.T, txStore txstore.TxStore, depositTx bftty
 	remainingMintAmount := new(big.Int).Sub(mintAmount, transferAmount)
 
 	require.Equal(t, mintAddr, MintEthEvent.Attributes[1].Value, "Mint address mismatch")
-	require.Equal(t, hexutil.Encode(remainingMintAmount.Bytes()), MintEthEvent.Attributes[2].Value, "Mint amount mismatch")
+	require.Equal(t, hexutil.EncodeBig(remainingMintAmount), MintEthEvent.Attributes[2].Value, "Mint amount mismatch")
 	require.Equal(t, recipientAddr, MintEthEvent.Attributes[3].Value, "Recipient address mismatch")
-	require.Equal(t, hexutil.Encode(transferAmount.Bytes()), MintEthEvent.Attributes[4].Value, "Transfer amount mismatch")
+	require.Equal(t, hexutil.EncodeBig(transferAmount), MintEthEvent.Attributes[4].Value, "Transfer amount mismatch")
 }
 
 // getEventData retrieves event data from the subscription channel. The event data is retrieved in the order
