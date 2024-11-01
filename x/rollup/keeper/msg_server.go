@@ -23,22 +23,19 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 	// process L1 attributes tx and get L1 block info
 	l1blockInfo, err := k.processL1AttributesTx(ctx, msg.TxBytes[0])
 	if err != nil {
-		ctx.Logger().Error("Failed to process L1 system deposit tx", "err", err)
 		return nil, types.WrapError(types.ErrProcessL1SystemDepositTx, "err: %v", err)
 	}
 
 	// save L1 block info to AppState
 	if err = k.setL1BlockInfo(ctx, *l1blockInfo); err != nil {
-		ctx.Logger().Error("Failed to save L1 block info to AppState", "err", err)
 		return nil, types.WrapError(types.ErrL1BlockInfo, "save error: %v", err)
 	}
 
-	ctx.Logger().Info("Save L1 block info", "l1blockInfo", string(lo.Must(l1blockInfo.Marshal())))
+	ctx.Logger().Debug("Save L1 block info", "l1blockInfo", string(lo.Must(l1blockInfo.Marshal())))
 
 	// process L1 user deposit txs
 	mintEvents, err := k.processL1UserDepositTxs(ctx, msg.TxBytes, l1blockInfo)
 	if err != nil {
-		ctx.Logger().Error("Failed to process L1 user deposit txs", "err", err)
 		return nil, types.WrapError(types.ErrProcessL1UserDepositTxs, "err: %v", err)
 	}
 
@@ -56,12 +53,10 @@ func (k *Keeper) InitiateWithdrawal(
 
 	cosmAddr, err := sdk.AccAddressFromBech32(msg.Sender)
 	if err != nil {
-		ctx.Logger().Error("Invalid sender address", "sender", msg.Sender, "err", err)
 		return nil, types.WrapError(types.ErrInvalidSender, "failed to create cosmos address for sender: %v; error: %v", msg.Sender, err)
 	}
 
 	if err = k.burnETH(ctx, cosmAddr, msg.Value); err != nil {
-		ctx.Logger().Error("Failed to burn ETH", "cosmosAddress", cosmAddr, "evmAddress", msg.Target, "err", err)
 		return nil, types.WrapError(types.ErrBurnETH, "failed to burn ETH for cosmosAddress: %v; err: %v", cosmAddr, err)
 	}
 
@@ -102,13 +97,11 @@ func (k *Keeper) InitiateFeeWithdrawal(
 
 	feeCollectorAddr := k.accountkeeper.GetModuleAddress(authtypes.FeeCollectorName)
 	if feeCollectorAddr == nil {
-		ctx.Logger().Error("Failed to get fee collector address")
 		return nil, types.WrapError(types.ErrInitiateFeeWithdrawal, "failed to get fee collector address")
 	}
 
 	feeCollectorBalance := k.bankkeeper.GetBalance(ctx, feeCollectorAddr, types.WEI)
 	if feeCollectorBalance.Amount.LT(math.NewInt(minWithdrawalAmount)) {
-		ctx.Logger().Error("Fee collector balance is below the minimum withdrawal amount", "balance", feeCollectorBalance.String())
 		return nil, types.WrapError(
 			types.ErrInitiateFeeWithdrawal,
 			"fee collector balance is below the minimum withdrawal amount: %v", feeCollectorBalance.String(),
@@ -121,14 +114,12 @@ func (k *Keeper) InitiateFeeWithdrawal(
 	// FeeCollector module account, they will first be sent to the rollup module account before being burned.
 	fees := sdk.NewCoins(feeCollectorBalance)
 	if err := k.bankkeeper.SendCoinsFromModuleToModule(ctx, authtypes.FeeCollectorName, types.ModuleName, fees); err != nil {
-		ctx.Logger().Error("Failed to send withdrawn fees from fee collector account to rollup module", "err", err)
 		return nil, types.WrapError(
 			types.ErrInitiateFeeWithdrawal,
 			"failed to send withdrawn fees from fee collector account to rollup module: %v", err,
 		)
 	}
 	if err := k.bankkeeper.BurnCoins(ctx, types.ModuleName, sdk.NewCoins(feeCollectorBalance)); err != nil {
-		ctx.Logger().Error("Failed to burn withdrawn fees from rollup module", "err", err)
 		return nil, types.WrapError(types.ErrInitiateFeeWithdrawal, "failed to burn withdrawn fees from rollup module: %v", err)
 	}
 
