@@ -12,6 +12,7 @@ import (
 	cdctypes "github.com/cosmos/cosmos-sdk/codec/types"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
+	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/gorilla/mux"
@@ -27,9 +28,10 @@ import (
 type ModuleInputs struct {
 	depinject.In
 
-	Codec        codec.Codec
-	StoreService store.KVStoreService
-	BankKeeper   bankkeeper.Keeper
+	Codec         codec.Codec
+	StoreService  store.KVStoreService
+	BankKeeper    bankkeeper.Keeper
+	AccountKeeper authkeeper.AccountKeeper
 }
 
 type ModuleOutputs struct {
@@ -53,8 +55,8 @@ func ProvideCustomGetSigner() signing.CustomGetSigner {
 	}
 }
 
-func ProvideModule(in ModuleInputs) ModuleOutputs {
-	k := keeper.NewKeeper(in.Codec, in.StoreService, in.BankKeeper)
+func ProvideModule(in ModuleInputs) ModuleOutputs { //nolint:gocritic // hugeParam
+	k := keeper.NewKeeper(in.Codec, in.StoreService, in.BankKeeper, in.AccountKeeper)
 	return ModuleOutputs{
 		Keeper: k,
 		Module: NewAppModule(in.Codec, k),

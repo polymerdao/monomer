@@ -12,10 +12,11 @@ import (
 )
 
 type Keeper struct {
-	cdc          codec.BinaryCodec
-	storeService store.KVStoreService
-	rollupCfg    *rollup.Config
-	bankkeeper   types.BankKeeper
+	cdc           codec.BinaryCodec
+	storeService  store.KVStoreService
+	rollupCfg     *rollup.Config
+	bankkeeper    types.BankKeeper
+	accountkeeper types.AccountKeeper
 }
 
 func NewKeeper(
@@ -23,12 +24,14 @@ func NewKeeper(
 	storeService store.KVStoreService,
 	// dependencies
 	bankKeeper types.BankKeeper,
+	accountKeeper types.AccountKeeper,
 ) *Keeper {
 	return &Keeper{
-		cdc:          cdc,
-		storeService: storeService,
-		bankkeeper:   bankKeeper,
-		rollupCfg:    &rollup.Config{},
+		cdc:           cdc,
+		storeService:  storeService,
+		bankkeeper:    bankKeeper,
+		accountkeeper: accountKeeper,
+		rollupCfg:     &rollup.Config{},
 	}
 }
 

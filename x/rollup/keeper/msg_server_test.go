@@ -4,6 +4,7 @@ import (
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
@@ -87,14 +88,14 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 		"bank keeper mint coins failure": {
 			txBytes: [][]byte{l1AttributesTxBz, depositTxBz},
 			setupMocks: func() {
-				s.bankKeeper.EXPECT().MintCoins(gomock.Any(), types.ModuleName, gomock.Any()).Return(sdkerrors.ErrUnauthorized)
+				s.bankKeeper.EXPECT().MintCoins(s.ctx, types.ModuleName, gomock.Any()).Return(sdkerrors.ErrUnauthorized)
 			},
 			shouldError: true,
 		},
 		"bank keeper send coins failure": {
 			txBytes: [][]byte{l1AttributesTxBz, depositTxBz},
 			setupMocks: func() {
-				s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(gomock.Any(), types.ModuleName, gomock.Any(), gomock.Any()).Return(sdkerrors.ErrUnknownRequest)
+				s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(s.ctx, types.ModuleName, gomock.Any(), gomock.Any()).Return(sdkerrors.ErrUnknownRequest)
 			},
 			shouldError: true,
 		},
@@ -161,14 +162,14 @@ func (s *KeeperTestSuite) TestInitiateWithdrawal() {
 		},
 		"bank keeper insufficient funds failure": {
 			setupMocks: func() {
-				s.bankKeeper.EXPECT().SendCoinsFromAccountToModule(gomock.Any(), gomock.Any(), types.ModuleName, gomock.Any()).Return(types.ErrBurnETH)
+				s.bankKeeper.EXPECT().SendCoinsFromAccountToModule(s.ctx, gomock.Any(), types.ModuleName, gomock.Any()).Return(types.ErrBurnETH)
 			},
 			sender:      sender,
 			shouldError: true,
 		},
 		"bank keeper burn coins failure": {
 			setupMocks: func() {
-				s.bankKeeper.EXPECT().BurnCoins(gomock.Any(), types.ModuleName, gomock.Any()).Return(sdkerrors.ErrUnknownRequest)
+				s.bankKeeper.EXPECT().BurnCoins(s.ctx, types.ModuleName, gomock.Any()).Return(sdkerrors.ErrUnknownRequest)
 			},
 			sender:      sender,
 			shouldError: true,
@@ -186,6 +187,72 @@ func (s *KeeperTestSuite) TestInitiateWithdrawal() {
 				Sender: test.sender,
 				Target: l1Target,
 				Value:  withdrawalAmount,
+			})
+
+			if test.shouldError {
+				s.Require().Error(err)
+				s.Require().Nil(resp)
+			} else {
+				s.Require().NoError(err)
+				s.Require().NotNil(resp)
+
+				// Verify that the expected event types are emitted
+				expectedEventTypes := []string{
+					sdk.EventTypeMessage,
+					types.EventTypeWithdrawalInitiated,
+					types.EventTypeBurnETH,
+				}
+				for i, event := range s.eventManger.Events() {
+					s.Require().Equal(expectedEventTypes[i], event.Type)
+				}
+			}
+		})
+	}
+}
+
+func (s *KeeperTestSuite) TestInitiateFeeWithdrawal() {
+	tests := map[string]struct {
+		setupMocks  func()
+		shouldError bool
+	}{
+		"successful message": {
+			shouldError: false,
+		},
+		"fee collector address not found": {
+			setupMocks: func() {
+				s.accountKeeper.EXPECT().GetModuleAddress(authtypes.FeeCollectorName).Return(nil)
+			},
+			shouldError: true,
+		},
+		"fee collector balance below minimum withdrawal amount": {
+			setupMocks: func() {
+				s.bankKeeper.EXPECT().GetBalance(s.ctx, gomock.Any(), types.WEI).Return(sdk.NewCoin(types.WEI, math.NewInt(1)))
+			},
+			shouldError: true,
+		},
+		"bank keeper send coins failure": {
+			setupMocks: func() {
+				s.bankKeeper.EXPECT().SendCoinsFromModuleToModule(s.ctx, authtypes.FeeCollectorName, types.ModuleName, gomock.Any()).Return(sdkerrors.ErrUnknownRequest)
+			},
+			shouldError: true,
+		},
+		"bank keeper burn coins failure": {
+			setupMocks: func() {
+				s.bankKeeper.EXPECT().BurnCoins(s.ctx, types.ModuleName, gomock.Any()).Return(sdkerrors.ErrUnknownRequest)
+			},
+			shouldError: true,
+		},
+	}
+
+	for name, test := range tests {
+		s.Run(name, func() {
+			if test.setupMocks != nil {
+				test.setupMocks()
+			}
+			s.mockFeeCollector()
+
+			resp, err := s.rollupKeeper.InitiateFeeWithdrawal(s.ctx, &types.MsgInitiateFeeWithdrawal{
+				Sender: sdk.AccAddress("addr").String(),
 			})
 
 			if test.shouldError {

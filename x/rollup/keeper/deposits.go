@@ -264,9 +264,9 @@ func (k *Keeper) mintETH(
 		types.EventTypeMintETH,
 		sdk.NewAttribute(types.AttributeKeyL1DepositTxType, types.L1UserDepositTxType),
 		sdk.NewAttribute(types.AttributeKeyMintCosmosAddress, mintAddr),
-		sdk.NewAttribute(types.AttributeKeyMint, hexutil.Encode(remainingCoins.BigInt().Bytes())),
+		sdk.NewAttribute(types.AttributeKeyMint, hexutil.EncodeBig(remainingCoins.BigInt())),
 		sdk.NewAttribute(types.AttributeKeyToCosmosAddress, recipientAddr),
-		sdk.NewAttribute(types.AttributeKeyValue, hexutil.Encode(transferAmount.BigInt().Bytes())),
+		sdk.NewAttribute(types.AttributeKeyValue, hexutil.EncodeBig(transferAmount.BigInt())),
 	)
 
 	return &mintEvent, nil
@@ -297,7 +297,7 @@ func (k *Keeper) mintERC20(
 		sdk.NewAttribute(types.AttributeKeyL1DepositTxType, types.L1UserDepositTxType),
 		sdk.NewAttribute(types.AttributeKeyToCosmosAddress, userAddr),
 		sdk.NewAttribute(types.AttributeKeyERC20Address, erc20addr),
-		sdk.NewAttribute(types.AttributeKeyValue, hexutil.Encode(amount.BigInt().Bytes())),
+		sdk.NewAttribute(types.AttributeKeyValue, hexutil.EncodeBig(amount.BigInt())),
 	)
 
 	return &mintEvent, nil

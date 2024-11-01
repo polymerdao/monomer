@@ -31,8 +31,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const initialFeeCollectorBalance = 1_000_000
+
 func TestRollup(t *testing.T) {
-	integrationApp := setupIntegrationApp(t)
+	integrationApp, feeCollectorAddr := setupIntegrationApp(t)
 	queryClient := banktypes.NewQueryClient(integrationApp.QueryHelper())
 
 	erc20tokenAddr := common.HexToAddress("0xabcdef123456")
@@ -54,19 +56,19 @@ func TestRollup(t *testing.T) {
 
 	mintAddr, err := monomer.CosmosETHAddress(from).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
 	require.NoError(t, err)
-	recipientAddr, err := monomer.CosmosETHAddress(*depositTx.To()).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	userCosmosAddr, err := monomer.CosmosETHAddress(*depositTx.To()).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
 	require.NoError(t, err)
 
 	// query the mint address ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, mintAddr, integrationApp))
+	require.Equal(t, math.ZeroInt(), queryETHBalance(t, queryClient, mintAddr, integrationApp))
 
 	// query the recipient address ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, recipientAddr, integrationApp))
+	require.Equal(t, math.ZeroInt(), queryETHBalance(t, queryClient, userCosmosAddr, integrationApp))
 
 	// query the user's ERC20 balance and assert it's zero
 	erc20userCosmosAddr, err := monomer.CosmosETHAddress(erc20userAddr).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
 	require.NoError(t, err)
-	require.Equal(t, math.ZeroInt(), queryUserERC20Balance(t, queryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp))
+	require.Equal(t, math.ZeroInt(), queryERC20Balance(t, queryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp))
 
 	// send an invalid MsgApplyL1Txs and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
@@ -81,13 +83,13 @@ func TestRollup(t *testing.T) {
 	require.NoError(t, err)
 
 	// query the mint address ETH balance and assert it's equal to the mint amount minus the transfer amount
-	require.Equal(t, new(big.Int).Sub(mintAmount, transferAmount), queryUserETHBalance(t, queryClient, mintAddr, integrationApp).BigInt())
+	require.Equal(t, new(big.Int).Sub(mintAmount, transferAmount), queryETHBalance(t, queryClient, mintAddr, integrationApp).BigInt())
 
 	// query the recipient address ETH balance and assert it's equal to the transfer amount
-	require.Equal(t, transferAmount, queryUserETHBalance(t, queryClient, recipientAddr, integrationApp).BigInt())
+	require.Equal(t, transferAmount, queryETHBalance(t, queryClient, userCosmosAddr, integrationApp).BigInt())
 
 	// query the user's ERC20 balance and assert it's equal to the deposit amount
-	require.Equal(t, erc20depositAmount, queryUserERC20Balance(t, queryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp).BigInt())
+	require.Equal(t, erc20depositAmount, queryERC20Balance(t, queryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp).BigInt())
 
 	// try to withdraw more than deposited and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
@@ -101,7 +103,7 @@ func TestRollup(t *testing.T) {
 
 	// send a successful MsgInitiateWithdrawal
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
-		Sender:   recipientAddr,
+		Sender:   userCosmosAddr,
 		Target:   l1WithdrawalAddr,
 		Value:    math.NewIntFromBigInt(transferAmount),
 		GasLimit: new(big.Int).SetUint64(100_000_000).Bytes(),
@@ -110,10 +112,22 @@ func TestRollup(t *testing.T) {
 	require.NoError(t, err)
 
 	// query the recipient address ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), queryUserETHBalance(t, queryClient, recipientAddr, integrationApp))
+	require.Equal(t, math.ZeroInt(), queryETHBalance(t, queryClient, userCosmosAddr, integrationApp))
+
+	// query the fee collector's ETH balance and assert it's equal to the initial mint amount
+	require.Equal(t, math.NewInt(initialFeeCollectorBalance), queryETHBalance(t, queryClient, feeCollectorAddr, integrationApp))
+
+	// send a successful MsgInitiateFeeWithdrawal
+	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateFeeWithdrawal{
+		Sender: userCosmosAddr,
+	})
+	require.NoError(t, err)
+
+	// query the fee collector's ETH balance and assert it's zero
+	require.Equal(t, math.ZeroInt(), queryETHBalance(t, queryClient, feeCollectorAddr, integrationApp))
 }
 
-func setupIntegrationApp(t *testing.T) *integration.App {
+func setupIntegrationApp(t *testing.T) (*integration.App, string) {
 	encodingCfg := moduletestutil.MakeTestEncodingConfig(auth.AppModuleBasic{}, bank.AppModuleBasic{}, rollup.AppModuleBasic{})
 	keys := storetypes.NewKVStoreKeys(authtypes.StoreKey, banktypes.StoreKey, rolluptypes.StoreKey)
 	authority := authtypes.NewModuleAddress("gov").String()
@@ -126,7 +140,10 @@ func setupIntegrationApp(t *testing.T) *integration.App {
 		encodingCfg.Codec,
 		runtime.NewKVStoreService(keys[authtypes.StoreKey]),
 		authtypes.ProtoBaseAccount,
-		map[string][]string{rolluptypes.ModuleName: {authtypes.Minter, authtypes.Burner}},
+		map[string][]string{
+			authtypes.FeeCollectorName: {},
+			rolluptypes.ModuleName:     {authtypes.Minter, authtypes.Burner},
+		},
 		addresscodec.NewBech32Codec("cosmos"),
 		"cosmos",
 		authority,
@@ -143,14 +160,21 @@ func setupIntegrationApp(t *testing.T) *integration.App {
 		encodingCfg.Codec,
 		runtime.NewKVStoreService(keys[rolluptypes.StoreKey]),
 		bankKeeper,
+		accountKeeper,
 	)
 
 	authModule := auth.NewAppModule(encodingCfg.Codec, accountKeeper, authsims.RandomGenesisAccounts, nil)
 	bankModule := bank.NewAppModule(encodingCfg.Codec, bankKeeper, accountKeeper, nil)
 	rollupModule := rollup.NewAppModule(encodingCfg.Codec, rollupKeeper)
 
+	// Start the integration test with funds in the fee collector account since fees are disabled in the simulated integration app
+	ctx := sdk.NewContext(cms, cmtproto.Header{}, false, logger)
+	initialFees := sdk.NewCoins(sdk.NewCoin(rolluptypes.WEI, math.NewInt(initialFeeCollectorBalance)))
+	require.NoError(t, bankKeeper.MintCoins(ctx, rolluptypes.ModuleName, initialFees))
+	require.NoError(t, bankKeeper.SendCoinsFromModuleToModule(ctx, rolluptypes.ModuleName, authtypes.FeeCollectorName, initialFees))
+
 	integrationApp := integration.NewIntegrationApp(
-		sdk.NewContext(cms, cmtproto.Header{}, false, logger),
+		ctx,
 		logger,
 		keys,
 		encodingCfg.Codec,
@@ -163,22 +187,22 @@ func setupIntegrationApp(t *testing.T) *integration.App {
 	rolluptypes.RegisterMsgServer(integrationApp.MsgServiceRouter(), rollupKeeper)
 	banktypes.RegisterQueryServer(integrationApp.QueryHelper(), bankkeeper.NewQuerier(&bankKeeper))
 
-	return integrationApp
+	return integrationApp, accountKeeper.GetModuleAddress(authtypes.FeeCollectorName).String()
 }
 
-func queryUserBalance(t *testing.T, queryClient banktypes.QueryClient, userAddr, denom string, app *integration.App) math.Int {
+func queryBalance(t *testing.T, queryClient banktypes.QueryClient, addr, denom string, app *integration.App) math.Int {
 	resp, err := queryClient.Balance(app.Context(), &banktypes.QueryBalanceRequest{
-		Address: userAddr,
+		Address: addr,
 		Denom:   denom,
 	})
 	require.NoError(t, err)
 	return resp.Balance.Amount
 }
 
-func queryUserETHBalance(t *testing.T, queryClient banktypes.QueryClient, userAddr string, app *integration.App) math.Int {
-	return queryUserBalance(t, queryClient, userAddr, rolluptypes.WEI, app)
+func queryETHBalance(t *testing.T, queryClient banktypes.QueryClient, addr string, app *integration.App) math.Int {
+	return queryBalance(t, queryClient, addr, rolluptypes.WEI, app)
 }
 
-func queryUserERC20Balance(t *testing.T, queryClient banktypes.QueryClient, userAddr string, erc20addr common.Address, app *integration.App) math.Int {
-	return queryUserBalance(t, queryClient, userAddr, "erc20/"+erc20addr.String()[2:], app)
+func queryERC20Balance(t *testing.T, queryClient banktypes.QueryClient, addr string, erc20addr common.Address, app *integration.App) math.Int {
+	return queryBalance(t, queryClient, addr, "erc20/"+erc20addr.String()[2:], app)
 }
