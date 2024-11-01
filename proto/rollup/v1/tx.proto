@@ -17,6 +17,9 @@ service Msg {
 
   // InitiateWithdrawal defines a method for initiating a withdrawal from L2 to L1.
   rpc InitiateWithdrawal(MsgInitiateWithdrawal) returns (MsgInitiateWithdrawalResponse);
+
+  // InitiateFeeWithdrawal defines a method for initiating a withdrawal of fees from L2 to the L1 fee recipient address.
+  rpc InitiateFeeWithdrawal(MsgInitiateFeeWithdrawal) returns (MsgInitiateFeeWithdrawalResponse);
 }
 
 // MsgApplyL1Txs defines the message for applying all L1 system and user deposit txs.
@@ -52,3 +55,14 @@ message MsgInitiateWithdrawal {
 
 // MsgInitiateWithdrawalResponse defines the Msg/InitiateWithdrawal response type.
 message MsgInitiateWithdrawalResponse {}
+
+// MsgInitiateFeeWithdrawal defines the message for initiating an L2 fee withdrawal to the L1 fee recipient address.
+message MsgInitiateFeeWithdrawal {
+  option (cosmos.msg.v1.signer) = "sender";
+
+  // The signer address of the user initiating the fee withdrawal.
+  string sender = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+}
+
+// MsgInitiateFeeWithdrawalResponse defines the Msg/InitiateFeeWithdrawal response type.
+message MsgInitiateFeeWithdrawalResponse {}
