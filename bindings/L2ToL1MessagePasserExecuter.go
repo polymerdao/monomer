@@ -5,6 +5,7 @@ import (
 	"math/big"
 
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/vm"
 	bindings "github.com/polymerdao/monomer/bindings/generated"
@@ -33,21 +34,15 @@ func NewL2ToL1MessagePasserExecuter(evm *vm.EVM) (*L2ToL1MessagePasserExecuter, 
 	return &L2ToL1MessagePasserExecuter{executer}, nil
 }
 
-func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(
-	sender common.Address,
-	amount *big.Int,
-	l1Address common.Address,
-	gasLimit *big.Int,
-	data []byte,
-) error {
-	data, err := e.ABI.Pack(initiateWithdrawalMethodName, l1Address, gasLimit, data)
+func (e *L2ToL1MessagePasserExecuter) InitiateWithdrawal(params *crossdomain.Withdrawal) error {
+	data, err := e.ABI.Pack(initiateWithdrawalMethodName, params.Target, params.GasLimit, []byte(params.Data))
 	if err != nil {
 		return fmt.Errorf("create initiateWithdrawal data: %v", err)
 	}
 
 	_, err = e.Call(&monomerevm.CallParams{
-		Sender: &sender,
-		Value:  amount,
+		Sender: params.Sender,
+		Value:  params.Value,
 		Data:   data,
 	})
 	if err != nil {

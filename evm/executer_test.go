@@ -48,14 +48,15 @@ func TestL2ToL1MessagePasserExecuter(t *testing.T) {
 	data := []byte("data")
 	nonce := encodeVersionedNonce(big.NewInt(0))
 
-	withdrawalHash, err := crossdomain.NewWithdrawal(
+	withdrawalParams := crossdomain.NewWithdrawal(
 		nonce,
 		&sender,
 		&l1TargetAddress,
 		amount,
 		gasLimit,
 		data,
-	).Hash()
+	)
+	withdrawalHash, err := withdrawalParams.Hash()
 	require.NoError(t, err)
 
 	// Check that the withdrawal hash is not in the sentMessages mapping
@@ -69,7 +70,7 @@ func TestL2ToL1MessagePasserExecuter(t *testing.T) {
 	require.Equal(t, nonce, initialMessageNonce)
 
 	// Initiate a withdrawal
-	err = executer.InitiateWithdrawal(sender, amount, l1TargetAddress, gasLimit, data)
+	err = executer.InitiateWithdrawal(withdrawalParams)
 	require.NoError(t, err)
 
 	// Check that the withdrawal hash is in the sentMessages mapping
