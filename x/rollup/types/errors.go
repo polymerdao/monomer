@@ -17,6 +17,7 @@ var (
 	ErrL1BlockInfo              = registerErr("L1 block info")
 	ErrProcessL1UserDepositTxs  = registerErr("failed to process L1 user deposit txs")
 	ErrProcessL1SystemDepositTx = registerErr("failed to process L1 system deposit tx")
+	ErrInitiateFeeWithdrawal    = registerErr("failed to initiate fee withdrawal")
 )
 
 // register new errors without hard-coding error codes

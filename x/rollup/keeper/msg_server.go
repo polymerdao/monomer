@@ -2,8 +2,11 @@ package keeper
 
 import (
 	"context"
+	"math/big"
 
+	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/samber/lo"
@@ -62,7 +65,7 @@ func (k *Keeper) InitiateWithdrawal(
 		return nil, types.WrapError(types.ErrBurnETH, "failed to burn ETH for cosmosAddress: %v; err: %v", cosmAddr, err)
 	}
 
-	withdrawalValueHex := hexutil.Encode(msg.Value.BigInt().Bytes())
+	withdrawalValueHex := hexutil.EncodeBig(msg.Value.BigInt())
 	k.EmitEvents(ctx, sdk.Events{
 		sdk.NewEvent(
 			types.EventTypeWithdrawalInitiated,
@@ -82,4 +85,72 @@ func (k *Keeper) InitiateWithdrawal(
 	})
 
 	return &types.MsgInitiateWithdrawalResponse{}, nil
+}
+
+func (k *Keeper) InitiateFeeWithdrawal(
+	goCtx context.Context,
+	_ *types.MsgInitiateFeeWithdrawal,
+) (*types.MsgInitiateFeeWithdrawalResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+
+	// TODO: make minWithdrawalAmount and l1recipientAddr configurable once a genesis state is added
+	const (
+		minWithdrawalAmount   = 100
+		l1recipientAddr       = "0x63d93aC6FA6B4021527e967ac3Eb29F2B3E52B96"
+		feeWithdrawalGasLimit = 400_000
+	)
+
+	feeCollectorAddr := k.accountkeeper.GetModuleAddress(authtypes.FeeCollectorName)
+	if feeCollectorAddr == nil {
+		ctx.Logger().Error("Failed to get fee collector address")
+		return nil, types.WrapError(types.ErrInitiateFeeWithdrawal, "failed to get fee collector address")
+	}
+
+	feeCollectorBalance := k.bankkeeper.GetBalance(ctx, feeCollectorAddr, types.WEI)
+	if feeCollectorBalance.Amount.LT(math.NewInt(minWithdrawalAmount)) {
+		ctx.Logger().Error("Fee collector balance is below the minimum withdrawal amount", "balance", feeCollectorBalance.String())
+		return nil, types.WrapError(
+			types.ErrInitiateFeeWithdrawal,
+			"fee collector balance is below the minimum withdrawal amount: %v", feeCollectorBalance.String(),
+		)
+	}
+
+	ctx.Logger().Debug("Withdrawing L2 fees", "amount", feeCollectorBalance.String(), "recipient", l1recipientAddr)
+
+	// Burn the withdrawn fees from the fee collector account on L2. To avoid needing to enable burn permissions for the
+	// FeeCollector module account, they will first be sent to the rollup module account before being burned.
+	fees := sdk.NewCoins(feeCollectorBalance)
+	if err := k.bankkeeper.SendCoinsFromModuleToModule(ctx, authtypes.FeeCollectorName, types.ModuleName, fees); err != nil {
+		ctx.Logger().Error("Failed to send withdrawn fees from fee collector account to rollup module", "err", err)
+		return nil, types.WrapError(
+			types.ErrInitiateFeeWithdrawal,
+			"failed to send withdrawn fees from fee collector account to rollup module: %v", err,
+		)
+	}
+	if err := k.bankkeeper.BurnCoins(ctx, types.ModuleName, sdk.NewCoins(feeCollectorBalance)); err != nil {
+		ctx.Logger().Error("Failed to burn withdrawn fees from rollup module", "err", err)
+		return nil, types.WrapError(types.ErrInitiateFeeWithdrawal, "failed to burn withdrawn fees from rollup module: %v", err)
+	}
+
+	withdrawalValueHex := hexutil.EncodeBig(feeCollectorBalance.Amount.BigInt())
+	feeCollectorAddrStr := feeCollectorAddr.String()
+	k.EmitEvents(ctx, sdk.Events{
+		sdk.NewEvent(
+			types.EventTypeWithdrawalInitiated,
+			sdk.NewAttribute(types.AttributeKeySender, feeCollectorAddrStr),
+			sdk.NewAttribute(types.AttributeKeyL1Target, l1recipientAddr),
+			sdk.NewAttribute(types.AttributeKeyValue, withdrawalValueHex),
+			sdk.NewAttribute(types.AttributeKeyGasLimit, hexutil.EncodeBig(big.NewInt(feeWithdrawalGasLimit))),
+			sdk.NewAttribute(types.AttributeKeyData, "0x"),
+			// The nonce attribute will be set by Monomer
+		),
+		sdk.NewEvent(
+			types.EventTypeBurnETH,
+			sdk.NewAttribute(types.AttributeKeyL2FeeWithdrawalTx, types.EventTypeWithdrawalInitiated),
+			sdk.NewAttribute(types.AttributeKeyFromCosmosAddress, feeCollectorAddrStr),
+			sdk.NewAttribute(types.AttributeKeyValue, withdrawalValueHex),
+		),
+	})
+
+	return &types.MsgInitiateFeeWithdrawalResponse{}, nil
 }
