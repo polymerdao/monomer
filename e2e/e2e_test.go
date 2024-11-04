@@ -81,7 +81,9 @@ func TestE2E2(t *testing.T) {
 		os.Stderr = stderr
 	}()
 
-	require.NoError(t, e2e.Run(context.Background(), env, t.TempDir()))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	require.NoError(t, e2e.Run(ctx, env, t.TempDir()))
 
 	// Run tests concurrently, against the same stack.
 	// runningTests := sync.WaitGroup{}
@@ -116,6 +118,11 @@ func newStackConfig(t *testing.T) *e2e.StackConfig {
 	require.NoError(t, err)
 	require.NoError(t, bftClient.Start())
 
+	{
+		engineurl, err := url.ParseString("ws://127.0.0.1:9001")
+		require.NoError(t, err)
+		engineurl.IsReachable(context.Background())
+	}
 	l1RPCClient, err := rpc.Dial("ws://127.0.0.1:9001")
 	require.NoError(t, err)
 	l1Client := e2e.NewL1Client(l1RPCClient)

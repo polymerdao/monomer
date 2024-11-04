@@ -45,7 +45,7 @@ func Run(
 		filepath.Join(appDirPath, appName+"d"),
 		"monomer",
 		"start",
-		"--minimum-gas-prices", "0.001ETH",
+		"--minimum-gas-prices", "0.001wei",
 		"--monomer.dev-start",
 	))
 	appCmd.Dir = appDirPath

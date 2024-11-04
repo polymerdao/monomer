@@ -238,10 +238,19 @@ func startOPDevnet(
 	} else {
 		deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time)
 	}
-	l1Allocs, err := readFromFileOrGetDefault(v.GetString(flagL1AllocsPath), opdevnet.DefaultL1Allocs)
+	// TODO thinking about removing this clunky readFromFileOrGetDefault abstraction.
+	l1AllocsForge, err := readFromFileOrGetDefault(v.GetString(flagL1AllocsPath), func() (*opgenesis.ForgeDump, error) {
+		got, err := opdevnet.DefaultL1Allocs()
+		if err != nil {
+			return nil, err
+		}
+		gotForge := opgenesis.ForgeDump(*got)
+		return &gotForge, nil
+	})
 	if err != nil {
 		return fmt.Errorf("get l1 allocs: %v", err)
 	}
+	l1Allocs := state.Dump(*l1AllocsForge)
 	mneumonics, err := readFromFileOrGetDefault(v.GetString(flagMneumonicsPath), func() (*opdevnet.MnemonicConfig, error) {
 		return opdevnet.DefaultMnemonicConfig, nil
 	})
@@ -269,7 +278,7 @@ func startOPDevnet(
 		}
 	}
 
-	l1Config, err := opdevnet.BuildL1Config(deployConfig, l1Deployments, l1Allocs, l1URL, os.TempDir())
+	l1Config, err := opdevnet.BuildL1Config(deployConfig, l1Deployments, &l1Allocs, l1URL, os.TempDir())
 	if err != nil {
 		return fmt.Errorf("build l1 config: %v", err)
 	}

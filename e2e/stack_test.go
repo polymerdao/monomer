@@ -12,11 +12,22 @@ import (
 	"testing"
 	"time"
 
+	authv1beta1 "cosmossdk.io/api/cosmos/auth/v1beta1"
+	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
 	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	"github.com/cometbft/cometbft/config"
 	cometcore "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cosmossecp256k1 "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
+
+	//"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/receipts"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
@@ -27,9 +38,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
+	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e"
 	"github.com/polymerdao/monomer/environment"
@@ -38,6 +50,7 @@ import (
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slog"
+	"google.golang.org/protobuf/proto"
 )
 
 const (
@@ -237,22 +250,14 @@ func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
 
 func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
-	monomerClient := stack.MonomerClient
-
-	b, err := monomerClient.BlockByNumber(stack.Ctx, nil)
-	require.NoError(t, err, "monomer block by number")
-	l2blockGasLimit := b.GasLimit()
 
 	l1ChainID, err := l1Client.ChainID(stack.Ctx)
 	require.NoError(t, err, "chain id")
 
 	// instantiate L1 user, tx signer.
 	userPrivKey := stack.Users[0]
-	userETHAddress := crypto.PubkeyToAddress(userPrivKey.PublicKey)
-	l1signer := types.NewEIP155Signer(l1ChainID)
-
-	l2GasLimit := l2blockGasLimit / 10
-	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+	userETHAddress := ethcrypto.PubkeyToAddress(userPrivKey.PublicKey)
+	l1signer := types.NewLondonSigner(l1ChainID)
 
 	userCosmosETHAddress := monomer.CosmosETHAddress(userETHAddress)
 
@@ -264,17 +269,26 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	balanceBeforeDeposit, err := l1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
 	require.NoError(t, err)
 
+	// wait for two blocks
+	require.NoError(t, stack.WaitL1(2))
+
 	// send user Deposit Tx
 	depositAmount := big.NewInt(params.Ether)
-	depositTx, err := stack.OptimismPortal.DepositTransaction(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, depositAmount),
-		common.Address(userCosmosETHAddress),
-		depositAmount,
-		l2GasLimit,
-		false,    // _isCreation
-		[]byte{}, // no data
+	// https://github.com/ethereum-optimism/optimism/blob/24a8d3e06e61c7a8938dfb7a591345a437036381/op-e2e/tx_helper.go#L38
+	depositTx, err := PadGasEstimate(
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, 0, depositAmount),
+		1.1,
+		func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return stack.OptimismPortal.DepositTransaction(
+				opts,
+				common.Address(userCosmosETHAddress),
+				depositAmount,
+				100_000,  // 0l2GasLimit, // l2GasLimit,
+				false,    // _isCreation
+				[]byte{}, // no data
+			)
+		},
 	)
-	require.NoError(t, err, "deposit tx")
 
 	// wait for tx to be processed
 	// 1 L1 block to process the tx on L1 +
@@ -308,7 +322,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	//nolint:gocritic
 	// gasCost = gasUsed * gasPrice
-	gasCost := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), depositTx.GasPrice())
+	gasCost := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
 
 	//nolint:gocritic
 	// expectedBalance = balanceBeforeDeposit - depositAmount - gasCost
@@ -317,7 +331,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// check that the user's balance has been updated on L1
 	require.Equal(t, expectedBalance, balanceAfterDeposit)
 
-	userCosmosAddr, err := userCosmosETHAddress.Encode("cosmos")
+	userCosmosAddr, err := userCosmosETHAddress.Encode("e2e")
 	require.NoError(t, err)
 	depositValueHex := hexutil.EncodeBig(depositAmount)
 	requireEthIsMinted(t, stack, userCosmosAddr, depositValueHex)
@@ -332,20 +346,37 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	withdrawalTx := e2e.NewWithdrawalTx(0, common.Address(userCosmosETHAddress), userETHAddress, depositAmount, new(big.Int).SetUint64(params.TxGas))
 
 	// initiate the withdrawal of the deposited amount on L2
-	senderAddr, err := monomer.CosmosETHAddress(*withdrawalTx.Sender).Encode("cosmos")
+	senderAddr, err := monomer.CosmosETHAddress(*withdrawalTx.Sender).Encode("e2e")
 	require.NoError(t, err)
+
+	queryAccountBytes, err := protov1.Marshal(&authv1beta1.QueryAccountRequest{
+		Address: userCosmosAddr,
+	})
+	require.NoError(t, err)
+	result, err := stack.L2Client.ABCIQuery(stack.Ctx, authv1beta1.Query_Account_FullMethodName, queryAccountBytes)
+	require.NoError(t, err)
+	require.Zero(t, result.Response.Code)
+	var msgAny codectypes.Any
+	require.NoError(t, protov1.Unmarshal(result.Response.Value, &msgAny))
+	var accountResponse authv1beta1.QueryAccountResponse
+	require.NoError(t, protov1.Unmarshal(msgAny.Value, &accountResponse))
+	var baseAccount authtypes.BaseAccount
+	require.NoError(t, protov1.Unmarshal(msgAny.Value, &baseAccount))
+
 	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
 		stack.Ctx,
-		testapp.ToTx(t, &rolluptypes.MsgInitiateWithdrawal{
-			Sender:   senderAddr,
-			Target:   withdrawalTx.Target.String(),
-			Value:    math.NewIntFromBigInt(withdrawalTx.Value),
-			GasLimit: withdrawalTx.GasLimit.Bytes(),
-			Data:     []byte{},
+		buildTx(t, stack.RollupConfig.L2ChainID.String(), baseAccount.AccountNumber, userPrivKey, []protov1.Message{
+			&rolluptypes.MsgInitiateWithdrawal{
+				Sender:   senderAddr,
+				Target:   withdrawalTx.Target.String(),
+				Value:    math.NewIntFromBigInt(withdrawalTx.Value),
+				GasLimit: withdrawalTx.GasLimit.Bytes(),
+				Data:     []byte{},
+			},
 		}),
 	)
 	require.NoError(t, err)
-	require.Equal(t, abcitypes.CodeTypeOK, withdrawalTxResult.Code)
+	require.Equalf(t, abcitypes.CodeTypeOK, withdrawalTxResult.Code, "log: "+withdrawalTxResult.Log)
 
 	// wait for tx to be processed on L2
 	require.NoError(t, stack.WaitL2(1))
@@ -362,7 +393,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// send a withdrawal proving tx to prove the withdrawal on L1
 	proveWithdrawalTx, err := stack.OptimismPortal.ProveWithdrawalTransaction(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, 0, nil),
 		withdrawalTx.WithdrawalTransaction(),
 		provenWithdrawalParams.L2OutputIndex,
 		provenWithdrawalParams.OutputRootProof,
@@ -406,7 +437,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// send a withdrawal finalizing tx to finalize the withdrawal on L1
 	finalizeWithdrawalTx, err := stack.OptimismPortal.FinalizeWithdrawalTransaction(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, 0, nil),
 		withdrawalTx.WithdrawalTransaction(),
 	)
 	require.NoError(t, err)
@@ -451,6 +482,78 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	t.Log("Monomer can initiate withdrawals on L2 and can generate proofs for verifying the withdrawal on L1")
 }
 
+func buildTx(t *testing.T, chainID string, accNum uint64, ethPrivKey *ecdsa.PrivateKey, msgs []protov1.Message) bfttypes.Tx {
+	key := new(secp256k1.ModNScalar)
+	keyBytes := ethPrivKey.D.Bytes()
+	if key.SetByteSlice(keyBytes) {
+		panic("overflow")
+	}
+	privKey := secp256k1.NewPrivateKey(key)
+	cosmosPrivKey := cosmossecp256k1.PrivKey{
+		Key: privKey.Serialize(),
+	}
+	require.Equal(t, cosmosPrivKey, cosmossecp256k1.PrivKey{
+		Key: ethPrivKey.D.Bytes(),
+	})
+
+	var msgAnys []*codectypes.Any
+	for _, msg := range msgs {
+		msgAny, err := codectypes.NewAnyWithValue(msg)
+		require.NoError(t, err)
+		msgAnys = append(msgAnys, msgAny)
+	}
+
+	pubKeyAny, err := codectypes.NewAnyWithValue(cosmosPrivKey.PubKey())
+	require.NoError(t, err)
+
+	tx := &sdktx.Tx{
+		Body: &sdktx.TxBody{
+			Messages: msgAnys,
+		},
+		AuthInfo: &sdktx.AuthInfo{
+			SignerInfos: []*sdktx.SignerInfo{
+				{
+					PublicKey: pubKeyAny,
+					ModeInfo: &sdktx.ModeInfo{
+						Sum: &sdktx.ModeInfo_Single_{
+							Single: &sdktx.ModeInfo_Single{
+								Mode: signing.SignMode_SIGN_MODE_DIRECT,
+							},
+						},
+					},
+					Sequence: 0,
+				},
+			},
+			Fee: &sdktx.Fee{
+				Amount:   sdk.NewCoins(sdk.NewCoin(rolluptypes.WEI, math.NewInt(100000000))),
+				GasLimit: 1000000,
+			},
+		},
+	}
+
+	bodyBytes, err := protov1.Marshal(tx.Body)
+	require.NoError(t, err)
+	authInfoBytes, err := protov1.Marshal(tx.AuthInfo)
+	require.NoError(t, err)
+
+	signBytes, err := proto.MarshalOptions{Deterministic: true}.Marshal(&txv1beta1.SignDoc{
+		BodyBytes:     bodyBytes,
+		AuthInfoBytes: authInfoBytes,
+		ChainId:       chainID,
+		AccountNumber: accNum,
+	})
+	require.NoError(t, err)
+
+	signature, err := cosmosPrivKey.Sign(signBytes)
+	require.NoError(t, err)
+
+	tx.Signatures = [][]byte{signature}
+
+	txBytes, err := tx.Marshal()
+	require.NoError(t, err)
+	return txBytes
+}
+
 func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
 	monomerClient := stack.MonomerClient
@@ -464,7 +567,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// instantiate L1 user, tx signer.
 	userPrivKey := stack.Users[1]
-	userAddress := crypto.PubkeyToAddress(userPrivKey.PublicKey)
+	userAddress := ethcrypto.PubkeyToAddress(userPrivKey.PublicKey)
 	l1signer := types.NewEIP155Signer(l1ChainID)
 
 	l2GasLimit := l2blockGasLimit / 10
@@ -534,7 +637,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, stack.WaitL2(1))
 
 	// assert the user's bridged WETH is on L2
-	userAddr, err := monomer.CosmosETHAddress(userAddress).Encode("cosmos")
+	userAddr, err := monomer.CosmosETHAddress(userAddress).Encode("e2e")
 	require.NoError(t, err)
 	requireERC20IsMinted(t, stack, userAddr, weth9Address.String(), hexutil.EncodeBig(wethL2Amount))
 
@@ -603,20 +706,15 @@ func createL1TransactOpts(
 	l1GasLimit uint64,
 	value *big.Int,
 ) *bind.TransactOpts {
-	address := crypto.PubkeyToAddress(user.PublicKey)
 	return &bind.TransactOpts{
-		From: address,
+		From: ethcrypto.PubkeyToAddress(user.PublicKey),
 		Signer: func(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
 			signed, err := types.SignTx(tx, l1signer, user)
 			require.NoError(t, err)
 			return signed, nil
 		},
-		Nonce:    getCurrentUserNonce(t, stack, address),
-		GasPrice: getSuggestedL1GasPrice(t, stack),
-		GasLimit: l1GasLimit,
-		Value:    value,
-		Context:  stack.Ctx,
-		NoSend:   false,
+		Value:   value,
+		Context: stack.Ctx,
 	}
 }
 
@@ -650,4 +748,24 @@ func waitForL2OutputProposal(t *testing.T, l2OutputOracleCaller *bindings.L2Outp
 	}
 
 	return l2OutputBlockNumber
+}
+
+// https://github.com/ethereum-optimism/optimism/blob/24a8d3e06e61c7a8938dfb7a591345a437036381/op-e2e/e2eutils/transactions/gas.go#L18
+// TxBuilder creates and sends a transaction using the supplied bind.TransactOpts.
+// Returns the created transaction and any error reported.
+type TxBuilder func(opts *bind.TransactOpts) (*types.Transaction, error)
+
+func PadGasEstimate(opts *bind.TransactOpts, paddingFactor float64, builder TxBuilder) (*types.Transaction, error) {
+	// Take a copy of the opts to avoid mutating the original
+	oCopy := *opts
+	o := &oCopy
+	o.NoSend = true
+	tx, err := builder(o)
+	if err != nil {
+		return nil, fmt.Errorf("failed to estimate gas: %w", err)
+	}
+	gas := float64(tx.Gas()) * paddingFactor
+	o.GasLimit = uint64(gas)
+	o.NoSend = false
+	return builder(o)
 }
