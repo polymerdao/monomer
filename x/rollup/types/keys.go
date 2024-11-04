@@ -17,6 +17,8 @@ const (
 const (
 	// WEI is the denom for wrapped Ether (represented in wei) canonically bridged from Ethereum
 	WEI = "wei"
-	// KeyL1BlockInfo is the key for the L1BlockInfo
-	KeyL1BlockInfo = "L1BlockInfo"
+	// L1BlockInfoKey is the store key for the L1BlockInfo
+	L1BlockInfoKey = "l1_block_info"
+	// ParamsKey is the store key for the x/rollup module parameters
+	ParamsKey = "params"
 )

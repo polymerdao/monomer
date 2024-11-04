@@ -36,6 +36,7 @@ var (
 		stakingtypes.ModuleName,
 		genutiltypes.ModuleName,
 		// chain modules
+		rolluptypes.ModuleName,
 		// this line is used by starport scaffolding # stargate/app/initGenesis,
 	}
 

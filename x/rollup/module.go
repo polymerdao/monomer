@@ -2,6 +2,7 @@ package rollup
 
 import (
 	"encoding/json"
+	"fmt"
 
 	"cosmossdk.io/core/appmodule"
 	"cosmossdk.io/core/store"
@@ -72,7 +73,7 @@ var (
 // AppModuleBasic
 // ----------------------------------------------------------------------------
 
-// AppModuleBasic implements the AppModuleBasic interface for the capability module.
+// AppModuleBasic implements the AppModuleBasic interface for the rollup module.
 type AppModuleBasic struct {
 	cdc codec.BinaryCodec
 }
@@ -81,7 +82,7 @@ func NewAppModuleBasic(cdc codec.BinaryCodec) AppModuleBasic {
 	return AppModuleBasic{cdc: cdc}
 }
 
-// Name returns the capability module's name.
+// Name returns the rollup module's name.
 func (AppModuleBasic) Name() string {
 	return types.ModuleName
 }
@@ -97,21 +98,26 @@ func (a AppModuleBasic) RegisterInterfaces(reg cdctypes.InterfaceRegistry) {
 	types.RegisterInterfaces(reg)
 }
 
-// DefaultGenesis returns the capability module's default genesis state.
+// DefaultGenesis returns the rollup module's default genesis state.
 func (AppModuleBasic) DefaultGenesis(cdc codec.JSONCodec) json.RawMessage {
-	return json.RawMessage(`{}`)
+	return cdc.MustMarshalJSON(types.DefaultGenesisState())
 }
 
-// ValidateGenesis performs genesis state validation for the capability module.
+// ValidateGenesis performs genesis state validation for the rollup module.
 func (AppModuleBasic) ValidateGenesis(
-	_ codec.JSONCodec,
+	cdc codec.JSONCodec,
 	_ client.TxEncodingConfig,
-	_ json.RawMessage,
+	bz json.RawMessage,
 ) error {
-	return nil
+	var data types.GenesisState
+	if err := cdc.UnmarshalJSON(bz, &data); err != nil {
+		return fmt.Errorf("failed to unmarshal %s genesis state: %w", types.ModuleName, err)
+	}
+
+	return types.ValidateGenesis(data)
 }
 
-// RegisterRESTRoutes registers the capability module's REST service handlers.
+// RegisterRESTRoutes registers the rollup module's REST service handlers.
 func (AppModuleBasic) RegisterRESTRoutes(clientCtx client.Context, rtr *mux.Router) { //nolint:gocritic
 }
 
@@ -119,12 +125,12 @@ func (AppModuleBasic) RegisterRESTRoutes(clientCtx client.Context, rtr *mux.Rout
 func (AppModuleBasic) RegisterGRPCGatewayRoutes(clientCtx client.Context, mux *runtime.ServeMux) { //nolint:gocritic
 }
 
-// GetTxCmd returns the capability module's root tx command.
+// GetTxCmd returns the rollup module's root tx command.
 func (a AppModuleBasic) GetTxCmd() *cobra.Command {
 	return nil
 }
 
-// GetQueryCmd returns the capability module's root query command.
+// GetQueryCmd returns the rollup module's root query command.
 func (AppModuleBasic) GetQueryCmd() *cobra.Command {
 	return nil
 }
@@ -133,7 +139,7 @@ func (AppModuleBasic) GetQueryCmd() *cobra.Command {
 // AppModule
 // ----------------------------------------------------------------------------
 
-// AppModule implements the AppModule interface for the capability module.
+// AppModule implements the AppModule interface for the rollup module.
 type AppModule struct {
 	AppModuleBasic
 	keeper *keeper.Keeper
@@ -153,12 +159,12 @@ func (am AppModule) IsAppModule() {}
 
 func (am AppModule) IsOnePerModuleType() {}
 
-// Name returns the capability module's name.
+// Name returns the rollup module's name.
 func (am AppModule) Name() string {
 	return am.AppModuleBasic.Name()
 }
 
-// QuerierRoute returns the capability module's query routing key.
+// QuerierRoute returns the rollup module's query routing key.
 func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 
 // RegisterServices registers a GRPC query service to respond to the
@@ -167,12 +173,20 @@ func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), am.keeper)
 }
 
-// RegisterInvariants registers the capability module's invariants.
+// RegisterInvariants registers the rollup module's invariants.
 func (am AppModule) RegisterInvariants(_ sdk.InvariantRegistry) {}
 
-// ExportGenesis returns the capability module's exported genesis state as raw JSON bytes.
+// InitGenesis performs genesis initialization for the rollup module.
+func (am AppModule) InitGenesis(ctx sdk.Context, cdc codec.JSONCodec, data json.RawMessage) { //nolint:gocritic // hugeParam
+	var genesisState types.GenesisState
+	cdc.MustUnmarshalJSON(data, &genesisState)
+	am.keeper.InitGenesis(ctx, genesisState)
+}
+
+// ExportGenesis returns the rollup module's exported genesis state as raw JSON bytes.
 func (am AppModule) ExportGenesis(ctx sdk.Context, cdc codec.JSONCodec) json.RawMessage { //nolint:gocritic
-	return json.RawMessage(`{}`)
+	gs := am.keeper.ExportGenesis(ctx)
+	return cdc.MustMarshalJSON(gs)
 }
 
 // ConsensusVersion implements ConsensusVersion.

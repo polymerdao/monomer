@@ -31,7 +31,7 @@ func (k *Keeper) setL1BlockInfo(ctx sdk.Context, info types.L1BlockInfo) error {
 	if err != nil {
 		return types.WrapError(err, "marshal L1 block info")
 	}
-	if err = k.storeService.OpenKVStore(ctx).Set([]byte(types.KeyL1BlockInfo), infoBytes); err != nil {
+	if err = k.storeService.OpenKVStore(ctx).Set([]byte(types.L1BlockInfoKey), infoBytes); err != nil {
 		return types.WrapError(err, "set latest L1 block info")
 	}
 	return nil
@@ -130,9 +130,13 @@ func (k *Keeper) processL1UserDepositTxs(
 		}
 		mintEvents = append(mintEvents, *mintEvent)
 
-		// TODO: remove hardcoded address once a genesis state is configured
+		params, err := k.GetParams(ctx)
+		if err != nil {
+			return nil, types.WrapError(types.ErrInitiateFeeWithdrawal, "failed to get params: %v", err)
+		}
+
 		// Convert the L1CrossDomainMessenger address to its L2 aliased address
-		aliasedL1CrossDomainMessengerAddress := crossdomain.ApplyL1ToL2Alias(common.HexToAddress("0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE"))
+		aliasedL1CrossDomainMessengerAddress := crossdomain.ApplyL1ToL2Alias(common.HexToAddress(params.L1CrossDomainMessenger))
 
 		// Check if the tx is a cross domain message from the aliased L1CrossDomainMessenger address
 		if from == aliasedL1CrossDomainMessengerAddress && tx.Data() != nil {

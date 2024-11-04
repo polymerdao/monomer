@@ -50,7 +50,7 @@ func (k *Keeper) EmitEvents(goCtx context.Context, events sdk.Events) {
 }
 
 func (k *Keeper) GetL1BlockInfo(ctx sdk.Context) (*types.L1BlockInfo, error) { //nolint:gocritic // hugeParam
-	l1BlockInfoBz, err := k.storeService.OpenKVStore(ctx).Get([]byte(types.KeyL1BlockInfo))
+	l1BlockInfoBz, err := k.storeService.OpenKVStore(ctx).Get([]byte(types.L1BlockInfoKey))
 	if err != nil {
 		return nil, fmt.Errorf("get l1 block info: %w", err)
 	}
@@ -59,4 +59,28 @@ func (k *Keeper) GetL1BlockInfo(ctx sdk.Context) (*types.L1BlockInfo, error) { /
 		return nil, fmt.Errorf("unmarshal l1 block info: %w", err)
 	}
 	return &l1BlockInfo, nil
+}
+
+func (k *Keeper) GetParams(ctx sdk.Context) (*types.Params, error) { //nolint:gocritic // hugeParam
+	paramsBz, err := k.storeService.OpenKVStore(ctx).Get([]byte(types.ParamsKey))
+	if err != nil {
+		return nil, fmt.Errorf("get params: %w", err)
+	}
+	var params types.Params
+	if err = params.Unmarshal(paramsBz); err != nil {
+		return nil, fmt.Errorf("unmarshal params: %w", err)
+	}
+	return &params, nil
+}
+
+func (k *Keeper) SetParams(ctx sdk.Context, params *types.Params) error { //nolint:gocritic // hugeParam
+	paramsBz, err := params.Marshal()
+	if err != nil {
+		return fmt.Errorf("marshal params: %w", err)
+	}
+	err = k.storeService.OpenKVStore(ctx).Set([]byte(types.ParamsKey), paramsBz)
+	if err != nil {
+		return fmt.Errorf("set params: %w", err)
+	}
+	return nil
 }
