@@ -9,7 +9,7 @@ import ThemedImage from '@theme/ThemedImage';
 
 Monomer exposes the standard Cosmos [BroadcastTX](https://docs.cosmos.network/api#tag/Service/operation/BroadcastTx) API endpoint for submitting [cometbft transactions](https://pkg.go.dev/github.com/cometbft/cometbft/types#Tx) directly to the rollup chain.
 
-These transactions are stored in a simple mempool, and included in blocks on a first-come-first-serve basis.
+These transactions are stored in a simple mempool, and included in blocks on a first-come, first-served basis.
 
 :::note
 There are no modifications to the standard cometbft transaction format. This means that any client that can construct a cometbft transaction can interact with the Monomer rollup chain.
