@@ -12,7 +12,7 @@ Monomer supports ETH withdrawals through the Optimism Portal L1 contract. This i
 For UX purposes, exiting an ORU via the canonical bridge is impractical and slow. But the exit mechanism must be available for security reasons.
 :::
 
-The withdrawal transaction flow is illustrated below. The lifecycle moves in the opposite direction than the Deposits flow - starting at the Cosmos-SDK appchain, processed by the Monomer `x/rollup` module and then Monomer's builder, and finally into the OP-Stack components on L1.
+The withdrawal transaction flow is illustrated below. The lifecycle moves in the opposite direction from the Deposits flow - starting at the Cosmos-SDK appchain, processed by the Monomer `x/rollup` module and then Monomer's builder, and finally into the OP-Stack components on L1.
 
 Again, this document focuses on Monomer specific modifications. Full documentation for the withdrawal flow is available in the [OP Stack specs](https://specs.optimism.io/protocol/withdrawals.html).
 
@@ -32,12 +32,12 @@ On the L2 appchain, via custom message types and handlers from the `x/rollup` mo
 ### Monomer Block Builder
 
 After each L2 appchain block, the Monomer block builder listens for `withdrawal_initiated` events from successful L2 transactions.
-For each observed event, the builder makes a corresponding `L2ToL1MessagePasserExecuter` contract call into the internal EVM sidecar state to store the withdrawal transaction for use when proving the withdrawal on L1.
+For each observed event, the builder makes a corresponding `L2ToL1MessagePasserExecutor` contract call into the internal EVM sidecar state to store the withdrawal transaction for use when proving the withdrawal on L1.
 
 ## Proving and Finalizing Withdrawals
 
 The next step for a user is to obtain a proof of the withdrawal transaction.
 
-For compatability with the withdrawals process, Monomer uses the state root of its EVM sidecar state as the L2 state updated by the `op-proposer`. Monomer exposes the standard ethereum `GetProof` API endpoint for obtaining a merkle proof of withdrawal transactions registered in the EVM sidecar state.
+For compatibility with the withdrawals process, Monomer uses the state root of its EVM sidecar state as the L2 state updated by the `op-proposer`. Monomer exposes the standard ethereum `GetProof` API endpoint for obtaining a merkle proof of withdrawal transactions registered in the EVM sidecar state.
 
 With the withdrawal proof data, the user is now back to the L1 side of the OP Stack. The proof is submitted, and the withdrawal can be finalized after the rollup's challenge period.
