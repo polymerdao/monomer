@@ -61,6 +61,21 @@ func (k *Keeper) GetL1BlockInfo(ctx sdk.Context) (*types.L1BlockInfo, error) { /
 	return &l1BlockInfo, nil
 }
 
+// SetL1BlockInfo sets the derived L1 block info in the rollup store.
+//
+// Persisted data conforms to optimism specs on L1 attributes:
+// https://github.com/ethereum-optimism/optimism/blob/develop/specs/deposits.md#l1-attributes-predeployed-contract
+func (k *Keeper) SetL1BlockInfo(ctx sdk.Context, info types.L1BlockInfo) error { //nolint:gocritic
+	infoBytes, err := info.Marshal()
+	if err != nil {
+		return types.WrapError(err, "marshal L1 block info")
+	}
+	if err = k.storeService.OpenKVStore(ctx).Set([]byte(types.L1BlockInfoKey), infoBytes); err != nil {
+		return types.WrapError(err, "set latest L1 block info")
+	}
+	return nil
+}
+
 func (k *Keeper) GetParams(ctx sdk.Context) (*types.Params, error) { //nolint:gocritic // hugeParam
 	paramsBz, err := k.storeService.OpenKVStore(ctx).Get([]byte(types.ParamsKey))
 	if err != nil {

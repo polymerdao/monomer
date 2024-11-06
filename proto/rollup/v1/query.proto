@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package rollup.v1;
+
+import "gogoproto/gogo.proto";
+import "google/api/annotations.proto";
+import "rollup/v1/rollup.proto";
+
+option go_package = "github.com/polymerdao/monomer/x/rollup/types";
+
+// Query defines all query endpoints for the rollup module.
+service Query {
+  // Params returns all rollup module parameters.
+  rpc Params(QueryParamsRequest) returns (QueryParamsResponse) {
+    option (google.api.http).get = "/rollup/v1/params";
+  }
+
+  // L1BlockInfo returns the block info derived from L1.
+  rpc L1BlockInfo(QueryL1BlockInfoRequest) returns (QueryL1BlockInfoResponse) {
+    option (google.api.http).get = "/rollup/v1/l1_block_info";
+  }
+}
+
+// QueryParamsRequest is request type for the Query/Params RPC method.
+message QueryParamsRequest {}
+
+// QueryParamsResponse is response type for the Query/Params RPC method.
+message QueryParamsResponse {
+  // params holds all the parameters for the rollup module.
+  Params params = 1 [(gogoproto.nullable) = false];
+}
+
+// QueryL1BlockInfoRequest is the request type for the Query/L1BlockInfo RPC method.
+message QueryL1BlockInfoRequest {}
+
+// QueryL1BlockInfoResponse is response type for the Query/L1BlockInfo RPC method.
+message QueryL1BlockInfoResponse {
+  // l1_block_info holds the block info derived from L1.
+  L1BlockInfo l1_block_info = 1 [(gogoproto.nullable) = false];
+}

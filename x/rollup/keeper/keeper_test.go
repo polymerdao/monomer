@@ -32,7 +32,15 @@ func TestKeeperTestSuite(t *testing.T) {
 	suite.Run(t, new(KeeperTestSuite))
 }
 
+func (s *KeeperTestSuite) SetupTest() {
+	s.setup()
+}
+
 func (s *KeeperTestSuite) SetupSubTest() {
+	s.setup()
+}
+
+func (s *KeeperTestSuite) setup() {
 	storeKey := storetypes.NewKVStoreKey(types.StoreKey)
 	s.ctx = testutil.DefaultContextWithDB(
 		s.T(),
