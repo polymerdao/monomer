@@ -336,6 +336,10 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// even when it returned true, FinalizeWithdrawalTransaction would fail.
 	require.NoError(t, stack.WaitL1(2))
 
+	// get the user's balance before the withdrawal has been finalized
+	balanceBeforeFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
+	require.NoError(t, err)
+
 	// send a withdrawal finalizing tx to finalize the withdrawal on L1
 	finalizeWithdrawalTx, err := stack.OptimismPortal.FinalizeWithdrawalTransaction(
 		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
@@ -364,6 +368,21 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.True(t, finalizeWithdrawalLogs.Next(), "finding WithdrawalFinalized event")
 	require.True(t, finalizeWithdrawalLogs.Event.Success, "withdrawal finalization failed")
 	require.NoError(t, finalizeWithdrawalLogs.Close())
+
+	// get the user's balance after the withdrawal has been finalized
+	balanceAfterFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
+	require.NoError(t, err)
+
+	//nolint:gocritic
+	// gasCost = gasUsed * gasPrice
+	gasCost = new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
+
+	//nolint:gocritic
+	// expectedBalance = balanceBeforeFinalization + withdrawalAmount - gasCost
+	expectedBalance = new(big.Int).Sub(new(big.Int).Add(balanceBeforeFinalization, withdrawalAmount), gasCost)
+
+	// check that the user's balance has been updated on L1
+	require.Equal(t, expectedBalance, balanceAfterFinalization)
 
 	t.Log("Monomer can initiate withdrawals on L2 and can generate proofs for verifying the withdrawal on L1")
 }
