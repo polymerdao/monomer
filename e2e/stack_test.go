@@ -147,7 +147,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	//	- With `--fork-url`: runs the script against the provided endpoint. For example, this means
 	//	  that the `block.number` Solidity variable will be set to the head block according to the
 	//	  node running behind the endpoint.
-	//	- Without `--fork-url`: runs the script agains an [in-memory Foundry backend]. This will set
+	//	- Without `--fork-url`: runs the script against an [in-memory Foundry backend]. This will set
 	//	  the `block.number` Solidity variable to `1`, the first block after genesis.
 	//
 	// The Deploy.s.sol script depends on the value of block.number when [initializing the resource meter]
