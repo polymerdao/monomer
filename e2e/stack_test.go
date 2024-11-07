@@ -239,7 +239,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// wait for the L2 output containing the withdrawal tx to be proposed on L1
 	var l2OutputBlockNumber *big.Int
-	for range 5 {
+	for range 3 { // A bit hacky to just wait for 3 outputs, but should be sufficient.
 		l2OutputBlockNumber = waitForL2OutputProposal(t, stack.L2OutputOracleCaller)
 	}
 
