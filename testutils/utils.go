@@ -119,7 +119,6 @@ func GenerateERC20DepositTx(t *testing.T, tokenAddr, userAddr common.Address, am
 
 	to := testutils.RandomAddress(rng)
 	depositTx := &gethtypes.DepositTx{
-		// TODO: remove hardcoded address once a genesis state is configured
 		// L2 aliased L1CrossDomainMessenger proxy address
 		From: crossdomain.ApplyL1ToL2Alias(common.HexToAddress("0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE")),
 		To:   &to,

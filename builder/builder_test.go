@@ -2,6 +2,7 @@ package builder_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/big"
 	"testing"
@@ -28,6 +29,7 @@ import (
 	"github.com/polymerdao/monomer/testutils"
 	"github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
+	"github.com/tidwall/sjson"
 )
 
 type testEnvironment struct {
@@ -363,7 +365,10 @@ func TestBuildRollupTxs(t *testing.T) {
 	require.NotNil(t, withdrawalTxResult)
 	require.Truef(t, withdrawalTxResult.Result.IsOK(), "User withdrawal transaction not successful")
 
-	// TODO: Check fee withdrawal transaction result once a genesis state for the minimum fee withdrawal amount is added
+	feeWithdrawalTxResult, err := env.txStore.Get(bfttypes.Tx(feeWithdrawalTx).Hash())
+	require.NoError(t, err)
+	require.NotNil(t, feeWithdrawalTxResult)
+	require.Truef(t, feeWithdrawalTxResult.Result.IsOK(), "Fee withdrawal transaction not successful")
 
 	// Verify block creation
 	genesisBlock, err := env.blockStore.BlockByHeight(uint64(preBuildInfo.GetLastBlockHeight()))
@@ -414,9 +419,16 @@ func setupTestEnvironment(t *testing.T) testEnvironment {
 	ethstatedb := testutils.NewEthStateDB(t)
 
 	app := testapp.NewTest(t, chainID.String())
+	appState := testapp.MakeGenesisAppState(t, app)
+
+	// Set min_fee_withdrawal_amount to 0 for testing purposes since fees will not be collected in the test environment.
+	rollupAppState, err := sjson.Set(string(appState[types.ModuleName]), "params.min_fee_withdrawal_amount", "0")
+	require.NoError(t, err)
+	appState[types.ModuleName] = json.RawMessage(rollupAppState)
+
 	g := &genesis.Genesis{
 		ChainID:  chainID,
-		AppState: testapp.MakeGenesisAppState(t, app),
+		AppState: appState,
 	}
 
 	eventBus := bfttypes.NewEventBus()

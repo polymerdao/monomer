@@ -64,7 +64,7 @@ func (s *KeeperTestSuite) mockMintETH() {
 func (s *KeeperTestSuite) mockFeeCollector() {
 	mockFeeCollectorAddress := sdk.AccAddress("fee_collector")
 	s.accountKeeper.EXPECT().GetModuleAddress(authtypes.FeeCollectorName).Return(mockFeeCollectorAddress).AnyTimes()
-	s.bankKeeper.EXPECT().GetBalance(s.ctx, mockFeeCollectorAddress, types.WEI).Return(sdk.NewCoin(types.WEI, math.NewInt(100_000))).AnyTimes()
+	s.bankKeeper.EXPECT().GetBalance(s.ctx, mockFeeCollectorAddress, types.WEI).Return(sdk.NewCoin(types.WEI, math.NewInt(1_000_000))).AnyTimes()
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToModule(s.ctx, authtypes.FeeCollectorName, types.ModuleName, gomock.Any()).Return(nil).AnyTimes()
 	s.bankKeeper.EXPECT().BurnCoins(s.ctx, types.ModuleName, gomock.Any()).Return(nil).AnyTimes()
 }

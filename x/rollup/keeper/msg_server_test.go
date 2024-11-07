@@ -127,7 +127,7 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 				// Verify that the l1 block info and l1 block history are saved to the store
 				expectedBlockInfo := eth.BlockToInfo(testutils.GenerateL1Block())
 
-				l1BlockInfoBz := s.rollupStore.Get([]byte(types.KeyL1BlockInfo))
+				l1BlockInfoBz := s.rollupStore.Get([]byte(types.L1BlockInfoKey))
 				s.Require().NotNil(l1BlockInfoBz)
 
 				l1BlockInfo := &types.L1BlockInfo{}
@@ -250,6 +250,10 @@ func (s *KeeperTestSuite) TestInitiateFeeWithdrawal() {
 				test.setupMocks()
 			}
 			s.mockFeeCollector()
+
+			params := types.DefaultParams()
+			err := s.rollupKeeper.SetParams(sdk.UnwrapSDKContext(s.ctx), &params)
+			s.Require().NoError(err)
 
 			resp, err := s.rollupKeeper.InitiateFeeWithdrawal(s.ctx, &types.MsgInitiateFeeWithdrawal{
 				Sender: sdk.AccAddress("addr").String(),

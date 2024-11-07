@@ -3,7 +3,6 @@ package builder
 import (
 	"context"
 	"fmt"
-	"math/big"
 	"slices"
 
 	abcitypes "github.com/cometbft/cometbft/abci/types"
@@ -379,11 +378,11 @@ func parseWithdrawalEventAttributes(withdrawalEvent *abcitypes.Event) (*crossdom
 			}
 			params.Value = value
 		case rolluptypes.AttributeKeyGasLimit:
-			gasLimitBz, err := hexutil.Decode(attr.Value)
+			gasLimit, err := hexutil.DecodeBig(attr.Value)
 			if err != nil {
 				return nil, fmt.Errorf("decode gas limit: %v", err)
 			}
-			params.GasLimit = new(big.Int).SetBytes(gasLimitBz)
+			params.GasLimit = gasLimit
 		case rolluptypes.AttributeKeyData:
 			data, err := hexutil.Decode(attr.Value)
 			if err != nil {

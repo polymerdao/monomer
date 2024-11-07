@@ -67,7 +67,7 @@ func (k *Keeper) InitiateWithdrawal(
 			sdk.NewAttribute(types.AttributeKeySender, msg.Sender),
 			sdk.NewAttribute(types.AttributeKeyL1Target, msg.Target),
 			sdk.NewAttribute(types.AttributeKeyValue, withdrawalValueHex),
-			sdk.NewAttribute(types.AttributeKeyGasLimit, hexutil.Encode(msg.GasLimit)),
+			sdk.NewAttribute(types.AttributeKeyGasLimit, hexutil.EncodeBig(new(big.Int).SetBytes(msg.GasLimit))),
 			sdk.NewAttribute(types.AttributeKeyData, hexutil.Encode(msg.Data)),
 			// The nonce attribute will be set by Monomer
 		),
@@ -88,12 +88,11 @@ func (k *Keeper) InitiateFeeWithdrawal(
 ) (*types.MsgInitiateFeeWithdrawalResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	// TODO: make minWithdrawalAmount and l1recipientAddr configurable once a genesis state is added
-	const (
-		minWithdrawalAmount   = 100
-		l1recipientAddr       = "0x63d93aC6FA6B4021527e967ac3Eb29F2B3E52B96"
-		feeWithdrawalGasLimit = 400_000
-	)
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return nil, types.WrapError(types.ErrInitiateFeeWithdrawal, "failed to get params: %v", err)
+	}
+	l1recipientAddr := params.L1FeeRecipient
 
 	feeCollectorAddr := k.accountkeeper.GetModuleAddress(authtypes.FeeCollectorName)
 	if feeCollectorAddr == nil {
@@ -101,10 +100,12 @@ func (k *Keeper) InitiateFeeWithdrawal(
 	}
 
 	feeCollectorBalance := k.bankkeeper.GetBalance(ctx, feeCollectorAddr, types.WEI)
-	if feeCollectorBalance.Amount.LT(math.NewInt(minWithdrawalAmount)) {
+	if feeCollectorBalance.Amount.LT(math.NewIntFromUint64(params.MinFeeWithdrawalAmount)) {
 		return nil, types.WrapError(
 			types.ErrInitiateFeeWithdrawal,
-			"fee collector balance is below the minimum withdrawal amount: %v", feeCollectorBalance.String(),
+			"fee collector balance is below the minimum withdrawal amount: (balance: %v, min withdrawal amount: %v)",
+			feeCollectorBalance.String(),
+			params.MinFeeWithdrawalAmount,
 		)
 	}
 
@@ -131,7 +132,7 @@ func (k *Keeper) InitiateFeeWithdrawal(
 			sdk.NewAttribute(types.AttributeKeySender, feeCollectorAddrStr),
 			sdk.NewAttribute(types.AttributeKeyL1Target, l1recipientAddr),
 			sdk.NewAttribute(types.AttributeKeyValue, withdrawalValueHex),
-			sdk.NewAttribute(types.AttributeKeyGasLimit, hexutil.EncodeBig(big.NewInt(feeWithdrawalGasLimit))),
+			sdk.NewAttribute(types.AttributeKeyGasLimit, hexutil.EncodeBig(new(big.Int).SetUint64(params.FeeWithdrawalGasLimit))),
 			sdk.NewAttribute(types.AttributeKeyData, "0x"),
 			// The nonce attribute will be set by Monomer
 		),

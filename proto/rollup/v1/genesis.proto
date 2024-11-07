@@ -1,0 +1,14 @@
+syntax = "proto3";
+package rollup.v1;
+
+import "gogoproto/gogo.proto";
+import "amino/amino.proto";
+import "rollup/v1/rollup.proto";
+
+option go_package = "github.com/polymerdao/monomer/x/rollup/types";
+
+// GenesisState defines the rollup module's genesis state.
+message GenesisState {
+  // params defines all the parameters of the module.
+  Params params = 1 [(gogoproto.nullable) = false, (amino.dont_omitempty) = true];
+}
