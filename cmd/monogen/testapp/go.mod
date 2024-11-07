@@ -15,7 +15,7 @@ replace (
 	// fix upstream GHSA-h395-qcrw-5vmq vulnerability.
 	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.7.0
 	github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20241004015633-cfc9936c6811
-	github.com/polymerdao/monomer => github.com/polymerdao/monomer v0.1.2
+	github.com/polymerdao/monomer => github.com/polymerdao/monomer v0.1.3
 	github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.39.3
 	github.com/quic-go/webtransport-go => github.com/quic-go/webtransport-go v0.6.0
 	// replace broken goleveldb
