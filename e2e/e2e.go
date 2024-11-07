@@ -60,7 +60,7 @@ func Run(
 	setupHelperCmd := setupCmd(exec.CommandContext(ctx, filepath.Join(appDirPath, "setup-helper.sh"))) //nolint:gosec
 	setupHelperCmd.Dir = appDirPath
 	// Add the "GOFLAGS='-gcflags=all=-N -l'" environment variable to disable optimizations and make debugging easier.
-	setupHelperCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir, "GOFLAGS='-gcflags=all=-N -l'")
+	setupHelperCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
 	if err := setupHelperCmd.Run(); err != nil {
 		return fmt.Errorf("run setup helper: %v", err)
 	}
