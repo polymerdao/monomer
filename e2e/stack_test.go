@@ -135,7 +135,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 				opts,
 				common.Address(userCosmosETHAddress),
 				depositAmount,
-				100_000,  // 0l2GasLimit, // l2GasLimit,
+				100_000,  // l2GasLimit,
 				false,    // _isCreation
 				[]byte{}, // no data
 			)
@@ -205,11 +205,11 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 		Address: userCosmosAddr,
 	})
 	require.NoError(t, err)
-	result, err := stack.L2Client.ABCIQuery(stack.Ctx, authv1beta1.Query_Account_FullMethodName, queryAccountBytes)
+	queryResult, err := stack.L2Client.ABCIQuery(stack.Ctx, authv1beta1.Query_Account_FullMethodName, queryAccountBytes)
 	require.NoError(t, err)
-	require.Zero(t, result.Response.Code)
+	require.Zero(t, queryResult.Response.Code)
 	var accountResponse authv1beta1.QueryAccountResponse
-	require.NoError(t, protov1.Unmarshal(result.Response.Value, &accountResponse))
+	require.NoError(t, protov1.Unmarshal(queryResult.Response.Value, &accountResponse))
 	var baseAccount authv1beta1.BaseAccount
 	require.NoError(t, protov1.Unmarshal(accountResponse.Account.Value, &baseAccount))
 
@@ -283,7 +283,9 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, proveWithdrawalLogs.Close())
 
 	// wait for the withdrawal finalization period before sending the withdrawal finalizing tx
-	require.NoError(t, stack.WaitL1(2)) // TODO why do we need to wait this long?
+	// TODO why do we need to wait this long? I tried calling OptimismPortal.IsOutputFinalized:
+	// even when it returned true, FinalizeWithdrawalTransaction would fail.
+	require.NoError(t, stack.WaitL1(2))
 
 	// send a withdrawal finalizing tx to finalize the withdrawal on L1
 	finalizeWithdrawalTx, err := stack.OptimismPortal.FinalizeWithdrawalTransaction(
