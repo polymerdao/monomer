@@ -75,9 +75,6 @@ func Run(
 	))
 	appCmd.Dir = appDirPath
 	appCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
-	appCmd.Cancel = func() error {
-		return appCmd.Process.Signal(syscall.SIGTERM)
-	}
 	if err := appCmd.Start(); err != nil {
 		return fmt.Errorf("run app: %v", err)
 	}
