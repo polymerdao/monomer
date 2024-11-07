@@ -27,7 +27,7 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 	}
 
 	// save L1 block info to AppState
-	if err = k.setL1BlockInfo(ctx, *l1blockInfo); err != nil {
+	if err = k.SetL1BlockInfo(ctx, *l1blockInfo); err != nil {
 		return nil, types.WrapError(types.ErrL1BlockInfo, "save error: %v", err)
 	}
 

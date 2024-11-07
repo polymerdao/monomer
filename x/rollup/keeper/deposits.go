@@ -22,21 +22,6 @@ import (
 	"github.com/samber/lo"
 )
 
-// setL1BlockInfo sets the L1 block info to the app state
-//
-// Persisted data conforms to optimism specs on L1 attributes:
-// https://github.com/ethereum-optimism/optimism/blob/develop/specs/deposits.md#l1-attributes-predeployed-contract
-func (k *Keeper) setL1BlockInfo(ctx sdk.Context, info types.L1BlockInfo) error { //nolint:gocritic
-	infoBytes, err := info.Marshal()
-	if err != nil {
-		return types.WrapError(err, "marshal L1 block info")
-	}
-	if err = k.storeService.OpenKVStore(ctx).Set([]byte(types.L1BlockInfoKey), infoBytes); err != nil {
-		return types.WrapError(err, "set latest L1 block info")
-	}
-	return nil
-}
-
 // processL1AttributesTx processes the L1 Attributes tx and returns the L1 block info.
 func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*types.L1BlockInfo, error) { //nolint:gocritic // hugeParam
 	var tx ethtypes.Transaction
@@ -132,7 +117,7 @@ func (k *Keeper) processL1UserDepositTxs(
 
 		params, err := k.GetParams(ctx)
 		if err != nil {
-			return nil, types.WrapError(types.ErrInitiateFeeWithdrawal, "failed to get params: %v", err)
+			return nil, types.WrapError(types.ErrParams, "failed to get params: %v", err)
 		}
 
 		// Convert the L1CrossDomainMessenger address to its L2 aliased address

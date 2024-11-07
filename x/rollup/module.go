@@ -167,10 +167,11 @@ func (am AppModule) Name() string {
 // QuerierRoute returns the rollup module's query routing key.
 func (AppModule) QuerierRoute() string { return types.QuerierRoute }
 
-// RegisterServices registers a GRPC query service to respond to the
-// module-specific GRPC queries.
+// RegisterServices registers a Msg service to respond to module-specific messages and a GRPC query service to respond
+// to module-specific GRPC queries.
 func (am AppModule) RegisterServices(cfg module.Configurator) {
 	types.RegisterMsgServer(cfg.MsgServer(), am.keeper)
+	types.RegisterQueryServer(cfg.QueryServer(), am.keeper)
 }
 
 // RegisterInvariants registers the rollup module's invariants.
