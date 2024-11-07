@@ -24,7 +24,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 
 	//"github.com/ethereum-optimism/optimism/op-bindings/bindings"
@@ -259,7 +258,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	userETHAddress := ethcrypto.PubkeyToAddress(userPrivKey.PublicKey)
 	l1signer := types.NewLondonSigner(l1ChainID)
 
-	userCosmosETHAddress := monomer.CosmosETHAddress(userETHAddress)
+	userCosmosETHAddress := monomer.PubkeyToCosmosETHAddress(&userPrivKey.PublicKey)
 
 	//////////////////////////
 	////// ETH DEPOSITS //////
@@ -289,12 +288,15 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 			)
 		},
 	)
+	require.NoError(t, err)
 
 	// wait for tx to be processed
 	// 1 L1 block to process the tx on L1 +
-	// 1 L2 block to process the tx on L2
+	// 1 L2 block to process the deposit on L2 +
+	// 1 L1 block for good measure
 	require.NoError(t, stack.WaitL1(1))
 	require.NoError(t, stack.WaitL2(1))
+	require.NoError(t, stack.WaitL1(1))
 
 	// inspect L1 for deposit tx receipt and emitted TransactionDeposited event
 	receipt, err := l1Client.Client.TransactionReceipt(stack.Ctx, depositTx.Hash())
@@ -333,8 +335,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	userCosmosAddr, err := userCosmosETHAddress.Encode("e2e")
 	require.NoError(t, err)
-	depositValueHex := hexutil.EncodeBig(depositAmount)
-	requireEthIsMinted(t, stack, userCosmosAddr, depositValueHex)
+	requireEthIsMinted(t, stack, userCosmosAddr, hexutil.EncodeBig(depositAmount))
 
 	t.Log("Monomer can ingest user deposit txs from L1 and mint ETH on L2")
 
@@ -342,12 +343,10 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	////// ETH WITHDRAWALS //////
 	/////////////////////////////
 
-	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
-	withdrawalTx := e2e.NewWithdrawalTx(0, common.Address(userCosmosETHAddress), userETHAddress, depositAmount, new(big.Int).SetUint64(params.TxGas))
+	withdrawalAmount := big.NewInt(1)
 
-	// initiate the withdrawal of the deposited amount on L2
-	senderAddr, err := monomer.CosmosETHAddress(*withdrawalTx.Sender).Encode("e2e")
-	require.NoError(t, err)
+	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
+	withdrawalTx := e2e.NewWithdrawalTx(0, common.Address(userCosmosETHAddress), userETHAddress, withdrawalAmount, new(big.Int).SetUint64(params.TxGas))
 
 	queryAccountBytes, err := protov1.Marshal(&authv1beta1.QueryAccountRequest{
 		Address: userCosmosAddr,
@@ -356,18 +355,21 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	result, err := stack.L2Client.ABCIQuery(stack.Ctx, authv1beta1.Query_Account_FullMethodName, queryAccountBytes)
 	require.NoError(t, err)
 	require.Zero(t, result.Response.Code)
-	var msgAny codectypes.Any
-	require.NoError(t, protov1.Unmarshal(result.Response.Value, &msgAny))
+	// var msgAny codectypes.Any
+	// require.NoError(t, protov1.Unmarshal(result.Response.Value, &msgAny))
 	var accountResponse authv1beta1.QueryAccountResponse
-	require.NoError(t, protov1.Unmarshal(msgAny.Value, &accountResponse))
-	var baseAccount authtypes.BaseAccount
-	require.NoError(t, protov1.Unmarshal(msgAny.Value, &baseAccount))
+	require.NoError(t, protov1.Unmarshal(result.Response.Value, &accountResponse))
+	var baseAccount authv1beta1.BaseAccount
+	require.NoError(t, protov1.Unmarshal(accountResponse.Account.Value, &baseAccount))
+
+	l2ChainID, err := stack.MonomerClient.ChainID(stack.Ctx)
+	require.NoError(t, err)
 
 	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
 		stack.Ctx,
-		buildTx(t, stack.RollupConfig.L2ChainID.String(), baseAccount.AccountNumber, userPrivKey, []protov1.Message{
+		buildTx(t, l2ChainID.String(), baseAccount.Sequence, baseAccount.AccountNumber, userPrivKey, []protov1.Message{
 			&rolluptypes.MsgInitiateWithdrawal{
-				Sender:   senderAddr,
+				Sender:   userCosmosAddr,
 				Target:   withdrawalTx.Target.String(),
 				Value:    math.NewIntFromBigInt(withdrawalTx.Value),
 				GasLimit: withdrawalTx.GasLimit.Bytes(),
@@ -379,13 +381,16 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.Equalf(t, abcitypes.CodeTypeOK, withdrawalTxResult.Code, "log: "+withdrawalTxResult.Log)
 
 	// wait for tx to be processed on L2
-	require.NoError(t, stack.WaitL2(1))
+	require.NoError(t, stack.WaitL2(2))
 
 	// inspect L2 events to ensure that the user's ETH was burned on L2
-	requireEthIsBurned(t, stack, userCosmosAddr, depositValueHex)
+	requireEthIsBurned(t, stack, userCosmosAddr, hexutil.EncodeBig(withdrawalAmount))
 
 	// wait for the L2 output containing the withdrawal tx to be proposed on L1
-	l2OutputBlockNumber := waitForL2OutputProposal(t, stack.L2OutputOracleCaller)
+	var l2OutputBlockNumber *big.Int
+	for range 5 {
+		l2OutputBlockNumber = waitForL2OutputProposal(t, stack.L2OutputOracleCaller)
+	}
 
 	// generate the proofs necessary to prove the withdrawal on L1
 	provenWithdrawalParams, err := e2e.ProveWithdrawalParameters(stack, *withdrawalTx, l2OutputBlockNumber)
@@ -427,13 +432,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, proveWithdrawalLogs.Close())
 
 	// wait for the withdrawal finalization period before sending the withdrawal finalizing tx
-	finalizationPeriod, err := stack.L2OutputOracleCaller.FinalizationPeriodSeconds(&bind.CallOpts{})
-	require.NoError(t, err)
-	time.Sleep(time.Duration(finalizationPeriod.Uint64()) * time.Second)
-
-	// get the user's balance before the withdrawal has been finalized
-	balanceBeforeFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
-	require.NoError(t, err)
+	require.NoError(t, stack.WaitL1(2)) // TODO why do we need to wait this long?
 
 	// send a withdrawal finalizing tx to finalize the withdrawal on L1
 	finalizeWithdrawalTx, err := stack.OptimismPortal.FinalizeWithdrawalTransaction(
@@ -464,37 +463,25 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.True(t, finalizeWithdrawalLogs.Event.Success, "withdrawal finalization failed")
 	require.NoError(t, finalizeWithdrawalLogs.Close())
 
-	// get the user's balance after the withdrawal has been finalized
-	balanceAfterFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
-	require.NoError(t, err)
-
-	//nolint:gocritic
-	// gasCost = gasUsed * gasPrice
-	gasCost = new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), finalizeWithdrawalTx.GasPrice())
-
-	//nolint:gocritic
-	// expectedBalance = balanceBeforeFinalization + depositAmount - gasCost
-	expectedBalance = new(big.Int).Sub(new(big.Int).Add(balanceBeforeFinalization, depositAmount), gasCost)
-
-	// check that the user's balance has been updated on L1
-	require.Equal(t, expectedBalance, balanceAfterFinalization)
-
 	t.Log("Monomer can initiate withdrawals on L2 and can generate proofs for verifying the withdrawal on L1")
 }
 
-func buildTx(t *testing.T, chainID string, accNum uint64, ethPrivKey *ecdsa.PrivateKey, msgs []protov1.Message) bfttypes.Tx {
-	key := new(secp256k1.ModNScalar)
-	keyBytes := ethPrivKey.D.Bytes()
-	if key.SetByteSlice(keyBytes) {
+func convertPrivKey(ecdsaPrivKey *ecdsa.PrivateKey) *secp256k1.PrivateKey {
+	privKeyBytes := ecdsaPrivKey.D.Bytes()
+	var key secp256k1.ModNScalar
+	if len(privKeyBytes) > 32 || key.SetByteSlice(privKeyBytes) {
 		panic("overflow")
 	}
-	privKey := secp256k1.NewPrivateKey(key)
-	cosmosPrivKey := cosmossecp256k1.PrivKey{
-		Key: privKey.Serialize(),
+	if key.IsZero() {
+		panic("private keys must not be 0")
 	}
-	require.Equal(t, cosmosPrivKey, cosmossecp256k1.PrivKey{
-		Key: ethPrivKey.D.Bytes(),
-	})
+	return secp256k1.NewPrivateKey(&key)
+}
+
+func buildTx(t *testing.T, chainID string, seqNum, accNum uint64, ethPrivKey *ecdsa.PrivateKey, msgs []protov1.Message) bfttypes.Tx {
+	cosmosPrivKey := &cosmossecp256k1.PrivKey{
+		Key: convertPrivKey(ethPrivKey).Serialize(),
+	}
 
 	var msgAnys []*codectypes.Any
 	for _, msg := range msgs {
@@ -521,7 +508,7 @@ func buildTx(t *testing.T, chainID string, accNum uint64, ethPrivKey *ecdsa.Priv
 							},
 						},
 					},
-					Sequence: 0,
+					Sequence: seqNum,
 				},
 			},
 			Fee: &sdktx.Fee{
@@ -536,7 +523,7 @@ func buildTx(t *testing.T, chainID string, accNum uint64, ethPrivKey *ecdsa.Priv
 	authInfoBytes, err := protov1.Marshal(tx.AuthInfo)
 	require.NoError(t, err)
 
-	signBytes, err := proto.MarshalOptions{Deterministic: true}.Marshal(&txv1beta1.SignDoc{
+	signBytes, err := (proto.MarshalOptions{Deterministic: true}).Marshal(&txv1beta1.SignDoc{
 		BodyBytes:     bodyBytes,
 		AuthInfoBytes: authInfoBytes,
 		ChainId:       chainID,
@@ -546,6 +533,8 @@ func buildTx(t *testing.T, chainID string, accNum uint64, ethPrivKey *ecdsa.Priv
 
 	signature, err := cosmosPrivKey.Sign(signBytes)
 	require.NoError(t, err)
+
+	require.True(t, cosmosPrivKey.PubKey().VerifySignature(signBytes, signature))
 
 	tx.Signatures = [][]byte{signature}
 

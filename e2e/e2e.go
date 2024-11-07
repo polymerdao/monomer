@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -36,7 +37,8 @@ func Run(
 
 	setupHelperCmd := setupCmd(exec.CommandContext(ctx, filepath.Join(appDirPath, "setup-helper.sh")))
 	setupHelperCmd.Dir = appDirPath
-	setupHelperCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
+	// Add the "GOFLAGS='-gcflags=all=-N -l'" environment variable to disable optimizations and make debugging easier.
+	setupHelperCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir, "GOFLAGS='-gcflags=all=-N -l'")
 	if err := setupHelperCmd.Run(); err != nil {
 		return fmt.Errorf("run setup helper: %v", err)
 	}
@@ -50,10 +52,19 @@ func Run(
 	))
 	appCmd.Dir = appDirPath
 	appCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
+	appCmd.Cancel = func() error {
+		return appCmd.Process.Signal(syscall.SIGTERM)
+	}
 	if err := appCmd.Start(); err != nil {
 		return fmt.Errorf("run app: %v", err)
 	}
-	env.DeferErr("wait for app", appCmd.Wait)
+	env.DeferErr("wait for app", func() error {
+		err := appCmd.Wait()
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
+		return err
+	})
 
 	return nil
 }
