@@ -557,7 +557,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// instantiate L1 user, tx signer.
 	userPrivKey := stack.Users[1]
 	userAddress := ethcrypto.PubkeyToAddress(userPrivKey.PublicKey)
-	l1signer := types.NewEIP155Signer(l1ChainID)
+	l1signer := types.NewLondonSigner(l1ChainID)
 
 	l2GasLimit := l2blockGasLimit / 10
 	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)

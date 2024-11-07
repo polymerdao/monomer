@@ -30,22 +30,18 @@ var e2eTests2 = []struct {
 		name: "ETH L1 Deposits and L2 Withdrawals",
 		run:  ethRollupFlow,
 	},
-	/*
-		{
-			name: "ERC-20 L1 Deposits",
-			run:  erc20RollupFlow,
-		},
-
-		{
-			name: "AttributesTX",
-			run:  containsAttributesTx,
-		},
-
-		{
-			name: "No Rollbacks",
-			run:  checkForRollbacks,
-			},
-	*/
+	{
+		name: "ERC-20 L1 Deposits",
+		run:  erc20RollupFlow,
+	},
+	{
+		name: "AttributesTX",
+		run:  containsAttributesTx,
+	},
+	{
+		name: "No Rollbacks",
+		run:  checkForRollbacks,
+	},
 }
 
 func TestE2E2(t *testing.T) {
