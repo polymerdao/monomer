@@ -121,8 +121,57 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	balanceBeforeDeposit, err := l1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
 	require.NoError(t, err)
 
-	// wait for two blocks
-	require.NoError(t, stack.WaitL1(2))
+	// We need to wait for one L1 block here due to a tricky error that only affects tests.
+	//
+	// **Introduction**
+	//
+	// Initially, the deposit was either:
+	//	- Evicted from the mempool due to exceeding the block gas limit, or
+	//	- Reverting due to being out of gas.
+	//
+	// After struggling to manually find a working gas price, we decided to use the `PadGasEstimate`
+	// function (copied from the op-e2e package) to estimate the gas price via simulation.
+	//
+	// During simulation, the transaction started reverting with a different error:
+	// `arithmetic underflow or overflow`. The OP contracts require Solidity versions above v0.8.0.
+	// In Solidity v0.8.0 and higher, contracts automatically revert on arithmetic underflows and
+	// overflows. Thus, our goal is to discover where the arithmetic error occurs and prevent it.
+	//
+	// **Discovery**
+	//
+	// We generate the `allocs-l1.json` file by running `make devnet-allocs` in the optimism repo or
+	// submodule. The `devnet-allocs` target calls a python script that uses a [forge script command]
+	// to call `Deploy.s.sol`, which deploys the Optimism contracts.
+	//
+	// `forge script` behaves differently depending on the presence of the `--fork-url` param:
+	//	- With `--fork-url`: runs the script against the provided endpoint. For example, this means
+	//	  that the `block.number` Solidity variable will be set to the head block according to the
+	//	  node running behind the endpoint.
+	//	- Without `--fork-url`: runs the script agains an [in-memory Foundry backend]. This will set
+	//	  the `block.number` Solidity variable to `1`, the first block after genesis.
+	//
+	// The Deploy.s.sol script depends on the value of block.number when [initializing the resource meter]
+	// used to burn gas in the [guaranteed gas market], setting the gas market's `params.prevBlockNum` equal
+	// to `1`. The gas market code will try to determine when it last updated its internal parameters by
+	// comparing the block.number to the params.prevBlockNum. In our case, we see an underflow whenever
+	// `block.number == 0`.
+	//
+	// (For some reason, it seems that the gas simulation is simulating on top of the current block's state
+	// (block zero), rather than the next block, which would prevent the problem altogether; we haven't
+	// found the root cause for this yet)
+	//
+	// **Prevention**
+	//
+	// Wait one L1 block in the test to ensure `block.number > 0`, so `block.number - params.prevBlockNum`
+	// does not underflow. This is kind of a hacky solution: ideally, we deploy the contracts to a new L1
+	// chain when spinning up the devnet. However, we would need to clone the optimism repo every time to
+	// run `forge script`, so we leave a more stable solution as future work.
+	//
+	// [forge script command]: https://github.com/ethereum-optimism/optimism/blob/24a8d3e06e61c7a8938dfb7a591345a437036381/bedrock-devnet/devnet/__init__.py#L147
+	// [in-memory Foundry backend]: https://github.com/foundry-rs/foundry/blob/d2ed15d517a3af56fced592aa4a21df0293710c5/crates/script/src/lib.rs#L595-L598
+	// [initializing the resource meter]: https://github.com/ethereum-optimism/optimism/blob/24a8d3e06e61c7a8938dfb7a591345a437036381/packages/contracts-bedrock/src/L1/ResourceMetering.sol#L160
+	// [guaranteed gas market]: https://specs.optimism.io/protocol/guaranteed-gas-market.html
+	require.NoError(t, stack.WaitL1(1))
 
 	// send user Deposit Tx
 	depositAmount := big.NewInt(params.Ether)
