@@ -9,20 +9,19 @@ import (
 	"testing"
 	"time"
 
-	"github.com/polymerdao/monomer/e2e/url"
-
 	bftclient "github.com/cometbft/cometbft/rpc/client/http"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/polymerdao/monomer/e2e"
+	"github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 	"github.com/polymerdao/monomer/opdevnet"
 	"github.com/stretchr/testify/require"
 )
 
-var e2eTests2 = []struct {
+var e2eTests = []struct {
 	name string
 	run  func(t *testing.T, stack *e2e.StackConfig)
 }{
@@ -44,7 +43,7 @@ var e2eTests2 = []struct {
 	},
 }
 
-func TestE2E2(t *testing.T) {
+func TestE2E(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping e2e tests in short mode")
 	}
@@ -81,20 +80,11 @@ func TestE2E2(t *testing.T) {
 	defer cancel()
 	require.NoError(t, e2e.Run(ctx, env, t.TempDir()))
 
-	// Run tests concurrently, against the same stack.
-	// runningTests := sync.WaitGroup{}
-	// runningTests.Add(len(e2eTests))
-
-	for _, test := range e2eTests2 {
+	for _, test := range e2eTests {
 		t.Run(test.name, func(t *testing.T) {
-			//			go func() {
-			//			defer runningTests.Done()
 			test.run(t, newStackConfig(t))
-			//	}()
 		})
 	}
-
-	// runningTests.Wait()
 }
 
 func newStackConfig(t *testing.T) *e2e.StackConfig {

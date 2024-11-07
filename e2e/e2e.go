@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"fmt"
 	"os"
@@ -9,8 +10,28 @@ import (
 	"path/filepath"
 	"syscall"
 
+	bftclient "github.com/cometbft/cometbft/rpc/client/http"
+	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum-optimism/optimism/op-node/bindings"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/polymerdao/monomer/environment"
 )
+
+type StackConfig struct {
+	Ctx                  context.Context
+	Users                []*ecdsa.PrivateKey
+	L1Client             *L1Client
+	L1Deployments        *opgenesis.L1Deployments
+	OptimismPortal       *bindings.OptimismPortal
+	L1StandardBridge     *opbindings.L1StandardBridge
+	L2OutputOracleCaller *bindings.L2OutputOracleCaller
+	L2Client             *bftclient.HTTP
+	MonomerClient        *MonomerClient
+	RollupConfig         *rollup.Config
+	WaitL1               func(numBlocks int) error
+	WaitL2               func(numBlocks int) error
+}
 
 func Run(
 	ctx context.Context,
@@ -23,6 +44,7 @@ func Run(
 	}
 	const appName = "e2eapp"
 	appDirPath := filepath.Join(outDir, appName)
+	//nolint:gosec // We aren't worried about tainted cmd args.
 	monogenCmd := setupCmd(exec.CommandContext(ctx,
 		filepath.Join("..", "scripts", "go-wrapper.sh"),
 		"run", filepath.Join("..", "cmd", "monogen"),
@@ -35,7 +57,7 @@ func Run(
 		return fmt.Errorf("run monogen: %v", err)
 	}
 
-	setupHelperCmd := setupCmd(exec.CommandContext(ctx, filepath.Join(appDirPath, "setup-helper.sh")))
+	setupHelperCmd := setupCmd(exec.CommandContext(ctx, filepath.Join(appDirPath, "setup-helper.sh"))) //nolint:gosec
 	setupHelperCmd.Dir = appDirPath
 	// Add the "GOFLAGS='-gcflags=all=-N -l'" environment variable to disable optimizations and make debugging easier.
 	setupHelperCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir, "GOFLAGS='-gcflags=all=-N -l'")
@@ -43,6 +65,7 @@ func Run(
 		return fmt.Errorf("run setup helper: %v", err)
 	}
 
+	//nolint:gosec // We aren't worried about tainted cmd args.
 	appCmd := setupCmd(exec.CommandContext(ctx,
 		filepath.Join(appDirPath, appName+"d"),
 		"monomer",

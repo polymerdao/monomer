@@ -12,15 +12,11 @@ From the [OP stack](https://specs.optimism.io/protocol/overview.html#components)
 
 ## Development
 
-We use Go 1.22. To run the e2e tests, you'll need the submodules and a configured L1 backend. We use [`buf`](https://buf.build/) to manage protobufs.
+We use Go 1.22. We use [`buf`](https://buf.build/) to manage protobufs.
 
 ### Prerequisites
 
 1. Install [go](https://go.dev/) 1.22 or higher.
-1. Initialize submodules:
-   ```sh
-   git submodule update --init --recursive
-   ```
 1. Install [jq](https://jqlang.github.io/jq/download/)
 1. Install [foundry](https://book.getfoundry.sh/getting-started/installation)
 1. Install buf:

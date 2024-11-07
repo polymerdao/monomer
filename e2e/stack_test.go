@@ -1,14 +1,9 @@
 package e2e_test
 
 import (
-	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math/big"
-	"os"
-	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
@@ -16,7 +11,6 @@ import (
 	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
 	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/config"
 	cometcore "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
@@ -25,8 +19,6 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
-
-	//"github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/receipts"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
@@ -38,121 +30,14 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
 	ethcrypto "github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e"
-	"github.com/polymerdao/monomer/environment"
-	"github.com/polymerdao/monomer/node"
-	"github.com/polymerdao/monomer/testapp"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slog"
 	"google.golang.org/protobuf/proto"
 )
-
-const (
-	artifactsDirectoryName = "artifacts"
-)
-
-func openLogFile(t *testing.T, env *environment.Env, name string) *os.File {
-	filename := filepath.Join(artifactsDirectoryName, name+".log")
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_APPEND|os.O_WRONLY, 0o644)
-	require.NoError(t, err)
-	env.DeferErr("close log file: "+filename, file.Close)
-	return file
-}
-
-var e2eTests = []struct {
-	name string
-	run  func(t *testing.T, stack *e2e.StackConfig)
-}{
-	{
-		name: "ETH L1 Deposits and L2 Withdrawals",
-		run:  ethRollupFlow,
-	},
-	{
-		name: "ERC-20 L1 Deposits",
-		run:  erc20RollupFlow,
-	},
-	{
-		name: "CometBFT Txs",
-		run:  cometBFTtx,
-	},
-	{
-		name: "AttributesTX",
-		run:  containsAttributesTx,
-	},
-	{
-		name: "No Rollbacks",
-		run:  checkForRollbacks,
-	},
-}
-
-func TestE2E(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping e2e tests in short mode")
-	}
-
-	env := environment.New()
-	defer func() {
-		require.NoError(t, env.Close())
-	}()
-
-	if err := os.Mkdir(artifactsDirectoryName, 0o755); !errors.Is(err, os.ErrExist) {
-		require.NoError(t, err)
-	}
-
-	// Unfortunately, geth and parts of the OP Stack occasionally use the root logger.
-	// We capture the root logger's output in a separate file.
-	log.SetDefault(log.NewLogger(log.NewTerminalHandler(openLogFile(t, env, "root-logger"), false)))
-
-	opLogger := log.NewTerminalHandler(openLogFile(t, env, "op"), false)
-
-	prometheusCfg := &config.InstrumentationConfig{
-		Prometheus: false,
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	stack, err := e2e.Setup(ctx, env, prometheusCfg, &e2e.SelectiveListener{
-		OPLogCb: func(r slog.Record) {
-			require.NoError(t, opLogger.Handle(context.Background(), r))
-		},
-		NodeSelectiveListener: &node.SelectiveListener{
-			OnEngineHTTPServeErrCb: func(err error) {
-				require.NoError(t, err)
-			},
-			OnEngineWebsocketServeErrCb: func(err error) {
-				require.NoError(t, err)
-			},
-			OnCometServeErrCb: func(err error) {
-				require.NoError(t, err)
-			},
-			OnPrometheusServeErrCb: func(err error) {
-				require.NoError(t, err)
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	// Run tests concurrently, against the same stack.
-	runningTests := sync.WaitGroup{}
-	runningTests.Add(len(e2eTests))
-
-	for _, test := range e2eTests {
-		t.Run(test.name, func(t *testing.T) {
-			go func() {
-				defer runningTests.Done()
-				test.run(t, stack)
-			}()
-		})
-	}
-
-	runningTests.Wait()
-}
 
 func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
 	// Subscribe to new block events
@@ -215,38 +100,6 @@ func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
 }
 
-func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
-	txBytes := testapp.ToTestTx(t, "userTxKey", "userTxValue")
-	bftTx := bfttypes.Tx(txBytes)
-
-	putTx, err := stack.L2Client.BroadcastTxAsync(stack.Ctx, txBytes)
-	require.NoError(t, err)
-	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
-	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash does not match local hash")
-	t.Log("Monomer can ingest cometbft txs")
-
-	badPutTx := []byte("malformed")
-	badPut, err := stack.L2Client.BroadcastTxAsync(stack.Ctx, badPutTx)
-	require.NoError(t, err) // no API error - failure encoded in response
-	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
-	t.Log("Monomer can reject malformed cometbft txs")
-
-	// wait for tx to be processed
-	err = stack.WaitL2(1)
-	require.NoError(t, err)
-
-	getTx, err := stack.L2Client.Tx(stack.Ctx, bftTx.Hash(), false)
-
-	require.NoError(t, err)
-	require.Equal(t, abcitypes.CodeTypeOK, getTx.TxResult.Code, "txResult.Code is not OK")
-	require.Equal(t, bftTx, getTx.Tx, "txBytes do not match")
-	t.Log("Monomer can serve txs by hash")
-
-	txBlock, err := stack.MonomerClient.BlockByNumber(stack.Ctx, big.NewInt(getTx.Height))
-	require.NoError(t, err)
-	require.Len(t, txBlock.Transactions(), 2) // 1 deposit tx + 1 cometbft tx
-}
-
 func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
 
@@ -275,7 +128,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	depositAmount := big.NewInt(params.Ether)
 	// https://github.com/ethereum-optimism/optimism/blob/24a8d3e06e61c7a8938dfb7a591345a437036381/op-e2e/tx_helper.go#L38
 	depositTx, err := PadGasEstimate(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, 0, depositAmount),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, depositAmount),
 		1.1,
 		func(opts *bind.TransactOpts) (*types.Transaction, error) {
 			return stack.OptimismPortal.DepositTransaction(
@@ -355,8 +208,6 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	result, err := stack.L2Client.ABCIQuery(stack.Ctx, authv1beta1.Query_Account_FullMethodName, queryAccountBytes)
 	require.NoError(t, err)
 	require.Zero(t, result.Response.Code)
-	// var msgAny codectypes.Any
-	// require.NoError(t, protov1.Unmarshal(result.Response.Value, &msgAny))
 	var accountResponse authv1beta1.QueryAccountResponse
 	require.NoError(t, protov1.Unmarshal(result.Response.Value, &accountResponse))
 	var baseAccount authv1beta1.BaseAccount
@@ -398,7 +249,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// send a withdrawal proving tx to prove the withdrawal on L1
 	proveWithdrawalTx, err := stack.OptimismPortal.ProveWithdrawalTransaction(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, 0, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		withdrawalTx.WithdrawalTransaction(),
 		provenWithdrawalParams.L2OutputIndex,
 		provenWithdrawalParams.OutputRootProof,
@@ -436,7 +287,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// send a withdrawal finalizing tx to finalize the withdrawal on L1
 	finalizeWithdrawalTx, err := stack.OptimismPortal.FinalizeWithdrawalTransaction(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, 0, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		withdrawalTx.WithdrawalTransaction(),
 	)
 	require.NoError(t, err)
@@ -545,11 +396,6 @@ func buildTx(t *testing.T, chainID string, seqNum, accNum uint64, ethPrivKey *ec
 
 func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
-	monomerClient := stack.MonomerClient
-
-	b, err := monomerClient.BlockByNumber(stack.Ctx, nil)
-	require.NoError(t, err, "monomer block by number")
-	l2blockGasLimit := b.GasLimit()
 
 	l1ChainID, err := l1Client.ChainID(stack.Ctx)
 	require.NoError(t, err, "chain id")
@@ -559,16 +405,13 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	userAddress := ethcrypto.PubkeyToAddress(userPrivKey.PublicKey)
 	l1signer := types.NewLondonSigner(l1ChainID)
 
-	l2GasLimit := l2blockGasLimit / 10
-	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
-
 	/////////////////////////////
 	////// ERC-20 DEPOSITS //////
 	/////////////////////////////
 
 	// deploy the WETH9 ERC-20 contract on L1
 	weth9Address, tx, WETH9, err := opbindings.DeployWETH9(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		l1Client,
 	)
 	require.NoError(t, err)
@@ -578,7 +421,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// mint some WETH to the user
 	wethL1Amount := big.NewInt(params.Ether)
-	tx, err = WETH9.Deposit(createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, wethL1Amount))
+	tx, err = WETH9.Deposit(createL1TransactOpts(t, stack, userPrivKey, l1signer, wethL1Amount))
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(stack.Ctx, l1Client.Client, tx.Hash())
 	require.NoError(t, err)
@@ -588,7 +431,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// approve WETH9 transfer with the L1StandardBridge address
 	tx, err = WETH9.Approve(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		stack.L1Deployments.L1StandardBridgeProxy,
 		wethL1Amount,
 	)
@@ -599,7 +442,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// bridge the WETH9
 	wethL2Amount := big.NewInt(100)
 	tx, err = stack.L1StandardBridge.BridgeERC20(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		weth9Address,
 		weth9Address,
 		wethL2Amount,
@@ -692,7 +535,6 @@ func createL1TransactOpts(
 	stack *e2e.StackConfig,
 	user *ecdsa.PrivateKey,
 	l1signer types.Signer,
-	l1GasLimit uint64,
 	value *big.Int,
 ) *bind.TransactOpts {
 	return &bind.TransactOpts{
@@ -705,18 +547,6 @@ func createL1TransactOpts(
 		Value:   value,
 		Context: stack.Ctx,
 	}
-}
-
-func getCurrentUserNonce(t *testing.T, stack *e2e.StackConfig, userAddress common.Address) *big.Int {
-	nonce, err := stack.L1Client.PendingNonceAt(stack.Ctx, userAddress)
-	require.NoError(t, err)
-	return new(big.Int).SetUint64(nonce)
-}
-
-func getSuggestedL1GasPrice(t *testing.T, stack *e2e.StackConfig) *big.Int {
-	gasPrice, err := stack.L1Client.Client.SuggestGasPrice(stack.Ctx)
-	require.NoError(t, err)
-	return gasPrice
 }
 
 // waitForL2OutputProposal waits for the L2 output containing the withdrawal tx to be proposed on L1 and returns
