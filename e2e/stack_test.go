@@ -1,22 +1,24 @@
 package e2e_test
 
 import (
-	"context"
 	"crypto/ecdsa"
-	"errors"
 	"fmt"
 	"math/big"
-	"os"
-	"path/filepath"
-	"sync"
 	"testing"
 	"time"
 
+	authv1beta1 "cosmossdk.io/api/cosmos/auth/v1beta1"
+	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
 	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
-	"github.com/cometbft/cometbft/config"
 	cometcore "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cosmossecp256k1 "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/receipts"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
@@ -27,120 +29,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/log"
+	ethcrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e"
-	"github.com/polymerdao/monomer/environment"
-	"github.com/polymerdao/monomer/node"
-	"github.com/polymerdao/monomer/testapp"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
-	"golang.org/x/exp/slog"
+	"google.golang.org/protobuf/proto"
 )
-
-const (
-	artifactsDirectoryName = "artifacts"
-)
-
-func openLogFile(t *testing.T, env *environment.Env, name string) *os.File {
-	filename := filepath.Join(artifactsDirectoryName, name+".log")
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_TRUNC|os.O_APPEND|os.O_WRONLY, 0o644)
-	require.NoError(t, err)
-	env.DeferErr("close log file: "+filename, file.Close)
-	return file
-}
-
-var e2eTests = []struct {
-	name string
-	run  func(t *testing.T, stack *e2e.StackConfig)
-}{
-	{
-		name: "ETH L1 Deposits and L2 Withdrawals",
-		run:  ethRollupFlow,
-	},
-	{
-		name: "ERC-20 L1 Deposits",
-		run:  erc20RollupFlow,
-	},
-	{
-		name: "CometBFT Txs",
-		run:  cometBFTtx,
-	},
-	{
-		name: "AttributesTX",
-		run:  containsAttributesTx,
-	},
-	{
-		name: "No Rollbacks",
-		run:  checkForRollbacks,
-	},
-}
-
-func TestE2E(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping e2e tests in short mode")
-	}
-
-	env := environment.New()
-	defer func() {
-		require.NoError(t, env.Close())
-	}()
-
-	if err := os.Mkdir(artifactsDirectoryName, 0o755); !errors.Is(err, os.ErrExist) {
-		require.NoError(t, err)
-	}
-
-	// Unfortunately, geth and parts of the OP Stack occasionally use the root logger.
-	// We capture the root logger's output in a separate file.
-	log.SetDefault(log.NewLogger(log.NewTerminalHandler(openLogFile(t, env, "root-logger"), false)))
-
-	opLogger := log.NewTerminalHandler(openLogFile(t, env, "op"), false)
-
-	prometheusCfg := &config.InstrumentationConfig{
-		Prometheus: false,
-	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	stack, err := e2e.Setup(ctx, env, prometheusCfg, &e2e.SelectiveListener{
-		OPLogCb: func(r slog.Record) {
-			require.NoError(t, opLogger.Handle(context.Background(), r))
-		},
-		NodeSelectiveListener: &node.SelectiveListener{
-			OnEngineHTTPServeErrCb: func(err error) {
-				require.NoError(t, err)
-			},
-			OnEngineWebsocketServeErrCb: func(err error) {
-				require.NoError(t, err)
-			},
-			OnCometServeErrCb: func(err error) {
-				require.NoError(t, err)
-			},
-			OnPrometheusServeErrCb: func(err error) {
-				require.NoError(t, err)
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	// Run tests concurrently, against the same stack.
-	runningTests := sync.WaitGroup{}
-	runningTests.Add(len(e2eTests))
-
-	for _, test := range e2eTests {
-		t.Run(test.name, func(t *testing.T) {
-			go func() {
-				defer runningTests.Done()
-				test.run(t, stack)
-			}()
-		})
-	}
-
-	runningTests.Wait()
-}
 
 func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
 	// Subscribe to new block events
@@ -203,58 +100,18 @@ func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
 }
 
-func cometBFTtx(t *testing.T, stack *e2e.StackConfig) {
-	txBytes := testapp.ToTestTx(t, "userTxKey", "userTxValue")
-	bftTx := bfttypes.Tx(txBytes)
-
-	putTx, err := stack.L2Client.BroadcastTxAsync(stack.Ctx, txBytes)
-	require.NoError(t, err)
-	require.Equal(t, abcitypes.CodeTypeOK, putTx.Code, "put.Code is not OK")
-	require.EqualValues(t, bftTx.Hash(), putTx.Hash, "put.Hash does not match local hash")
-	t.Log("Monomer can ingest cometbft txs")
-
-	badPutTx := []byte("malformed")
-	badPut, err := stack.L2Client.BroadcastTxAsync(stack.Ctx, badPutTx)
-	require.NoError(t, err) // no API error - failure encoded in response
-	require.NotEqual(t, badPut.Code, abcitypes.CodeTypeOK, "badPut.Code is OK")
-	t.Log("Monomer can reject malformed cometbft txs")
-
-	// wait for tx to be processed
-	err = stack.WaitL2(1)
-	require.NoError(t, err)
-
-	getTx, err := stack.L2Client.Tx(stack.Ctx, bftTx.Hash(), false)
-
-	require.NoError(t, err)
-	require.Equal(t, abcitypes.CodeTypeOK, getTx.TxResult.Code, "txResult.Code is not OK")
-	require.Equal(t, bftTx, getTx.Tx, "txBytes do not match")
-	t.Log("Monomer can serve txs by hash")
-
-	txBlock, err := stack.MonomerClient.BlockByNumber(stack.Ctx, big.NewInt(getTx.Height))
-	require.NoError(t, err)
-	require.Len(t, txBlock.Transactions(), 2) // 1 deposit tx + 1 cometbft tx
-}
-
 func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
-	monomerClient := stack.MonomerClient
-
-	b, err := monomerClient.BlockByNumber(stack.Ctx, nil)
-	require.NoError(t, err, "monomer block by number")
-	l2blockGasLimit := b.GasLimit()
 
 	l1ChainID, err := l1Client.ChainID(stack.Ctx)
 	require.NoError(t, err, "chain id")
 
 	// instantiate L1 user, tx signer.
 	userPrivKey := stack.Users[0]
-	userETHAddress := crypto.PubkeyToAddress(userPrivKey.PublicKey)
-	l1signer := types.NewEIP155Signer(l1ChainID)
+	userETHAddress := ethcrypto.PubkeyToAddress(userPrivKey.PublicKey)
+	l1signer := types.NewLondonSigner(l1ChainID)
 
-	l2GasLimit := l2blockGasLimit / 10
-	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
-
-	userCosmosETHAddress := monomer.CosmosETHAddress(userETHAddress)
+	userCosmosETHAddress := monomer.PubkeyToCosmosETHAddress(&userPrivKey.PublicKey)
 
 	//////////////////////////
 	////// ETH DEPOSITS //////
@@ -264,23 +121,84 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	balanceBeforeDeposit, err := l1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
 	require.NoError(t, err)
 
+	// We need to wait for one L1 block here due to a tricky error that only affects tests.
+	//
+	// **Introduction**
+	//
+	// Initially, the deposit was either:
+	//	- Evicted from the mempool due to exceeding the block gas limit, or
+	//	- Reverting due to being out of gas.
+	//
+	// After struggling to manually find a working gas price, we decided to use the `PadGasEstimate`
+	// function (copied from the op-e2e package) to estimate the gas price via simulation.
+	//
+	// During simulation, the transaction started reverting with a different error:
+	// `arithmetic underflow or overflow`. The OP contracts require Solidity versions above v0.8.0.
+	// In Solidity v0.8.0 and higher, contracts automatically revert on arithmetic underflows and
+	// overflows. Thus, our goal is to discover where the arithmetic error occurs and prevent it.
+	//
+	// **Discovery**
+	//
+	// We generate the `allocs-l1.json` file by running `make devnet-allocs` in the optimism repo or
+	// submodule. The `devnet-allocs` target calls a python script that uses a [forge script command]
+	// to call `Deploy.s.sol`, which deploys the Optimism contracts.
+	//
+	// `forge script` behaves differently depending on the presence of the `--fork-url` param:
+	//	- With `--fork-url`: runs the script against the provided endpoint. For example, this means
+	//	  that the `block.number` Solidity variable will be set to the head block according to the
+	//	  node running behind the endpoint.
+	//	- Without `--fork-url`: runs the script against an [in-memory Foundry backend]. This will set
+	//	  the `block.number` Solidity variable to `1`, the first block after genesis.
+	//
+	// The Deploy.s.sol script depends on the value of block.number when [initializing the resource meter]
+	// used to burn gas in the [guaranteed gas market], setting the gas market's `params.prevBlockNum` equal
+	// to `1`. The gas market code will try to determine when it last updated its internal parameters by
+	// comparing the block.number to the params.prevBlockNum. In our case, we see an underflow whenever
+	// `block.number == 0`.
+	//
+	// (For some reason, it seems that the gas simulation is simulating on top of the current block's state
+	// (block zero), rather than the next block, which would prevent the problem altogether; we haven't
+	// found the root cause for this yet)
+	//
+	// **Prevention**
+	//
+	// Wait one L1 block in the test to ensure `block.number > 0`, so `block.number - params.prevBlockNum`
+	// does not underflow. This is kind of a hacky solution: ideally, we deploy the contracts to a new L1
+	// chain when spinning up the devnet. However, we would need to clone the optimism repo every time to
+	// run `forge script`, so we leave a more stable solution as future work.
+	//
+	// [forge script command]: https://github.com/ethereum-optimism/optimism/blob/24a8d3e06e61c7a8938dfb7a591345a437036381/bedrock-devnet/devnet/__init__.py#L147
+	// [in-memory Foundry backend]: https://github.com/foundry-rs/foundry/blob/d2ed15d517a3af56fced592aa4a21df0293710c5/crates/script/src/lib.rs#L595-L598
+	// [initializing the resource meter]: https://github.com/ethereum-optimism/optimism/blob/24a8d3e06e61c7a8938dfb7a591345a437036381/packages/contracts-bedrock/src/L1/ResourceMetering.sol#L160
+	// [guaranteed gas market]: https://specs.optimism.io/protocol/guaranteed-gas-market.html
+	require.NoError(t, stack.WaitL1(1))
+
 	// send user Deposit Tx
 	depositAmount := big.NewInt(params.Ether)
-	depositTx, err := stack.OptimismPortal.DepositTransaction(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, depositAmount),
-		common.Address(userCosmosETHAddress),
-		depositAmount,
-		l2GasLimit,
-		false,    // _isCreation
-		[]byte{}, // no data
+	// https://github.com/ethereum-optimism/optimism/blob/24a8d3e06e61c7a8938dfb7a591345a437036381/op-e2e/tx_helper.go#L38
+	depositTx, err := PadGasEstimate(
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, depositAmount),
+		1.1,
+		func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return stack.OptimismPortal.DepositTransaction(
+				opts,
+				common.Address(userCosmosETHAddress),
+				depositAmount,
+				100_000,  // l2GasLimit,
+				false,    // _isCreation
+				[]byte{}, // no data
+			)
+		},
 	)
-	require.NoError(t, err, "deposit tx")
+	require.NoError(t, err)
 
 	// wait for tx to be processed
 	// 1 L1 block to process the tx on L1 +
-	// 1 L2 block to process the tx on L2
+	// 1 L2 block to process the deposit on L2 +
+	// 1 L1 block for good measure
 	require.NoError(t, stack.WaitL1(1))
 	require.NoError(t, stack.WaitL2(1))
+	require.NoError(t, stack.WaitL1(1))
 
 	// inspect L1 for deposit tx receipt and emitted TransactionDeposited event
 	receipt, err := l1Client.Client.TransactionReceipt(stack.Ctx, depositTx.Hash())
@@ -308,7 +226,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	//nolint:gocritic
 	// gasCost = gasUsed * gasPrice
-	gasCost := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), depositTx.GasPrice())
+	gasCost := new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
 
 	//nolint:gocritic
 	// expectedBalance = balanceBeforeDeposit - depositAmount - gasCost
@@ -317,10 +235,9 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// check that the user's balance has been updated on L1
 	require.Equal(t, expectedBalance, balanceAfterDeposit)
 
-	userCosmosAddr, err := userCosmosETHAddress.Encode("cosmos")
+	userCosmosAddr, err := userCosmosETHAddress.Encode("e2e")
 	require.NoError(t, err)
-	depositValueHex := hexutil.EncodeBig(depositAmount)
-	requireEthIsMinted(t, stack, userCosmosAddr, depositValueHex)
+	requireEthIsMinted(t, stack, userCosmosAddr, hexutil.EncodeBig(depositAmount))
 
 	t.Log("Monomer can ingest user deposit txs from L1 and mint ETH on L2")
 
@@ -328,33 +245,52 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	////// ETH WITHDRAWALS //////
 	/////////////////////////////
 
-	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
-	withdrawalTx := e2e.NewWithdrawalTx(0, common.Address(userCosmosETHAddress), userETHAddress, depositAmount, new(big.Int).SetUint64(params.TxGas))
+	withdrawalAmount := big.NewInt(1)
 
-	// initiate the withdrawal of the deposited amount on L2
-	senderAddr, err := monomer.CosmosETHAddress(*withdrawalTx.Sender).Encode("cosmos")
+	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
+	withdrawalTx := e2e.NewWithdrawalTx(0, common.Address(userCosmosETHAddress), userETHAddress, withdrawalAmount, new(big.Int).SetUint64(params.TxGas))
+
+	queryAccountBytes, err := protov1.Marshal(&authv1beta1.QueryAccountRequest{
+		Address: userCosmosAddr,
+	})
 	require.NoError(t, err)
+	queryResult, err := stack.L2Client.ABCIQuery(stack.Ctx, authv1beta1.Query_Account_FullMethodName, queryAccountBytes)
+	require.NoError(t, err)
+	require.Zero(t, queryResult.Response.Code)
+	var accountResponse authv1beta1.QueryAccountResponse
+	require.NoError(t, protov1.Unmarshal(queryResult.Response.Value, &accountResponse))
+	var baseAccount authv1beta1.BaseAccount
+	require.NoError(t, protov1.Unmarshal(accountResponse.Account.Value, &baseAccount))
+
+	l2ChainID, err := stack.MonomerClient.ChainID(stack.Ctx)
+	require.NoError(t, err)
+
 	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
 		stack.Ctx,
-		testapp.ToTx(t, &rolluptypes.MsgInitiateWithdrawal{
-			Sender:   senderAddr,
-			Target:   withdrawalTx.Target.String(),
-			Value:    math.NewIntFromBigInt(withdrawalTx.Value),
-			GasLimit: withdrawalTx.GasLimit.Bytes(),
-			Data:     []byte{},
+		buildTx(t, l2ChainID.String(), baseAccount.Sequence, baseAccount.AccountNumber, userPrivKey, []protov1.Message{
+			&rolluptypes.MsgInitiateWithdrawal{
+				Sender:   userCosmosAddr,
+				Target:   withdrawalTx.Target.String(),
+				Value:    math.NewIntFromBigInt(withdrawalTx.Value),
+				GasLimit: withdrawalTx.GasLimit.Bytes(),
+				Data:     []byte{},
+			},
 		}),
 	)
 	require.NoError(t, err)
-	require.Equal(t, abcitypes.CodeTypeOK, withdrawalTxResult.Code)
+	require.Equalf(t, abcitypes.CodeTypeOK, withdrawalTxResult.Code, "log: "+withdrawalTxResult.Log)
 
 	// wait for tx to be processed on L2
-	require.NoError(t, stack.WaitL2(1))
+	require.NoError(t, stack.WaitL2(2))
 
 	// inspect L2 events to ensure that the user's ETH was burned on L2
-	requireEthIsBurned(t, stack, userCosmosAddr, depositValueHex)
+	requireEthIsBurned(t, stack, userCosmosAddr, hexutil.EncodeBig(withdrawalAmount))
 
 	// wait for the L2 output containing the withdrawal tx to be proposed on L1
-	l2OutputBlockNumber := waitForL2OutputProposal(t, stack.L2OutputOracleCaller)
+	var l2OutputBlockNumber *big.Int
+	for range 3 { // A bit hacky to just wait for 3 outputs, but should be sufficient.
+		l2OutputBlockNumber = waitForL2OutputProposal(t, stack.L2OutputOracleCaller)
+	}
 
 	// generate the proofs necessary to prove the withdrawal on L1
 	provenWithdrawalParams, err := e2e.ProveWithdrawalParameters(stack, *withdrawalTx, l2OutputBlockNumber)
@@ -362,7 +298,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// send a withdrawal proving tx to prove the withdrawal on L1
 	proveWithdrawalTx, err := stack.OptimismPortal.ProveWithdrawalTransaction(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		withdrawalTx.WithdrawalTransaction(),
 		provenWithdrawalParams.L2OutputIndex,
 		provenWithdrawalParams.OutputRootProof,
@@ -396,9 +332,9 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, proveWithdrawalLogs.Close())
 
 	// wait for the withdrawal finalization period before sending the withdrawal finalizing tx
-	finalizationPeriod, err := stack.L2OutputOracleCaller.FinalizationPeriodSeconds(&bind.CallOpts{})
-	require.NoError(t, err)
-	time.Sleep(time.Duration(finalizationPeriod.Uint64()) * time.Second)
+	// TODO why do we need to wait this long? I tried calling OptimismPortal.IsOutputFinalized:
+	// even when it returned true, FinalizeWithdrawalTransaction would fail.
+	require.NoError(t, stack.WaitL1(2))
 
 	// get the user's balance before the withdrawal has been finalized
 	balanceBeforeFinalization, err := stack.L1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
@@ -406,7 +342,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// send a withdrawal finalizing tx to finalize the withdrawal on L1
 	finalizeWithdrawalTx, err := stack.OptimismPortal.FinalizeWithdrawalTransaction(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		withdrawalTx.WithdrawalTransaction(),
 	)
 	require.NoError(t, err)
@@ -439,11 +375,11 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	//nolint:gocritic
 	// gasCost = gasUsed * gasPrice
-	gasCost = new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), finalizeWithdrawalTx.GasPrice())
+	gasCost = new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
 
 	//nolint:gocritic
-	// expectedBalance = balanceBeforeFinalization + depositAmount - gasCost
-	expectedBalance = new(big.Int).Sub(new(big.Int).Add(balanceBeforeFinalization, depositAmount), gasCost)
+	// expectedBalance = balanceBeforeFinalization + withdrawalAmount - gasCost
+	expectedBalance = new(big.Int).Sub(new(big.Int).Add(balanceBeforeFinalization, withdrawalAmount), gasCost)
 
 	// check that the user's balance has been updated on L1
 	require.Equal(t, expectedBalance, balanceAfterFinalization)
@@ -451,24 +387,93 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	t.Log("Monomer can initiate withdrawals on L2 and can generate proofs for verifying the withdrawal on L1")
 }
 
+func convertPrivKey(ecdsaPrivKey *ecdsa.PrivateKey) *secp256k1.PrivateKey {
+	privKeyBytes := ecdsaPrivKey.D.Bytes()
+	var key secp256k1.ModNScalar
+	if len(privKeyBytes) > 32 || key.SetByteSlice(privKeyBytes) {
+		panic("overflow")
+	}
+	if key.IsZero() {
+		panic("private keys must not be 0")
+	}
+	return secp256k1.NewPrivateKey(&key)
+}
+
+func buildTx(t *testing.T, chainID string, seqNum, accNum uint64, ethPrivKey *ecdsa.PrivateKey, msgs []protov1.Message) bfttypes.Tx {
+	cosmosPrivKey := &cosmossecp256k1.PrivKey{
+		Key: convertPrivKey(ethPrivKey).Serialize(),
+	}
+
+	var msgAnys []*codectypes.Any
+	for _, msg := range msgs {
+		msgAny, err := codectypes.NewAnyWithValue(msg)
+		require.NoError(t, err)
+		msgAnys = append(msgAnys, msgAny)
+	}
+
+	pubKeyAny, err := codectypes.NewAnyWithValue(cosmosPrivKey.PubKey())
+	require.NoError(t, err)
+
+	tx := &sdktx.Tx{
+		Body: &sdktx.TxBody{
+			Messages: msgAnys,
+		},
+		AuthInfo: &sdktx.AuthInfo{
+			SignerInfos: []*sdktx.SignerInfo{
+				{
+					PublicKey: pubKeyAny,
+					ModeInfo: &sdktx.ModeInfo{
+						Sum: &sdktx.ModeInfo_Single_{
+							Single: &sdktx.ModeInfo_Single{
+								Mode: signing.SignMode_SIGN_MODE_DIRECT,
+							},
+						},
+					},
+					Sequence: seqNum,
+				},
+			},
+			Fee: &sdktx.Fee{
+				Amount:   sdk.NewCoins(sdk.NewCoin(rolluptypes.WEI, math.NewInt(100000000))),
+				GasLimit: 1000000,
+			},
+		},
+	}
+
+	bodyBytes, err := protov1.Marshal(tx.Body)
+	require.NoError(t, err)
+	authInfoBytes, err := protov1.Marshal(tx.AuthInfo)
+	require.NoError(t, err)
+
+	signBytes, err := (proto.MarshalOptions{Deterministic: true}).Marshal(&txv1beta1.SignDoc{
+		BodyBytes:     bodyBytes,
+		AuthInfoBytes: authInfoBytes,
+		ChainId:       chainID,
+		AccountNumber: accNum,
+	})
+	require.NoError(t, err)
+
+	signature, err := cosmosPrivKey.Sign(signBytes)
+	require.NoError(t, err)
+
+	require.True(t, cosmosPrivKey.PubKey().VerifySignature(signBytes, signature))
+
+	tx.Signatures = [][]byte{signature}
+
+	txBytes, err := tx.Marshal()
+	require.NoError(t, err)
+	return txBytes
+}
+
 func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
-	monomerClient := stack.MonomerClient
-
-	b, err := monomerClient.BlockByNumber(stack.Ctx, nil)
-	require.NoError(t, err, "monomer block by number")
-	l2blockGasLimit := b.GasLimit()
 
 	l1ChainID, err := l1Client.ChainID(stack.Ctx)
 	require.NoError(t, err, "chain id")
 
 	// instantiate L1 user, tx signer.
 	userPrivKey := stack.Users[1]
-	userAddress := crypto.PubkeyToAddress(userPrivKey.PublicKey)
-	l1signer := types.NewEIP155Signer(l1ChainID)
-
-	l2GasLimit := l2blockGasLimit / 10
-	l1GasLimit := l2GasLimit * 2 // must be higher than l2Gaslimit, because of l1 gas burn (cross-chain gas accounting)
+	userAddress := ethcrypto.PubkeyToAddress(userPrivKey.PublicKey)
+	l1signer := types.NewLondonSigner(l1ChainID)
 
 	/////////////////////////////
 	////// ERC-20 DEPOSITS //////
@@ -476,7 +481,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// deploy the WETH9 ERC-20 contract on L1
 	weth9Address, tx, WETH9, err := opbindings.DeployWETH9(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		l1Client,
 	)
 	require.NoError(t, err)
@@ -486,7 +491,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// mint some WETH to the user
 	wethL1Amount := big.NewInt(params.Ether)
-	tx, err = WETH9.Deposit(createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, wethL1Amount))
+	tx, err = WETH9.Deposit(createL1TransactOpts(t, stack, userPrivKey, l1signer, wethL1Amount))
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(stack.Ctx, l1Client.Client, tx.Hash())
 	require.NoError(t, err)
@@ -496,7 +501,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// approve WETH9 transfer with the L1StandardBridge address
 	tx, err = WETH9.Approve(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		stack.L1Deployments.L1StandardBridgeProxy,
 		wethL1Amount,
 	)
@@ -507,7 +512,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// bridge the WETH9
 	wethL2Amount := big.NewInt(100)
 	tx, err = stack.L1StandardBridge.BridgeERC20(
-		createL1TransactOpts(t, stack, userPrivKey, l1signer, l1GasLimit, nil),
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		weth9Address,
 		weth9Address,
 		wethL2Amount,
@@ -534,7 +539,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, stack.WaitL2(1))
 
 	// assert the user's bridged WETH is on L2
-	userAddr, err := monomer.CosmosETHAddress(userAddress).Encode("cosmos")
+	userAddr, err := monomer.CosmosETHAddress(userAddress).Encode("e2e")
 	require.NoError(t, err)
 	requireERC20IsMinted(t, stack, userAddr, weth9Address.String(), hexutil.EncodeBig(wethL2Amount))
 
@@ -600,36 +605,18 @@ func createL1TransactOpts(
 	stack *e2e.StackConfig,
 	user *ecdsa.PrivateKey,
 	l1signer types.Signer,
-	l1GasLimit uint64,
 	value *big.Int,
 ) *bind.TransactOpts {
-	address := crypto.PubkeyToAddress(user.PublicKey)
 	return &bind.TransactOpts{
-		From: address,
+		From: ethcrypto.PubkeyToAddress(user.PublicKey),
 		Signer: func(addr common.Address, tx *types.Transaction) (*types.Transaction, error) {
 			signed, err := types.SignTx(tx, l1signer, user)
 			require.NoError(t, err)
 			return signed, nil
 		},
-		Nonce:    getCurrentUserNonce(t, stack, address),
-		GasPrice: getSuggestedL1GasPrice(t, stack),
-		GasLimit: l1GasLimit,
-		Value:    value,
-		Context:  stack.Ctx,
-		NoSend:   false,
+		Value:   value,
+		Context: stack.Ctx,
 	}
-}
-
-func getCurrentUserNonce(t *testing.T, stack *e2e.StackConfig, userAddress common.Address) *big.Int {
-	nonce, err := stack.L1Client.PendingNonceAt(stack.Ctx, userAddress)
-	require.NoError(t, err)
-	return new(big.Int).SetUint64(nonce)
-}
-
-func getSuggestedL1GasPrice(t *testing.T, stack *e2e.StackConfig) *big.Int {
-	gasPrice, err := stack.L1Client.Client.SuggestGasPrice(stack.Ctx)
-	require.NoError(t, err)
-	return gasPrice
 }
 
 // waitForL2OutputProposal waits for the L2 output containing the withdrawal tx to be proposed on L1 and returns
@@ -650,4 +637,24 @@ func waitForL2OutputProposal(t *testing.T, l2OutputOracleCaller *bindings.L2Outp
 	}
 
 	return l2OutputBlockNumber
+}
+
+// https://github.com/ethereum-optimism/optimism/blob/24a8d3e06e61c7a8938dfb7a591345a437036381/op-e2e/e2eutils/transactions/gas.go#L18
+// TxBuilder creates and sends a transaction using the supplied bind.TransactOpts.
+// Returns the created transaction and any error reported.
+type TxBuilder func(opts *bind.TransactOpts) (*types.Transaction, error)
+
+func PadGasEstimate(opts *bind.TransactOpts, paddingFactor float64, builder TxBuilder) (*types.Transaction, error) {
+	// Take a copy of the opts to avoid mutating the original
+	oCopy := *opts
+	o := &oCopy
+	o.NoSend = true
+	tx, err := builder(o)
+	if err != nil {
+		return nil, fmt.Errorf("failed to estimate gas: %w", err)
+	}
+	gas := float64(tx.Gas()) * paddingFactor
+	o.GasLimit = uint64(gas)
+	o.NoSend = false
+	return builder(o)
 }

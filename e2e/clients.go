@@ -58,6 +58,10 @@ func (m *MonomerClient) BlockByNumber(ctx context.Context, number *big.Int) (*et
 	return block, nil
 }
 
+func (m *MonomerClient) ChainID(ctx context.Context) (*big.Int, error) {
+	return m.ethclient.ChainID(ctx)
+}
+
 // GetProof returns the account and storage values of the specified account including the Merkle-proof.
 // The block number can be nil, in which case the value is taken from the latest known block.
 func (m *MonomerClient) GetProof(

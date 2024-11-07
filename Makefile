@@ -6,8 +6,6 @@ BIN ?= bin
 GO_WRAPPER ?= $(SCRIPTS_PATH)/go-wrapper.sh
 
 E2E_ARTIFACTS_PATH ?= e2e/artifacts
-E2E_STATE_SETUP_PATH ?= e2e/optimism/.devnet
-E2E_CONFIG_SETUP_PATH ?= e2e/optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
 FOUNDRY_ARTIFACTS_PATH ?= bindings/artifacts
 FOUNDRY_CACHE_PATH ?= bindings/cache
 
@@ -21,11 +19,7 @@ test-all:
 
 .PHONY: e2e
 e2e:
-	$(GO_WRAPPER) test -v ./e2e \
-	-l1-allocs ./optimism/.devnet/allocs-l1.json \
-	-l2-allocs-dir ./optimism/.devnet/ \
-	-l1-deployments ./optimism/.devnet/addresses.json \
-	-deploy-config ./optimism/packages/contracts-bedrock/deploy-config/devnetL1.json
+	$(GO_WRAPPER) test -v ./e2e
 
 .PHONY: install-golangci-lint
 install-golangci-lint:
@@ -92,14 +86,6 @@ clean:
 	if [ -f $(COVER_OUT) ]; then rm $(COVER_OUT); fi
 	if [ -f $(COVER_HTML) ]; then rm $(COVER_HTML); fi
 	if [ -d ${E2E_ARTIFACTS_PATH} ]; then rm -r ${E2E_ARTIFACTS_PATH}; fi
-	if [ -d ${E2E_STATE_SETUP_PATH} ]; then rm -r ${E2E_STATE_SETUP_PATH}; fi
-	if [ -f $(E2E_CONFIG_SETUP_PATH) ]; then rm $(E2E_CONFIG_SETUP_PATH); fi
 	if [ -d ${FOUNDRY_ARTIFACTS_PATH} ]; then rm -r ${FOUNDRY_ARTIFACTS_PATH}; fi
 	if [ -d ${FOUNDRY_CACHE_PATH} ]; then rm -r ${FOUNDRY_CACHE_PATH}; fi
 	if [ -d $(BIN) ]; then rm -r $(BIN); fi
-
-.PHONY: setup-e2e
-setup-e2e:
-	$(MAKE) -C e2e/optimism install-geth && \
-		$(MAKE) -C e2e/optimism cannon-prestate && \
-		$(MAKE) -C e2e/optimism devnet-allocs

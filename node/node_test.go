@@ -20,8 +20,8 @@ import (
 )
 
 const (
-	engineWSAddress       = "127.0.0.1:8889"
-	cometHTTPAddress      = "127.0.0.1:8890"
+	engineWSAddress       = "127.0.0.1:0"
+	cometHTTPAddress      = "127.0.0.1:0"
 	prometheusHTTPAddress = "127.0.0.1:26660"
 	prometheusNamespace   = "monomer"
 )

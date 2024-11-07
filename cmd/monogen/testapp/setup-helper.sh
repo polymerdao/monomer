@@ -6,8 +6,11 @@ set -e
 # Build the app.
 # Because we transitively depend on github.com/fjl/memsize, we need to disable checklinkname in go1.23.0 and higher.
 goVersion=$(go env GOVERSION)
-[[ $goVersion > go1.23.0 || $goVersion == go1.23.0 ]] && ldflags="-ldflags=-checklinkname=0"
-go build $ldflags -o testappd ./cmd/testappd
+if [[ $goVersion > go1.23.0 || $goVersion == go1.23.0 ]]; then
+    GOFLAGS="$GOFLAGS -ldflags=-checklinkname=0"
+fi
+export GOFLAGS
+go build -o testappd ./cmd/testappd
 
 # The following process is identical for a standard Cosmos SDK chain.
 # The Cosmos SDK documentation has more information in addition to what is presented here:

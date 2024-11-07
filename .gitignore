@@ -2,10 +2,6 @@
 e2e/artifacts
 opdevnet/artifacts
 
-# Ignore go workspaces
-go.work
-go.work.sum
-
 # Ignore the forge artifacts and cache.
 bindings/artifacts
 bindings/cache
