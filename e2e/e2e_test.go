@@ -91,12 +91,10 @@ func newStackConfig(t *testing.T) *e2e.StackConfig {
 	secrets, err := opdevnet.DefaultMnemonicConfig.Secrets()
 	require.NoError(t, err)
 
-	{
-		engineurl, err := url.ParseString("ws://127.0.0.1:9000")
-		require.NoError(t, err)
-		engineurl.IsReachable(context.Background())
-	}
-	monomerRPCClient, err := rpc.Dial("ws://127.0.0.1:9000")
+	engineURL, err := url.ParseString("ws://127.0.0.1:9000")
+	require.NoError(t, err)
+	require.True(t, engineURL.IsReachable(context.Background()))
+	monomerRPCClient, err := rpc.Dial(engineURL.String())
 	require.NoError(t, err)
 	monomerClient := e2e.NewMonomerClient(monomerRPCClient)
 
@@ -104,12 +102,10 @@ func newStackConfig(t *testing.T) *e2e.StackConfig {
 	require.NoError(t, err)
 	require.NoError(t, bftClient.Start())
 
-	{
-		engineurl, err := url.ParseString("ws://127.0.0.1:9001")
-		require.NoError(t, err)
-		engineurl.IsReachable(context.Background())
-	}
-	l1RPCClient, err := rpc.Dial("ws://127.0.0.1:9001")
+	l1URL, err := url.ParseString("ws://127.0.0.1:9001")
+	require.NoError(t, err)
+	require.True(t, l1URL.IsReachable(context.Background()))
+	l1RPCClient, err := rpc.Dial(l1URL.String())
 	require.NoError(t, err)
 	l1Client := e2e.NewL1Client(l1RPCClient)
 
