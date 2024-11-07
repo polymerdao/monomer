@@ -89,9 +89,3 @@ clean:
 	if [ -d ${FOUNDRY_ARTIFACTS_PATH} ]; then rm -r ${FOUNDRY_ARTIFACTS_PATH}; fi
 	if [ -d ${FOUNDRY_CACHE_PATH} ]; then rm -r ${FOUNDRY_CACHE_PATH}; fi
 	if [ -d $(BIN) ]; then rm -r $(BIN); fi
-
-.PHONY: setup-e2e
-setup-e2e:
-	$(MAKE) -C e2e/optimism install-geth && \
-		$(MAKE) -C e2e/optimism cannon-prestate && \
-		$(MAKE) -C e2e/optimism devnet-allocs
