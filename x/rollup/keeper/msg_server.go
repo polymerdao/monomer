@@ -146,3 +146,24 @@ func (k *Keeper) InitiateFeeWithdrawal(
 
 	return &types.MsgInitiateFeeWithdrawalResponse{}, nil
 }
+
+func (k *Keeper) UpdateParams(
+	goCtx context.Context,
+	msg *types.MsgUpdateParams,
+) (*types.MsgUpdateParamsResponse, error) {
+	if k.authority.String() != msg.Authority {
+		return nil, types.WrapError(types.ErrUpdateParams, "invalid authority: expected %s, got %s", k.authority.String(), msg.Authority)
+	}
+
+	params := &msg.Params
+	if err := params.Validate(); err != nil {
+		return nil, types.WrapError(types.ErrUpdateParams, "validate params: %w", err)
+	}
+
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	if err := k.SetParams(ctx, &msg.Params); err != nil {
+		return nil, types.WrapError(types.ErrUpdateParams, "set params: %w", err)
+	}
+
+	return &types.MsgUpdateParamsResponse{}, nil
+}

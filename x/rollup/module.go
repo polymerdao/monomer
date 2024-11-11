@@ -14,7 +14,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/types/module"
 	authkeeper "github.com/cosmos/cosmos-sdk/x/auth/keeper"
+	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/gorilla/mux"
 	"github.com/grpc-ecosystem/grpc-gateway/runtime"
@@ -29,6 +31,7 @@ import (
 type ModuleInputs struct {
 	depinject.In
 
+	Config        *modulev1.Module
 	Codec         codec.Codec
 	StoreService  store.KVStoreService
 	BankKeeper    bankkeeper.Keeper
@@ -57,7 +60,13 @@ func ProvideCustomGetSigner() signing.CustomGetSigner {
 }
 
 func ProvideModule(in ModuleInputs) ModuleOutputs { //nolint:gocritic // hugeParam
-	k := keeper.NewKeeper(in.Codec, in.StoreService, in.BankKeeper, in.AccountKeeper)
+	// default to governance authority if not provided
+	authority := authtypes.NewModuleAddress(govtypes.ModuleName)
+	if in.Config.Authority != "" {
+		authority = authtypes.NewModuleAddressOrBech32Address(in.Config.Authority)
+	}
+
+	k := keeper.NewKeeper(in.Codec, in.StoreService, authority, in.BankKeeper, in.AccountKeeper)
 	return ModuleOutputs{
 		Keeper: k,
 		Module: NewAppModule(in.Codec, k),

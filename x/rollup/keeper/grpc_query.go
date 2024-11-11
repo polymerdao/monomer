@@ -10,10 +10,21 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-var _ types.QueryServer = (*Keeper)(nil)
+type Querier struct {
+	Keeper
+}
+
+var _ types.QueryServer = &Keeper{}
+
+func NewQuerier(keeper *Keeper) Querier {
+	return Querier{Keeper: *keeper}
+}
 
 // L1BlockInfo implements the Query/L1BlockInfo gRPC method
-func (k *Keeper) L1BlockInfo(ctx context.Context, req *types.QueryL1BlockInfoRequest) (*types.QueryL1BlockInfoResponse, error) {
+func (k Keeper) L1BlockInfo( //nolint:gocritic // hugeParam
+	ctx context.Context,
+	req *types.QueryL1BlockInfoRequest,
+) (*types.QueryL1BlockInfoResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
@@ -25,7 +36,10 @@ func (k *Keeper) L1BlockInfo(ctx context.Context, req *types.QueryL1BlockInfoReq
 }
 
 // Params implements the Query/Params gRPC method
-func (k *Keeper) Params(ctx context.Context, req *types.QueryParamsRequest) (*types.QueryParamsResponse, error) {
+func (k Keeper) Params( //nolint:gocritic // hugeParam
+	ctx context.Context,
+	req *types.QueryParamsRequest,
+) (*types.QueryParamsResponse, error) {
 	if req == nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid request")
 	}
