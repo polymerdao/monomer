@@ -239,7 +239,48 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err)
 	requireEthIsMinted(t, stack, userCosmosAddr, hexutil.EncodeBig(depositAmount))
 
-	t.Log("Monomer can ingest user deposit txs from L1 and mint ETH on L2")
+	t.Log("Monomer can ingest OptimismPortal user deposit txs from L1 and mint ETH on L2")
+
+	// get the user's balance after the deposit has been processed
+	balanceBeforeDeposit, err = stack.L1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
+	require.NoError(t, err)
+
+	bridgeDepositAmount := big.NewInt(params.Ether * 2)
+	bridgeDepositTx, err := stack.L1StandardBridge.DepositETHTo(
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, bridgeDepositAmount),
+		common.Address(userCosmosETHAddress),
+		100_000,  // l2GasLimit,
+		[]byte{}, // no data
+	)
+	require.NoError(t, err)
+	receipt, err = wait.ForReceiptOK(stack.Ctx, l1Client.Client, bridgeDepositTx.Hash())
+	require.NoError(t, err)
+
+	// check that the bridge deposit tx went through the OptimismPortal successfully
+	_, err = receipts.FindLog(receipt.Logs, stack.OptimismPortal.ParseTransactionDeposited)
+	require.NoError(t, err, "should emit deposit event")
+
+	// get the user's balance after the deposit has been processed
+	balanceAfterDeposit, err = stack.L1Client.BalanceAt(stack.Ctx, userETHAddress, nil)
+	require.NoError(t, err)
+
+	//nolint:gocritic
+	// gasCost = gasUsed * gasPrice
+	gasCost = new(big.Int).Mul(new(big.Int).SetUint64(receipt.GasUsed), receipt.EffectiveGasPrice)
+
+	//nolint:gocritic
+	// expectedBalance = balanceBeforeDeposit - bridgeDepositAmount - gasCost
+	expectedBalance = new(big.Int).Sub(new(big.Int).Sub(balanceBeforeDeposit, bridgeDepositAmount), gasCost)
+
+	// check that the user's balance has been updated on L1
+	require.Equal(t, expectedBalance, balanceAfterDeposit)
+
+	// wait for tx to be processed on L2
+	require.NoError(t, stack.WaitL2(2))
+
+	requireEthIsMinted(t, stack, userCosmosAddr, hexutil.EncodeBig(bridgeDepositAmount))
+
+	t.Log("Monomer can ingest L1StandardBridge user deposit txs from L1 and mint ETH on L2")
 
 	/////////////////////////////
 	////// ETH WITHDRAWALS //////
@@ -509,12 +550,15 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	_, err = wait.ForReceiptOK(stack.Ctx, l1Client.Client, tx.Hash())
 	require.NoError(t, err)
 
+	userCosmosETHAddr := monomer.PubkeyToCosmosETHAddress(&userPrivKey.PublicKey)
+
 	// bridge the WETH9
 	wethL2Amount := big.NewInt(100)
-	tx, err = stack.L1StandardBridge.BridgeERC20(
+	tx, err = stack.L1StandardBridge.DepositERC20To(
 		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
 		weth9Address,
 		weth9Address,
+		common.Address(userCosmosETHAddr),
 		wethL2Amount,
 		100_000,
 		[]byte{},
@@ -539,7 +583,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, stack.WaitL2(1))
 
 	// assert the user's bridged WETH is on L2
-	userAddr, err := monomer.CosmosETHAddress(userAddress).Encode("e2e")
+	userAddr, err := userCosmosETHAddr.Encode("e2e")
 	require.NoError(t, err)
 	requireERC20IsMinted(t, stack, userAddr, weth9Address.String(), hexutil.EncodeBig(wethL2Amount))
 
