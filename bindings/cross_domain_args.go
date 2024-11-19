@@ -15,6 +15,13 @@ type RelayMessageArgs struct {
 	Message     []byte
 }
 
+type FinalizeBridgeETHArgs struct {
+	From      common.Address
+	To        common.Address
+	Amount    *big.Int
+	ExtraData []byte
+}
+
 type FinalizeBridgeERC20Args struct {
 	RemoteToken common.Address
 	LocalToken  common.Address

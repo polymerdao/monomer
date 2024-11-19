@@ -43,22 +43,25 @@ func TestRollup(t *testing.T) {
 	erc20userAddr := common.HexToAddress("0x123456abcdef")
 	erc20depositAmount := big.NewInt(100)
 
-	l1AttributesTx, depositTx, _ := monomertestutils.GenerateEthTxs(t)
+	l1AttributesTx, ethDepositTx, _ := monomertestutils.GenerateEthTxs(t)
+	ethMintAmount := ethDepositTx.Mint()
+	ethTransferAmount := ethDepositTx.Value()
+
+	ethBridgeDepositTx := monomertestutils.GenerateEthBridgeDepositTx(t, *ethDepositTx.To(), ethTransferAmount)
 	erc20DepositTx := monomertestutils.GenerateERC20DepositTx(t, erc20tokenAddr, erc20userAddr, erc20depositAmount)
 	l1WithdrawalAddr := common.HexToAddress("0x112233445566").String()
 
 	l1AttributesTxBz := monomertestutils.TxToBytes(t, l1AttributesTx)
-	depositTxBz := monomertestutils.TxToBytes(t, depositTx)
+	ethDepositTxBz := monomertestutils.TxToBytes(t, ethDepositTx)
 	erc20DepositTxBz := monomertestutils.TxToBytes(t, erc20DepositTx)
+	ethBridgeDepositTxBz := monomertestutils.TxToBytes(t, ethBridgeDepositTx)
 
-	mintAmount := depositTx.Mint()
-	transferAmount := depositTx.Value()
-	from, err := gethtypes.NewCancunSigner(depositTx.ChainId()).Sender(depositTx)
+	from, err := gethtypes.NewCancunSigner(ethDepositTx.ChainId()).Sender(ethDepositTx)
 	require.NoError(t, err)
 
 	mintAddr, err := monomer.CosmosETHAddress(from).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
 	require.NoError(t, err)
-	userCosmosAddr, err := monomer.CosmosETHAddress(*depositTx.To()).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	userCosmosAddr, err := monomer.CosmosETHAddress(*ethDepositTx.To()).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
 	require.NoError(t, err)
 
 	// query the mint address ETH balance and assert it's zero
@@ -80,24 +83,27 @@ func TestRollup(t *testing.T) {
 
 	// send a successful MsgApplyL1Txs and mint ETH to user
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
-		TxBytes: [][]byte{l1AttributesTxBz, depositTxBz, erc20DepositTxBz},
+		TxBytes: [][]byte{l1AttributesTxBz, ethDepositTxBz, ethBridgeDepositTxBz, erc20DepositTxBz},
 	})
 	require.NoError(t, err)
 
 	// query the mint address ETH balance and assert it's equal to the mint amount minus the transfer amount
-	require.Equal(t, new(big.Int).Sub(mintAmount, transferAmount), queryETHBalance(t, bankQueryClient, mintAddr, integrationApp).BigInt())
+	require.Equal(t, new(big.Int).Sub(ethMintAmount, ethTransferAmount), queryETHBalance(t, bankQueryClient, mintAddr, integrationApp).BigInt())
 
-	// query the recipient address ETH balance and assert it's equal to the transfer amount
-	require.Equal(t, transferAmount, queryETHBalance(t, bankQueryClient, userCosmosAddr, integrationApp).BigInt())
+	// userEthAmount is ethTransferAmount * 2 to account for the separate OptimismPortal deposit (ethDepositTx) and the L1StandardBridge deposit tx (ethBridgeDepositTx)
+	userEthAmount := new(big.Int).Mul(ethTransferAmount, big.NewInt(2))
+
+	// query the recipient address ETH balance and assert it's equal to the expected transfer amount
+	require.Equal(t, userEthAmount, queryETHBalance(t, bankQueryClient, userCosmosAddr, integrationApp).BigInt())
 
 	// query the user's ERC20 balance and assert it's equal to the deposit amount
 	require.Equal(t, erc20depositAmount, queryERC20Balance(t, bankQueryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp).BigInt())
 
 	// try to withdraw more than deposited and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
-		Sender:   mintAddr,
+		Sender:   userCosmosAddr,
 		Target:   l1WithdrawalAddr,
-		Value:    math.NewIntFromBigInt(transferAmount).Add(math.OneInt()),
+		Value:    math.NewIntFromBigInt(userEthAmount).Add(math.OneInt()),
 		GasLimit: new(big.Int).SetUint64(100_000_000).Bytes(),
 		Data:     []byte{0x01, 0x02, 0x03},
 	})
@@ -107,7 +113,7 @@ func TestRollup(t *testing.T) {
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
 		Sender:   userCosmosAddr,
 		Target:   l1WithdrawalAddr,
-		Value:    math.NewIntFromBigInt(transferAmount),
+		Value:    math.NewIntFromBigInt(userEthAmount),
 		GasLimit: new(big.Int).SetUint64(100_000_000).Bytes(),
 		Data:     []byte{0x01, 0x02, 0x03},
 	})

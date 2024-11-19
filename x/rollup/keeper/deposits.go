@@ -125,12 +125,12 @@ func (k *Keeper) processL1UserDepositTxs(
 
 		// Check if the tx is a cross domain message from the aliased L1CrossDomainMessenger address
 		if from == aliasedL1CrossDomainMessengerAddress && tx.Data() != nil {
-			erc20mintEvent, err := k.parseAndExecuteCrossDomainMessage(ctx, tx.Data())
+			crossDomainMessageEvent, err := k.processCrossDomainMessage(ctx, tx.Data())
 			// TODO: Investigate when to return an error if a cross domain message can't be parsed or executed - look at OP Spec
 			if err != nil {
 				return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to parse or execute cross domain message: %v", err)
-			} else {
-				mintEvents = append(mintEvents, *erc20mintEvent)
+			} else if crossDomainMessageEvent != nil {
+				mintEvents = append(mintEvents, *crossDomainMessageEvent)
 			}
 		}
 	}
@@ -138,10 +138,10 @@ func (k *Keeper) processL1UserDepositTxs(
 	return mintEvents, nil
 }
 
-// parseAndExecuteCrossDomainMessage parses the tx data of a cross domain message and applies state transitions for recognized messages.
-// Currently, only finalizeBridgeERC20 messages from the L1StandardBridge are recognized for minting ERC-20 tokens on the Cosmos chain.
-// If a message is not recognized, it returns nil and does not error.
-func (k *Keeper) parseAndExecuteCrossDomainMessage(ctx sdk.Context, txData []byte) (*sdk.Event, error) { //nolint:gocritic // hugeParam
+// processCrossDomainMessage parses the tx data of a cross domain message and applies state transitions for recognized messages.
+// Currently, only finalizeBridgeETH and finalizeBridgeERC20 messages from the L1StandardBridge are recognized for minting tokens
+// on the Cosmos chain. If a message is not recognized, it returns nil and does not error.
+func (k *Keeper) processCrossDomainMessage(ctx sdk.Context, txData []byte) (*sdk.Event, error) { //nolint:gocritic // hugeParam
 	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.CrossDomainMessengerMetaData.ABI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CrossDomainMessenger ABI: %v", err)
@@ -156,37 +156,71 @@ func (k *Keeper) parseAndExecuteCrossDomainMessage(ctx sdk.Context, txData []byt
 		return nil, fmt.Errorf("failed to unpack tx data into relayMessage interface: %v", err)
 	}
 
-	// Check if the relayed message is a finalizeBridgeERC20 message from the L1StandardBridge
-	if bytes.Equal(relayMessage.Message[:4], standardBridgeABI.Methods["finalizeBridgeERC20"].ID) {
-		var finalizeBridgeERC20 bindings.FinalizeBridgeERC20Args
-		if err = unpackInputsIntoInterface(
-			&standardBridgeABI,
-			"finalizeBridgeERC20",
-			relayMessage.Message,
-			&finalizeBridgeERC20,
-		); err != nil {
-			return nil, fmt.Errorf("failed to unpack relay message into finalizeBridgeERC20 interface: %v", err)
-		}
-
-		toAddr, err := monomer.CosmosETHAddress(finalizeBridgeERC20.To).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	// Check if the relayed message is a supported message from the L1StandardBridge
+	l1StandardBridgeMethodID := relayMessage.Message[:4]
+	if bytes.Equal(l1StandardBridgeMethodID, standardBridgeABI.Methods["finalizeBridgeETH"].ID) {
+		mintEvent, err := k.processFinalizeBridgeETH(ctx, &standardBridgeABI, &relayMessage)
 		if err != nil {
-			return nil, fmt.Errorf("evm to cosmos address: %v", err)
+			return nil, fmt.Errorf("failed to process finalizeBridgeETH method: %v", err)
 		}
-		// Mint the ERC-20 token to the specified Cosmos address
-		mintEvent, err := k.mintERC20(
-			ctx,
-			toAddr,
-			finalizeBridgeERC20.RemoteToken.String(),
-			sdkmath.NewIntFromBigInt(finalizeBridgeERC20.Amount),
-		)
+		return mintEvent, nil
+	} else if bytes.Equal(l1StandardBridgeMethodID, standardBridgeABI.Methods["finalizeBridgeERC20"].ID) {
+		mintEvent, err := k.processFinalizeBridgeERC20(ctx, &standardBridgeABI, &relayMessage)
 		if err != nil {
-			return nil, fmt.Errorf("failed to mint ERC-20 token: %v", err)
+			return nil, fmt.Errorf("failed to process finalizeBridgeERC20 method: %v", err)
 		}
-
 		return mintEvent, nil
 	}
 
-	return nil, fmt.Errorf("tx data not recognized as a cross domain message: %v", txData)
+	ctx.Logger().Debug("Unsupported cross domain message", "methodID", hexutil.Encode(l1StandardBridgeMethodID))
+	return nil, nil
+}
+
+func (k *Keeper) processFinalizeBridgeETH(
+	ctx sdk.Context, //nolint:gocritic // hugeParam
+	standardBridgeABI *abi.ABI,
+	relayMessage *bindings.RelayMessageArgs,
+) (*sdk.Event, error) {
+	var finalizeBridgeETH bindings.FinalizeBridgeETHArgs
+	if err := unpackInputsIntoInterface(standardBridgeABI, "finalizeBridgeETH", relayMessage.Message, &finalizeBridgeETH); err != nil {
+		return nil, fmt.Errorf("failed to unpack relay message into finalizeBridgeETH interface: %v", err)
+	}
+
+	toAddr, err := monomer.CosmosETHAddress(finalizeBridgeETH.To).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("evm to cosmos address: %v", err)
+	}
+
+	amount := sdkmath.NewIntFromBigInt(finalizeBridgeETH.Amount)
+	mintEvent, err := k.mintETH(ctx, toAddr, toAddr, amount, amount)
+	if err != nil {
+		return nil, fmt.Errorf("failed to mint ETH: %v", err)
+	}
+
+	return mintEvent, nil
+}
+
+func (k *Keeper) processFinalizeBridgeERC20(
+	ctx sdk.Context, //nolint:gocritic // hugeParam
+	standardBridgeABI *abi.ABI,
+	relayMessage *bindings.RelayMessageArgs,
+) (*sdk.Event, error) {
+	var finalizeBridgeERC20 bindings.FinalizeBridgeERC20Args
+	if err := unpackInputsIntoInterface(standardBridgeABI, "finalizeBridgeERC20", relayMessage.Message, &finalizeBridgeERC20); err != nil {
+		return nil, fmt.Errorf("failed to unpack relay message into finalizeBridgeERC20 interface: %v", err)
+	}
+
+	toAddr, err := monomer.CosmosETHAddress(finalizeBridgeERC20.To).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
+	if err != nil {
+		return nil, fmt.Errorf("evm to cosmos address: %v", err)
+	}
+
+	mintEvent, err := k.mintERC20(ctx, toAddr, finalizeBridgeERC20.RemoteToken.String(), sdkmath.NewIntFromBigInt(finalizeBridgeERC20.Amount))
+	if err != nil {
+		return nil, fmt.Errorf("failed to mint ERC-20 token: %v", err)
+	}
+
+	return mintEvent, nil
 }
 
 // mintETH mints ETH to an account where the amount is in wei and returns the associated event.

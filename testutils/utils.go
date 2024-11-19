@@ -87,12 +87,26 @@ func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transactio
 	return l1InfoTx, depositTx, cosmosEthTx
 }
 
-func GenerateERC20DepositTx(t *testing.T, tokenAddr, userAddr common.Address, amount *big.Int) *gethtypes.Transaction {
-	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.CrossDomainMessengerMetaData.ABI))
-	require.NoError(t, err)
+func GenerateEthBridgeDepositTx(t *testing.T, userAddr common.Address, amount *big.Int) *gethtypes.Transaction {
 	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.StandardBridgeMetaData.ABI))
 	require.NoError(t, err)
+	rng := rand.New(rand.NewSource(1234))
 
+	finalizeBridgeETHBz, err := standardBridgeABI.Pack(
+		"finalizeBridgeETH",
+		testutils.RandomAddress(rng), // from
+		userAddr,                     // to
+		amount,                       // amount
+		[]byte{},                     // extra data
+	)
+	require.NoError(t, err)
+
+	return generateCrossDomainDepositTx(t, finalizeBridgeETHBz)
+}
+
+func GenerateERC20DepositTx(t *testing.T, tokenAddr, userAddr common.Address, amount *big.Int) *gethtypes.Transaction {
+	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.StandardBridgeMetaData.ABI))
+	require.NoError(t, err)
 	rng := rand.New(rand.NewSource(1234))
 
 	finalizeBridgeERC20Bz, err := standardBridgeABI.Pack(
@@ -106,14 +120,22 @@ func GenerateERC20DepositTx(t *testing.T, tokenAddr, userAddr common.Address, am
 	)
 	require.NoError(t, err)
 
+	return generateCrossDomainDepositTx(t, finalizeBridgeERC20Bz)
+}
+
+func generateCrossDomainDepositTx(t *testing.T, crossDomainMessageBz []byte) *gethtypes.Transaction {
+	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.CrossDomainMessengerMetaData.ABI))
+	require.NoError(t, err)
+	rng := rand.New(rand.NewSource(1234))
+
 	relayMessageBz, err := crossDomainMessengerABI.Pack(
 		"relayMessage",
 		big.NewInt(0),                // nonce
 		testutils.RandomAddress(rng), // sender
 		testutils.RandomAddress(rng), // target
-		amount,                       // value
+		big.NewInt(0),                // value
 		big.NewInt(0),                // min gas limit
-		finalizeBridgeERC20Bz,        // message
+		crossDomainMessageBz,         // message
 	)
 	require.NoError(t, err)
 
