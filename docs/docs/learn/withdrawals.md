@@ -38,6 +38,6 @@ For each observed event, the builder makes a corresponding `L2ToL1MessagePasserE
 
 The next step for a user is to obtain a proof of the withdrawal transaction.
 
-For compatability with the withdrawals process, Monomer uses the state root of its EVM sidecar state as the L2 state updated by the `op-proposer`. Monomer exposes the standard ethereum `GetProof` API endpoint for obtaining a merkle proof of withdrawal transactions registered in the EVM sidecar state.
+For compatibility with the withdrawals process, Monomer uses the state root of its EVM sidecar state as the L2 state updated by the `op-proposer`. Monomer exposes the standard ethereum `GetProof` API endpoint for obtaining a merkle proof of withdrawal transactions registered in the EVM sidecar state.
 
 With the withdrawal proof data, the user is now back to the L1 side of the OP Stack. The proof is submitted, and the withdrawal can be finalized after the rollup's challenge period.
