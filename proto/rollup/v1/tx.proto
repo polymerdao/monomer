@@ -13,8 +13,11 @@ option go_package = "github.com/polymerdao/monomer/x/rollup/types";
 // Msg defines all tx endpoints for the x/rollup module.
 service Msg {
   option (cosmos.msg.v1.service) = true;
-  // ApplyL1Txs defines a method for applying applying all L1 system and user deposit txs.
-  rpc ApplyL1Txs(MsgApplyL1Txs) returns (MsgApplyL1TxsResponse);
+  rpc SetL1Attributes(MsgSetL1Attributes) returns (MsgSetL1AttributesResponse);
+
+  rpc Mint(MsgMint) returns (MsgMintResponse);
+
+  rpc ForceInclude(MsgForceInclude) returns (MsgForceIncludeResponse);
 
   // InitiateWithdrawal defines a method for initiating a withdrawal from L2 to L1.
   rpc InitiateWithdrawal(MsgInitiateWithdrawal) returns (MsgInitiateWithdrawalResponse);
@@ -26,15 +29,31 @@ service Msg {
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 }
 
-// MsgApplyL1Txs defines the message for applying all L1 system and user deposit txs.
-message MsgApplyL1Txs {
-  // Array of bytes where each bytes is a eth.Transaction.MarshalBinary tx.
-  // The first tx must be the L1 system deposit tx, and the rest are user txs if present.
-  repeated bytes tx_bytes = 1;
+message MsgSetL1Attributes {
+  L1BlockInfo l1_block_info = 1;
 }
 
-// MsgApplyL1TxsResponse defines the Msg/ApplyL1Txs response type.
-message MsgApplyL1TxsResponse {}
+message MsgSetL1AttributesResponse {}
+
+message MsgMint {
+  uint64 amount = 1;
+  bytes to = 2;
+}
+
+message MsgMintResponse {}
+
+message MsgForceInclude {
+  bytes from = 1;
+  // to is null when is_creation is true.
+  // https://specs.optimism.io/protocol/deposits.html#user-deposited-transactions
+  bytes to = 2 [(gogoproto.nullable) = true];
+  uint64 value = 3;
+  uint64 gas_limit = 4;
+  bool is_creation = 5;
+  bytes data = 6;
+}
+
+message MsgForceIncludeResponse {}
 
 // MsgInitiateWithdrawal defines the message for initiating an L2 withdrawal.
 message MsgInitiateWithdrawal {
