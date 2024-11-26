@@ -21,6 +21,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	bankkeeper "github.com/cosmos/cosmos-sdk/x/bank/keeper"
 	banktypes "github.com/cosmos/cosmos-sdk/x/bank/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/polymerdao/monomer"
@@ -35,7 +36,8 @@ const initialFeeCollectorBalance = 1_000_000
 
 func TestRollup(t *testing.T) {
 	integrationApp, feeCollectorAddr := setupIntegrationApp(t)
-	queryClient := banktypes.NewQueryClient(integrationApp.QueryHelper())
+	bankQueryClient := banktypes.NewQueryClient(integrationApp.QueryHelper())
+	rollupQueryClient := rolluptypes.NewQueryClient(integrationApp.QueryHelper())
 
 	erc20tokenAddr := common.HexToAddress("0xabcdef123456")
 	erc20userAddr := common.HexToAddress("0x123456abcdef")
@@ -60,15 +62,15 @@ func TestRollup(t *testing.T) {
 	require.NoError(t, err)
 
 	// query the mint address ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), queryETHBalance(t, queryClient, mintAddr, integrationApp))
+	require.Equal(t, math.ZeroInt(), queryETHBalance(t, bankQueryClient, mintAddr, integrationApp))
 
 	// query the recipient address ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), queryETHBalance(t, queryClient, userCosmosAddr, integrationApp))
+	require.Equal(t, math.ZeroInt(), queryETHBalance(t, bankQueryClient, userCosmosAddr, integrationApp))
 
 	// query the user's ERC20 balance and assert it's zero
 	erc20userCosmosAddr, err := monomer.CosmosETHAddress(erc20userAddr).Encode(sdk.GetConfig().GetBech32AccountAddrPrefix())
 	require.NoError(t, err)
-	require.Equal(t, math.ZeroInt(), queryERC20Balance(t, queryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp))
+	require.Equal(t, math.ZeroInt(), queryERC20Balance(t, bankQueryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp))
 
 	// send an invalid MsgApplyL1Txs and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
@@ -83,13 +85,13 @@ func TestRollup(t *testing.T) {
 	require.NoError(t, err)
 
 	// query the mint address ETH balance and assert it's equal to the mint amount minus the transfer amount
-	require.Equal(t, new(big.Int).Sub(mintAmount, transferAmount), queryETHBalance(t, queryClient, mintAddr, integrationApp).BigInt())
+	require.Equal(t, new(big.Int).Sub(mintAmount, transferAmount), queryETHBalance(t, bankQueryClient, mintAddr, integrationApp).BigInt())
 
 	// query the recipient address ETH balance and assert it's equal to the transfer amount
-	require.Equal(t, transferAmount, queryETHBalance(t, queryClient, userCosmosAddr, integrationApp).BigInt())
+	require.Equal(t, transferAmount, queryETHBalance(t, bankQueryClient, userCosmosAddr, integrationApp).BigInt())
 
 	// query the user's ERC20 balance and assert it's equal to the deposit amount
-	require.Equal(t, erc20depositAmount, queryERC20Balance(t, queryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp).BigInt())
+	require.Equal(t, erc20depositAmount, queryERC20Balance(t, bankQueryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp).BigInt())
 
 	// try to withdraw more than deposited and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateWithdrawal{
@@ -112,10 +114,10 @@ func TestRollup(t *testing.T) {
 	require.NoError(t, err)
 
 	// query the recipient address ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), queryETHBalance(t, queryClient, userCosmosAddr, integrationApp))
+	require.Equal(t, math.ZeroInt(), queryETHBalance(t, bankQueryClient, userCosmosAddr, integrationApp))
 
 	// query the fee collector's ETH balance and assert it's equal to the initial mint amount
-	require.Equal(t, math.NewInt(initialFeeCollectorBalance), queryETHBalance(t, queryClient, feeCollectorAddr, integrationApp))
+	require.Equal(t, math.NewInt(initialFeeCollectorBalance), queryETHBalance(t, bankQueryClient, feeCollectorAddr, integrationApp))
 
 	// send a successful MsgInitiateFeeWithdrawal
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgInitiateFeeWithdrawal{
@@ -124,7 +126,30 @@ func TestRollup(t *testing.T) {
 	require.NoError(t, err)
 
 	// query the fee collector's ETH balance and assert it's zero
-	require.Equal(t, math.ZeroInt(), queryETHBalance(t, queryClient, feeCollectorAddr, integrationApp))
+	require.Equal(t, math.ZeroInt(), queryETHBalance(t, bankQueryClient, feeCollectorAddr, integrationApp))
+
+	// query the current x/rollup params and assert they're the default params
+	paramsResp, err := rollupQueryClient.Params(integrationApp.Context(), &rolluptypes.QueryParamsRequest{})
+	require.NoError(t, err)
+	require.Equal(t, rolluptypes.DefaultParams(), paramsResp.Params)
+
+	// send a successful MsgUpdateParams
+	updatedParams := rolluptypes.Params{
+		L1FeeRecipient:         common.HexToAddress("0x123456abcdef").String(),
+		L1CrossDomainMessenger: common.HexToAddress("0xabcdef123456").String(),
+		MinFeeWithdrawalAmount: 5,
+		FeeWithdrawalGasLimit:  5,
+	}
+	_, err = integrationApp.RunMsg(&rolluptypes.MsgUpdateParams{
+		Authority: authtypes.NewModuleAddress(govtypes.ModuleName).String(),
+		Params:    updatedParams,
+	})
+	require.NoError(t, err)
+
+	// query the updated x/rollup params and assert they're the updated params
+	updatedParamsResp, err := rollupQueryClient.Params(integrationApp.Context(), &rolluptypes.QueryParamsRequest{})
+	require.NoError(t, err)
+	require.Equal(t, updatedParams, updatedParamsResp.Params)
 }
 
 func setupIntegrationApp(t *testing.T) (*integration.App, string) {
@@ -159,6 +184,7 @@ func setupIntegrationApp(t *testing.T) (*integration.App, string) {
 	rollupKeeper := rollupkeeper.NewKeeper(
 		encodingCfg.Codec,
 		runtime.NewKVStoreService(keys[rolluptypes.StoreKey]),
+		authtypes.NewModuleAddress(govtypes.ModuleName),
 		bankKeeper,
 		accountKeeper,
 	)
@@ -185,6 +211,7 @@ func setupIntegrationApp(t *testing.T) (*integration.App, string) {
 		},
 	)
 	rolluptypes.RegisterMsgServer(integrationApp.MsgServiceRouter(), rollupKeeper)
+	rolluptypes.RegisterQueryServer(integrationApp.QueryHelper(), rollupkeeper.NewQuerier(rollupKeeper))
 	banktypes.RegisterQueryServer(integrationApp.QueryHelper(), bankkeeper.NewQuerier(&bankKeeper))
 
 	return integrationApp, accountKeeper.GetModuleAddress(authtypes.FeeCollectorName).String()

@@ -14,6 +14,7 @@ import (
 type Keeper struct {
 	cdc           codec.BinaryCodec
 	storeService  store.KVStoreService
+	authority     sdk.AccAddress
 	rollupCfg     *rollup.Config
 	bankkeeper    types.BankKeeper
 	accountkeeper types.AccountKeeper
@@ -22,6 +23,7 @@ type Keeper struct {
 func NewKeeper(
 	cdc codec.BinaryCodec,
 	storeService store.KVStoreService,
+	authority sdk.AccAddress,
 	// dependencies
 	bankKeeper types.BankKeeper,
 	accountKeeper types.AccountKeeper,
@@ -32,6 +34,7 @@ func NewKeeper(
 		bankkeeper:    bankKeeper,
 		accountkeeper: accountKeeper,
 		rollupCfg:     &rollup.Config{},
+		authority:     authority,
 	}
 }
 

@@ -5,6 +5,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
@@ -275,6 +276,55 @@ func (s *KeeperTestSuite) TestInitiateFeeWithdrawal() {
 				for i, event := range s.eventManger.Events() {
 					s.Require().Equal(expectedEventTypes[i], event.Type)
 				}
+			}
+		})
+	}
+}
+
+func (s *KeeperTestSuite) TestUpdateParams() {
+	authority := authtypes.NewModuleAddress(govtypes.ModuleName)
+	validParams := types.DefaultParams()
+	invalidParams := types.Params{}
+
+	tests := map[string]struct {
+		authority   sdk.AccAddress
+		params      types.Params
+		shouldError bool
+	}{
+		"valid authority with valid params": {
+			authority:   authority,
+			params:      validParams,
+			shouldError: false,
+		},
+		"invalid authority": {
+			authority:   sdk.AccAddress("invalid_authority"),
+			params:      validParams,
+			shouldError: true,
+		},
+		"valid authority with invalid params": {
+			authority:   authority,
+			params:      invalidParams,
+			shouldError: true,
+		},
+	}
+
+	for name, test := range tests {
+		s.Run(name, func() {
+			resp, err := s.rollupKeeper.UpdateParams(s.ctx, &types.MsgUpdateParams{
+				Authority: test.authority.String(),
+				Params:    test.params,
+			})
+
+			if test.shouldError {
+				s.Require().Error(err)
+				s.Require().Nil(resp)
+			} else {
+				s.Require().NoError(err)
+				s.Require().NotNil(resp)
+
+				params, err := s.rollupKeeper.GetParams(sdk.UnwrapSDKContext(s.ctx))
+				s.Require().NoError(err)
+				s.Require().Equal(test.params, *params)
 			}
 		})
 	}

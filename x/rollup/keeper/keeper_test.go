@@ -11,6 +11,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	moduletestutil "github.com/cosmos/cosmos-sdk/types/module/testutil"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
 	"github.com/polymerdao/monomer/x/rollup/keeper"
 	rolluptestutil "github.com/polymerdao/monomer/x/rollup/testutil"
 	"github.com/polymerdao/monomer/x/rollup/types"
@@ -51,6 +52,7 @@ func (s *KeeperTestSuite) setup() {
 	s.rollupKeeper = keeper.NewKeeper(
 		moduletestutil.MakeTestEncodingConfig().Codec,
 		runtime.NewKVStoreService(storeKey),
+		authtypes.NewModuleAddress(govtypes.ModuleName),
 		s.bankKeeper,
 		s.accountKeeper,
 	)
