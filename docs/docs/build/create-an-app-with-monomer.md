@@ -16,7 +16,7 @@ To generate a new Monomer application with the default configuration, navigate t
 ```bash
 rm -rf ~/.testapp \
   && rm -rf testapp \
-  && go run github.com/polymerdao/monomer/cmd/monogen@v0.1.5 \
+  && go run github.com/polymerdao/monomer/cmd/monogen@v0.1.6 \
   && cd testapp \
   && ./setup-helper.sh
 ```

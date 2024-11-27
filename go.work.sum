@@ -2026,7 +2026,7 @@ github.com/polyfloyd/go-errorlint v1.4.8/go.mod h1:NNCxFcFjZcw3xNjVdCchERkEM6Oz7
 github.com/polymerdao/monomer v0.0.0-20241009173955-b295a2d82eeb h1:K4fiVj2LYfI/Ez06YTBMcm/356ymCoJ3FKdcoZ4MVrg=
 github.com/polymerdao/monomer v0.0.0-20241009173955-b295a2d82eeb/go.mod h1:+2GdnXVXmKiOugKxcnWmOhwOSPj1G/FxcruoMHyEr2o=
 github.com/polymerdao/monomer v0.0.0-20241016225135-dcd82b847b30/go.mod h1:+v6//y9xYUuqTpaOe4b2xDf1UUEL/RNbl1smH+lEfYs=
-github.com/polymerdao/monomer v0.1.4/go.mod h1:08lU5gmig6WpUBaUIA07F/pbxjL08Typ+zDDKgGkP90=
+github.com/polymerdao/monomer v0.1.5/go.mod h1:08lU5gmig6WpUBaUIA07F/pbxjL08Typ+zDDKgGkP90=
 github.com/posener/complete v1.2.3 h1:NP0eAhjcjImqslEwo/1hq7gpajME0fTLTezBKDqfXqo=
 github.com/posener/complete v1.2.3/go.mod h1:WZIdtGGp+qx0sLrYKtIRAruyNpv6hFCicSgv7Sy7s/s=
 github.com/power-devops/perfstat v0.0.0-20210106213030-5aafc221ea8c h1:ncq/mPwQF4JjgDlrVEn3C11VoGHZN7m8qihwgMEtzYw=
