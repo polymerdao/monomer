@@ -18,10 +18,10 @@ var _ types.MsgServer = &Keeper{}
 func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*types.MsgApplyL1TxsResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	ctx.Logger().Debug("Processing L1 txs", "txCount", len(msg.TxBytes))
+	ctx.Logger().Debug("Processing L1 txs", "txCount", len(msg.Txs))
 
 	// process L1 attributes tx and get L1 block info
-	l1blockInfo, err := k.processL1AttributesTx(ctx, msg.TxBytes[0])
+	l1blockInfo, err := k.processL1AttributesTx(ctx, msg.Txs[0].Tx)
 	if err != nil {
 		return nil, types.WrapError(types.ErrProcessL1SystemDepositTx, "err: %v", err)
 	}
@@ -34,7 +34,7 @@ func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*t
 	ctx.Logger().Debug("Save L1 block info", "l1blockInfo", string(lo.Must(l1blockInfo.Marshal())))
 
 	// process L1 user deposit txs
-	mintEvents, err := k.processL1UserDepositTxs(ctx, msg.TxBytes, l1blockInfo)
+	mintEvents, err := k.processL1UserDepositTxs(ctx, msg.Txs, l1blockInfo)
 	if err != nil {
 		return nil, types.WrapError(types.ErrProcessL1UserDepositTxs, "err: %v", err)
 	}

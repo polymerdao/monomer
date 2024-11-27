@@ -17,7 +17,7 @@ const (
 var _ sdktypes.Msg = (*MsgApplyL1Txs)(nil)
 
 func (m *MsgApplyL1Txs) ValidateBasic() error {
-	if m.TxBytes == nil || len(m.TxBytes) < 1 {
+	if m.Txs == nil || len(m.Txs) < 1 {
 		return WrapError(ErrInvalidL1Txs, "must have at least one L1 Info Deposit tx")
 	}
 	return nil

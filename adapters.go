@@ -65,13 +65,15 @@ func countDepositTransactions(ethTxs []hexutil.Bytes) (int, error) {
 	return numDepositTxs, nil
 }
 
-func packDepositTxsToCosmosTx(depositTxs []hexutil.Bytes, _ string) (*rolluptypes.MsgApplyL1Txs, error) { //nolint:unparam
-	depositTxsBytes := make([][]byte, 0, len(depositTxs))
-	for _, depositTx := range depositTxs {
-		depositTxsBytes = append(depositTxsBytes, depositTx)
+func packDepositTxsToCosmosTx(ethDepositTxs []hexutil.Bytes, _ string) (*rolluptypes.MsgApplyL1Txs, error) { //nolint:unparam
+	depositTxs := make([]*rolluptypes.EthDepositTx, 0, len(ethDepositTxs))
+	for _, ethDepositTx := range ethDepositTxs {
+		depositTxs = append(depositTxs, &rolluptypes.EthDepositTx{
+			Tx: ethDepositTx,
+		})
 	}
 	return &rolluptypes.MsgApplyL1Txs{
-		TxBytes: depositTxsBytes,
+		Txs: depositTxs,
 	}, nil
 }
 
@@ -110,14 +112,14 @@ func GetDepositTxs(txsBytes [][]byte) (ethtypes.Transactions, error) {
 	if err := msg.Unmarshal(txsBytes[0]); err != nil {
 		return nil, fmt.Errorf("unmarshal MsgL1Txs msg: %v", err)
 	}
-	ethTxsBytes := msg.GetTxBytes()
+	ethTxsBytes := msg.GetTxs()
 	if len(ethTxsBytes) == 0 {
 		return nil, errL1AttributesNotFound
 	}
 	txs := make(ethtypes.Transactions, 0, len(ethTxsBytes)+len(txsBytes)-1)
-	for _, txBytes := range ethTxsBytes {
+	for _, userDepositTx := range ethTxsBytes {
 		var tx ethtypes.Transaction
-		if err := tx.UnmarshalBinary(txBytes); err != nil {
+		if err := tx.UnmarshalBinary(userDepositTx.Tx); err != nil {
 			return nil, fmt.Errorf("unmarshal binary: %v", err)
 		}
 		if !tx.IsDepositTx() {

@@ -77,13 +77,33 @@ func TestRollup(t *testing.T) {
 
 	// send an invalid MsgApplyL1Txs and assert error
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
-		TxBytes: [][]byte{l1AttributesTxBz, l1AttributesTxBz},
+		Txs: []*rolluptypes.EthDepositTx{
+			{
+				Tx: l1AttributesTxBz,
+			},
+			{
+				Tx: l1AttributesTxBz,
+			},
+		},
 	})
 	require.Error(t, err)
 
 	// send a successful MsgApplyL1Txs and mint ETH to user
 	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
-		TxBytes: [][]byte{l1AttributesTxBz, ethDepositTxBz, ethBridgeDepositTxBz, erc20DepositTxBz},
+		Txs: []*rolluptypes.EthDepositTx{
+			{
+				Tx: l1AttributesTxBz,
+			},
+			{
+				Tx: ethDepositTxBz,
+			},
+			{
+				Tx: ethBridgeDepositTxBz,
+			},
+			{
+				Tx: erc20DepositTxBz,
+			},
+		},
 	})
 	require.NoError(t, err)
 

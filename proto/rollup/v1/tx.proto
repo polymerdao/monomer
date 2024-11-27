@@ -26,11 +26,16 @@ service Msg {
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 }
 
+// DepositTx is a eth deposit tx.
+message EthDepositTx {
+  // tx is the marshaled Ethereum Deposit tx.
+  bytes tx = 1;
+}
+
 // MsgApplyL1Txs defines the message for applying all L1 system and user deposit txs.
 message MsgApplyL1Txs {
-  // Array of bytes where each bytes is a eth.Transaction.MarshalBinary tx.
-  // The first tx must be the L1 system deposit tx, and the rest are user txs if present.
-  repeated bytes tx_bytes = 1;
+  // txs are all of the system and user deposit txs.
+  repeated EthDepositTx txs = 1;
 }
 
 // MsgApplyL1TxsResponse defines the Msg/ApplyL1Txs response type.
