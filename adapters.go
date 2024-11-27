@@ -65,15 +65,17 @@ func countDepositTransactions(ethTxs []hexutil.Bytes) (int, error) {
 	return numDepositTxs, nil
 }
 
-func packDepositTxsToCosmosTx(ethDepositTxs []hexutil.Bytes, _ string) (*rolluptypes.MsgApplyL1Txs, error) { //nolint:unparam
+func packDepositTxsToCosmosTx(ethDepositTxs []hexutil.Bytes, _ string) (*rolluptypes.DepositsTx, error) { //nolint:unparam
 	depositTxs := make([]*rolluptypes.EthDepositTx, 0, len(ethDepositTxs))
 	for _, ethDepositTx := range ethDepositTxs {
 		depositTxs = append(depositTxs, &rolluptypes.EthDepositTx{
 			Tx: ethDepositTx,
 		})
 	}
-	return &rolluptypes.MsgApplyL1Txs{
-		Txs: depositTxs,
+	return &rolluptypes.DepositsTx{
+		Deposits: &rolluptypes.MsgApplyL1Txs{
+			Txs: depositTxs,
+		},
 	}, nil
 }
 
@@ -108,11 +110,11 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 }
 
 func GetDepositTxs(txsBytes [][]byte) (ethtypes.Transactions, error) {
-	msg := new(rolluptypes.MsgApplyL1Txs)
+	msg := new(rolluptypes.DepositsTx)
 	if err := msg.Unmarshal(txsBytes[0]); err != nil {
 		return nil, fmt.Errorf("unmarshal MsgL1Txs msg: %v", err)
 	}
-	ethTxsBytes := msg.GetTxs()
+	ethTxsBytes := msg.GetDeposits().Txs
 	if len(ethTxsBytes) == 0 {
 		return nil, errL1AttributesNotFound
 	}

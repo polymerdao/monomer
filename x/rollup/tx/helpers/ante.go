@@ -7,6 +7,7 @@ import (
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
 	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
 	rolluptx "github.com/polymerdao/monomer/x/rollup/tx"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type AnteHandler struct {
@@ -35,7 +36,7 @@ func (a *AnteHandler) AnteHandle(
 	simulate bool,
 ) (sdktypes.Context, error) {
 	switch tx.(type) {
-	case *rolluptx.Deposit:
+	case *rolluptypes.DepositsTx:
 		newCtx, err := rolluptx.DepositAnteHandler(ctx, tx, simulate)
 		if err != nil {
 			return newCtx, fmt.Errorf("deposit ante handle: %v", err)
