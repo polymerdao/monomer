@@ -26,6 +26,11 @@ service Msg {
   rpc UpdateParams(MsgUpdateParams) returns (MsgUpdateParamsResponse);
 }
 
+// DepositsTx is the Cosmos SDK transaction type that wraps OP Stack deposit transactions.
+message DepositsTx {
+  MsgApplyL1Txs deposits = 1;
+}
+
 // DepositTx is a eth deposit tx.
 message EthDepositTx {
   // tx is the marshaled Ethereum Deposit tx.
