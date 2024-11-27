@@ -63,14 +63,14 @@ func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*types.
 // and returns associated events.
 func (k *Keeper) processL1UserDepositTxs(
 	ctx sdk.Context, //nolint:gocritic // hugeParam
-	txs [][]byte,
+	txs []*types.EthDepositTx,
 	l1blockInfo *types.L1BlockInfo,
 ) (sdk.Events, error) {
 	mintEvents := sdk.Events{}
 
 	// skip the first tx - it is the L1 attributes tx
 	for i := 1; i < len(txs); i++ {
-		txBytes := txs[i]
+		txBytes := txs[i].Tx
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(txBytes); err != nil {
 			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to unmarshal user deposit transaction", "index", i, "err", err)

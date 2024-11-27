@@ -109,8 +109,15 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 			}
 			s.mockMintETH()
 
+			depositTxs := make([]*types.EthDepositTx, 0)
+			for _, txBytes := range test.txBytes {
+				depositTxs = append(depositTxs, &types.EthDepositTx{
+					Tx: txBytes,
+				})
+			}
+
 			resp, err := s.rollupKeeper.ApplyL1Txs(s.ctx, &types.MsgApplyL1Txs{
-				TxBytes: test.txBytes,
+				Txs: depositTxs,
 			})
 
 			if test.shouldError {
