@@ -75,37 +75,25 @@ func TestRollup(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, math.ZeroInt(), queryERC20Balance(t, bankQueryClient, erc20userCosmosAddr, erc20tokenAddr, integrationApp))
 
+	_, err = integrationApp.RunMsg(&rolluptypes.MsgSetL1Attributes{
+		L1BlockInfo: &rolluptypes.L1BlockInfo{}, // Technically incorrect, but it works for this test.
+		EthTx:       l1AttributesTxBz,
+	})
+	require.NoError(t, err)
+
 	// send an invalid MsgApplyL1Txs and assert error
-	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
-		Txs: []*rolluptypes.EthDepositTx{
-			{
-				Tx: l1AttributesTxBz,
-			},
-			{
-				Tx: l1AttributesTxBz,
-			},
-		},
+	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyUserDeposit{
+		Tx: l1AttributesTxBz,
 	})
 	require.Error(t, err)
 
 	// send a successful MsgApplyL1Txs and mint ETH to user
-	_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyL1Txs{
-		Txs: []*rolluptypes.EthDepositTx{
-			{
-				Tx: l1AttributesTxBz,
-			},
-			{
-				Tx: ethDepositTxBz,
-			},
-			{
-				Tx: ethBridgeDepositTxBz,
-			},
-			{
-				Tx: erc20DepositTxBz,
-			},
-		},
-	})
-	require.NoError(t, err)
+	for _, txBytes := range [][]byte{ethDepositTxBz, ethBridgeDepositTxBz, erc20DepositTxBz} {
+		_, err = integrationApp.RunMsg(&rolluptypes.MsgApplyUserDeposit{
+			Tx: txBytes,
+		})
+		require.NoError(t, err)
+	}
 
 	// query the mint address ETH balance and assert it's equal to the mint amount minus the transfer amount
 	require.Equal(t, new(big.Int).Sub(ethMintAmount, ethTransferAmount), queryETHBalance(t, bankQueryClient, mintAddr, integrationApp).BigInt())

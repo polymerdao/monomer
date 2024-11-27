@@ -1,19 +1,40 @@
 package keeper_test
 
 import (
+	"time"
+
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	govtypes "github.com/cosmos/cosmos-sdk/x/gov/types"
-	"github.com/ethereum-optimism/optimism/op-service/eth"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/golang/mock/gomock"
 	"github.com/polymerdao/monomer/testutils"
 	"github.com/polymerdao/monomer/x/rollup/types"
 )
 
-func (s *KeeperTestSuite) TestApplyL1Txs() {
+func (s *KeeperTestSuite) TestSetL1Attributes() {
+	l1AttributesTx, _, _ := testutils.GenerateEthTxs(s.T())
+	l1AttributesTxBz := testutils.TxToBytes(s.T(), l1AttributesTx)
+	_, err := s.rollupKeeper.SetL1Attributes(s.ctx, &types.MsgSetL1Attributes{
+		L1BlockInfo: &types.L1BlockInfo{
+			Number: 1,
+		},
+		EthTx: l1AttributesTxBz,
+	})
+	s.NoError(err)
+
+	l1BlockInfoBz := s.rollupStore.Get([]byte(types.L1BlockInfoKey))
+	s.Require().NotNil(l1BlockInfoBz)
+
+	l1BlockInfo := &types.L1BlockInfo{}
+	err = l1BlockInfo.Unmarshal(l1BlockInfoBz)
+	s.Require().NoError(err)
+	s.Require().Equal(uint64(1), l1BlockInfo.Number)
+}
+
+func (s *KeeperTestSuite) TestApplyUserDeposit() {
 	l1AttributesTx, depositTx, cosmosEthTx := testutils.GenerateEthTxs(s.T())
 	// The only constraint for a contract creation tx is that it must be a non-system DepositTx with no To field
 	contractCreationTx := gethtypes.NewTx(&gethtypes.DepositTx{})
@@ -24,77 +45,53 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 	contractCreationTxBz := testutils.TxToBytes(s.T(), contractCreationTx)
 	invalidTxBz := []byte("invalid tx bytes")
 
+	_, err := s.rollupKeeper.SetL1Attributes(s.ctx, &types.MsgSetL1Attributes{
+		L1BlockInfo: &types.L1BlockInfo{
+			Time: uint64(time.Now().Unix()),
+		},
+		EthTx: l1AttributesTxBz,
+	})
+	s.NoError(err)
+
 	tests := map[string]struct {
-		txBytes            [][]byte
+		txBytes            []byte
 		setupMocks         func()
 		shouldError        bool
 		expectedEventTypes []string
 	}{
-		"successful message with no user deposit txs": {
-			txBytes:     [][]byte{l1AttributesTxBz},
-			shouldError: false,
-			expectedEventTypes: []string{
-				sdk.EventTypeMessage,
-			},
-		},
 		"successful message with single user deposit tx": {
-			txBytes:     [][]byte{l1AttributesTxBz, depositTxBz},
+			txBytes:     depositTxBz,
 			shouldError: false,
 			expectedEventTypes: []string{
 				sdk.EventTypeMessage,
 				types.EventTypeMintETH,
 			},
 		},
-		"successful message with multiple user deposit txs": {
-			txBytes:     [][]byte{l1AttributesTxBz, depositTxBz, depositTxBz},
-			shouldError: false,
-			expectedEventTypes: []string{
-				sdk.EventTypeMessage,
-				types.EventTypeMintETH,
-				types.EventTypeMintETH,
-			},
-		},
-		"invalid l1 attributes tx bytes": {
-			txBytes:     [][]byte{invalidTxBz, depositTxBz},
-			shouldError: true,
-		},
-		"non-deposit tx passed in as l1 attributes tx": {
-			txBytes:     [][]byte{cosmosEthTxBz, depositTxBz},
-			shouldError: true,
-		},
-		"user deposit tx passed in as l1 attributes tx": {
-			txBytes:     [][]byte{depositTxBz, depositTxBz},
-			shouldError: true,
-		},
-		"invalid user deposit tx bytes": {
-			txBytes:     [][]byte{l1AttributesTxBz, invalidTxBz},
+		"invalid deposit tx bytes": {
+			txBytes:     invalidTxBz,
 			shouldError: true,
 		},
 		"non-deposit tx passed in as user deposit tx": {
-			txBytes:     [][]byte{l1AttributesTxBz, cosmosEthTxBz},
+			txBytes:     cosmosEthTxBz,
 			shouldError: true,
 		},
 		"l1 attributes tx passed in as user deposit tx": {
-			txBytes:     [][]byte{l1AttributesTxBz, l1AttributesTxBz},
+			txBytes:     l1AttributesTxBz,
 			shouldError: true,
 		},
 		"contract creation tx passed in as user deposit tx": {
-			txBytes:     [][]byte{l1AttributesTxBz, contractCreationTxBz},
-			shouldError: true,
-		},
-		"one valid l1 user deposit tx and an invalid tx passed in as user deposit txs": {
-			txBytes:     [][]byte{l1AttributesTxBz, depositTxBz, invalidTxBz},
+			txBytes:     contractCreationTxBz,
 			shouldError: true,
 		},
 		"bank keeper mint coins failure": {
-			txBytes: [][]byte{l1AttributesTxBz, depositTxBz},
+			txBytes: depositTxBz,
 			setupMocks: func() {
 				s.bankKeeper.EXPECT().MintCoins(s.ctx, types.ModuleName, gomock.Any()).Return(sdkerrors.ErrUnauthorized)
 			},
 			shouldError: true,
 		},
 		"bank keeper send coins failure": {
-			txBytes: [][]byte{l1AttributesTxBz, depositTxBz},
+			txBytes: depositTxBz,
 			setupMocks: func() {
 				s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(s.ctx, types.ModuleName, gomock.Any(), gomock.Any()).Return(sdkerrors.ErrUnknownRequest)
 			},
@@ -109,15 +106,8 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 			}
 			s.mockMintETH()
 
-			depositTxs := make([]*types.EthDepositTx, 0)
-			for _, txBytes := range test.txBytes {
-				depositTxs = append(depositTxs, &types.EthDepositTx{
-					Tx: txBytes,
-				})
-			}
-
-			resp, err := s.rollupKeeper.ApplyL1Txs(s.ctx, &types.MsgApplyL1Txs{
-				Txs: depositTxs,
+			resp, err := s.rollupKeeper.ApplyUserDeposit(s.ctx, &types.MsgApplyUserDeposit{
+				Tx: test.txBytes,
 			})
 
 			if test.shouldError {
@@ -131,20 +121,6 @@ func (s *KeeperTestSuite) TestApplyL1Txs() {
 				for i, event := range s.eventManger.Events() {
 					s.Require().Equal(test.expectedEventTypes[i], event.Type)
 				}
-
-				// Verify that the l1 block info and l1 block history are saved to the store
-				expectedBlockInfo := eth.BlockToInfo(testutils.GenerateL1Block())
-
-				l1BlockInfoBz := s.rollupStore.Get([]byte(types.L1BlockInfoKey))
-				s.Require().NotNil(l1BlockInfoBz)
-
-				l1BlockInfo := &types.L1BlockInfo{}
-				err = l1BlockInfo.Unmarshal(l1BlockInfoBz)
-				s.Require().NoError(err)
-				s.Require().Equal(expectedBlockInfo.NumberU64(), l1BlockInfo.Number)
-				s.Require().Equal(expectedBlockInfo.BaseFee().Bytes(), l1BlockInfo.BaseFee)
-				s.Require().Equal(expectedBlockInfo.Time(), l1BlockInfo.Time)
-				s.Require().Equal(expectedBlockInfo.Hash().Bytes(), l1BlockInfo.BlockHash)
 			}
 		})
 	}

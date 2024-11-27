@@ -42,7 +42,7 @@ func (p *Pool) Enqueue(userTxn comettypes.Tx) (err error) {
 	// Attempt to adapt the Cosmos transaction to an Ethereum deposit transaction.
 	// If the adaptation succeeds, it indicates that the
 	// user transaction is a deposit transaction, which is not allowed in the pool.
-	if _, err := monomer.GetDepositTxs([][]byte{userTxn}); err == nil {
+	if _, err := monomer.GetDepositTxs(userTxn); err == nil {
 		return errors.New("deposit txs are not allowed in the pool")
 	}
 

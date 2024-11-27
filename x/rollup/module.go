@@ -46,13 +46,27 @@ type ModuleOutputs struct {
 }
 
 func init() { //nolint:gochecknoinits
-	appmodule.Register(&modulev1.Module{}, appmodule.Provide(ProvideModule), appmodule.Provide(ProvideCustomGetSigner))
+	appmodule.Register(
+		&modulev1.Module{},
+		appmodule.Provide(ProvideModule),
+		appmodule.Provide(ProvideApplyUserDepositGetSigner),
+		appmodule.Provide(ProvideSetL1AttributesGetSigner),
+	)
 }
 
-func ProvideCustomGetSigner() signing.CustomGetSigner {
+func ProvideApplyUserDepositGetSigner() signing.CustomGetSigner {
 	return signing.CustomGetSigner{
 		// gocosmos is built on gogoproto, which generates protov1 protobufs, unfortunately.
-		MsgType: protoreflect.FullName(protov1.MessageName(&types.MsgApplyL1Txs{})), //nolint:staticcheck
+		MsgType: protoreflect.FullName(protov1.MessageName(&types.MsgApplyUserDeposit{})), //nolint:staticcheck
+		Fn: func(msg proto.Message) ([][]byte, error) {
+			return [][]byte{}, nil
+		},
+	}
+}
+
+func ProvideSetL1AttributesGetSigner() signing.CustomGetSigner {
+	return signing.CustomGetSigner{
+		MsgType: protoreflect.FullName(protov1.MessageName(&types.MsgSetL1Attributes{})), //nolint:staticcheck
 		Fn: func(msg proto.Message) ([][]byte, error) {
 			return [][]byte{}, nil
 		},

@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -11,7 +12,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
-	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -19,119 +19,74 @@ import (
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/x/rollup/types"
-	"github.com/samber/lo"
 )
-
-// processL1AttributesTx processes the L1 Attributes tx and returns the L1 block info.
-func (k *Keeper) processL1AttributesTx(ctx sdk.Context, txBytes []byte) (*types.L1BlockInfo, error) { //nolint:gocritic // hugeParam
-	var tx ethtypes.Transaction
-	if err := tx.UnmarshalBinary(txBytes); err != nil {
-		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to unmarshal L1 attributes transaction: %v", err)
-	}
-	if !tx.IsDepositTx() {
-		return nil, types.WrapError(types.ErrInvalidL1Txs, "first L1 tx must be a L1 attributes tx, but got type %d", tx.Type())
-	}
-
-	l1blockInfo, err := derive.L1BlockInfoFromBytes(k.rollupCfg, uint64(ctx.BlockTime().Unix()), tx.Data())
-	if err != nil {
-		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to derive L1 block info from L1 Info Deposit tx: %v", err)
-	}
-
-	// Convert derive.L1BlockInfo to types.L1BlockInfo
-	protoL1BlockInfo := &types.L1BlockInfo{
-		Number:            l1blockInfo.Number,
-		Time:              l1blockInfo.Time,
-		BlockHash:         l1blockInfo.BlockHash[:],
-		SequenceNumber:    l1blockInfo.SequenceNumber,
-		BatcherAddr:       l1blockInfo.BatcherAddr[:],
-		L1FeeOverhead:     l1blockInfo.L1FeeOverhead[:],
-		L1FeeScalar:       l1blockInfo.L1FeeScalar[:],
-		BaseFeeScalar:     l1blockInfo.BaseFeeScalar,
-		BlobBaseFeeScalar: l1blockInfo.BlobBaseFeeScalar,
-	}
-
-	if l1blockInfo.BaseFee != nil {
-		protoL1BlockInfo.BaseFee = l1blockInfo.BaseFee.Bytes()
-	}
-	if l1blockInfo.BlobBaseFee != nil {
-		protoL1BlockInfo.BlobBaseFee = l1blockInfo.BlobBaseFee.Bytes()
-	}
-	return protoL1BlockInfo, nil
-}
 
 // processL1UserDepositTxs processes the L1 user deposit txs, mints ETH to the user's cosmos address,
 // and returns associated events.
 func (k *Keeper) processL1UserDepositTxs(
 	ctx sdk.Context, //nolint:gocritic // hugeParam
-	txs []*types.EthDepositTx,
+	deposit *types.MsgApplyUserDeposit,
 	l1blockInfo *types.L1BlockInfo,
 ) (sdk.Events, error) {
 	mintEvents := sdk.Events{}
 
-	// skip the first tx - it is the L1 attributes tx
-	for i := 1; i < len(txs); i++ {
-		txBytes := txs[i].Tx
-		var tx ethtypes.Transaction
-		if err := tx.UnmarshalBinary(txBytes); err != nil {
-			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to unmarshal user deposit transaction", "index", i, "err", err)
-		}
-		if !tx.IsDepositTx() {
-			return nil, types.WrapError(types.ErrInvalidL1Txs, "L1 tx must be a user deposit tx, index:%d, type:%d", i, tx.Type())
-		}
-		if tx.IsSystemTx() {
-			return nil, types.WrapError(types.ErrInvalidL1Txs, "L1 tx must be a user deposit tx, type %d", tx.Type())
-		}
-		ctx.Logger().Debug("User deposit tx", "index", i, "tx", string(lo.Must(tx.MarshalJSON())))
-		// if the receipient is nil, it means the tx is creating a contract which we don't support, so return an error.
-		// see https://github.com/ethereum-optimism/op-geth/blob/v1.101301.0-rc.2/core/state_processor.go#L154
-		if tx.To() == nil {
-			return nil, types.WrapError(types.ErrInvalidL1Txs, "Contract creation txs are not supported, index:%d", i)
-		}
+	txBytes := deposit.Tx
+	var tx ethtypes.Transaction
+	if err := tx.UnmarshalBinary(txBytes); err != nil {
+		return nil, fmt.Errorf("unmarshal binary deposit tx: %v", err)
+	}
+	if tx.IsSystemTx() {
+		return nil, errors.New("deposit tx must not be a system tx")
+	}
+	// if the receipient is nil, it means the tx is creating a contract which we don't support, so return an error.
+	// see https://github.com/ethereum-optimism/op-geth/blob/v1.101301.0-rc.2/core/state_processor.go#L154
+	if tx.To() == nil {
+		return nil, errors.New("contract creation is not supported")
+	}
 
-		// Get the sender's address from the transaction
-		from, err := ethtypes.MakeSigner(
-			monomer.NewChainConfig(tx.ChainId()),
-			new(big.Int).SetUint64(l1blockInfo.Number),
-			l1blockInfo.Time,
-		).Sender(&tx)
-		if err != nil {
-			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to get sender address: %v", err)
-		}
-		addrPrefix := sdk.GetConfig().GetBech32AccountAddrPrefix()
-		mintAddr, err := monomer.CosmosETHAddress(from).Encode(addrPrefix)
-		if err != nil {
-			return nil, fmt.Errorf("evm to cosmos address: %v", err)
-		}
-		mintAmount := sdkmath.NewIntFromBigInt(tx.Mint())
-		recipientAddr, err := monomer.CosmosETHAddress(*tx.To()).Encode(addrPrefix)
-		if err != nil {
-			return nil, fmt.Errorf("evm to cosmos address: %v", err)
-		}
-		transferAmount := sdkmath.NewIntFromBigInt(tx.Value())
+	// Get the sender's address from the transaction
+	from, err := ethtypes.MakeSigner(
+		monomer.NewChainConfig(tx.ChainId()),
+		new(big.Int).SetUint64(l1blockInfo.Number),
+		l1blockInfo.Time,
+	).Sender(&tx)
+	if err != nil {
+		return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to get sender address: %v", err)
+	}
+	addrPrefix := sdk.GetConfig().GetBech32AccountAddrPrefix()
+	mintAddr, err := monomer.CosmosETHAddress(from).Encode(addrPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("evm to cosmos address: %v", err)
+	}
+	mintAmount := sdkmath.NewIntFromBigInt(tx.Mint())
+	recipientAddr, err := monomer.CosmosETHAddress(*tx.To()).Encode(addrPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("evm to cosmos address: %v", err)
+	}
+	transferAmount := sdkmath.NewIntFromBigInt(tx.Value())
 
-		mintEvent, err := k.mintETH(ctx, mintAddr, recipientAddr, mintAmount, transferAmount)
+	mintEvent, err := k.mintETH(ctx, mintAddr, recipientAddr, mintAmount, transferAmount)
+	if err != nil {
+		return nil, types.WrapError(types.ErrMintETH, "failed to mint ETH for cosmosAddress: %v; err: %v", mintAddr, err)
+	}
+	mintEvents = append(mintEvents, *mintEvent)
+
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return nil, types.WrapError(types.ErrParams, "failed to get params: %v", err)
+	}
+
+	// Convert the L1CrossDomainMessenger address to its L2 aliased address
+	aliasedL1CrossDomainMessengerAddress := crossdomain.ApplyL1ToL2Alias(common.HexToAddress(params.L1CrossDomainMessenger))
+
+	// Check if the tx is a cross domain message from the aliased L1CrossDomainMessenger address
+	if from == aliasedL1CrossDomainMessengerAddress && tx.Data() != nil {
+		crossDomainMessageEvent, err := k.processCrossDomainMessage(ctx, tx.Data())
+		// TODO: Investigate when to return an error if a cross domain message can't be parsed or executed - look at OP Spec
 		if err != nil {
-			return nil, types.WrapError(types.ErrMintETH, "failed to mint ETH for cosmosAddress: %v; err: %v", mintAddr, err)
-		}
-		mintEvents = append(mintEvents, *mintEvent)
-
-		params, err := k.GetParams(ctx)
-		if err != nil {
-			return nil, types.WrapError(types.ErrParams, "failed to get params: %v", err)
-		}
-
-		// Convert the L1CrossDomainMessenger address to its L2 aliased address
-		aliasedL1CrossDomainMessengerAddress := crossdomain.ApplyL1ToL2Alias(common.HexToAddress(params.L1CrossDomainMessenger))
-
-		// Check if the tx is a cross domain message from the aliased L1CrossDomainMessenger address
-		if from == aliasedL1CrossDomainMessengerAddress && tx.Data() != nil {
-			crossDomainMessageEvent, err := k.processCrossDomainMessage(ctx, tx.Data())
-			// TODO: Investigate when to return an error if a cross domain message can't be parsed or executed - look at OP Spec
-			if err != nil {
-				return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to parse or execute cross domain message: %v", err)
-			} else if crossDomainMessageEvent != nil {
-				mintEvents = append(mintEvents, *crossDomainMessageEvent)
-			}
+			return nil, types.WrapError(types.ErrInvalidL1Txs, "failed to parse or execute cross domain message: %v", err)
+		} else if crossDomainMessageEvent != nil {
+			mintEvents = append(mintEvents, *crossDomainMessageEvent)
 		}
 	}
 

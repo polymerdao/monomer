@@ -10,7 +10,11 @@ import (
 var _ sdktypes.Tx = (*DepositsTx)(nil)
 
 func (d *DepositsTx) GetMsgs() []proto.Message {
-	return []proto.Message{d.Deposits}
+	protoMsgUserDeposits := make([]proto.Message, 0, len(d.UserDeposits))
+	for _, userDeposit := range d.UserDeposits {
+		protoMsgUserDeposits = append(protoMsgUserDeposits, userDeposit)
+	}
+	return append([]proto.Message{d.L1Attributes}, protoMsgUserDeposits...)
 }
 
 func (d *DepositsTx) GetMsgsV2() ([]protoreflect.ProtoMessage, error) {

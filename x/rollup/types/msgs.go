@@ -1,11 +1,13 @@
 package types
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	"github.com/ethereum/go-ethereum/common"
+	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/params"
 )
 
@@ -14,21 +16,45 @@ const (
 	MaxTxGasLimit = params.MaxGasLimit
 )
 
-var _ sdktypes.Msg = (*MsgApplyL1Txs)(nil)
+var _ sdktypes.Msg = (*MsgApplyUserDeposit)(nil)
 
-func (m *MsgApplyL1Txs) ValidateBasic() error {
-	if m.Txs == nil || len(m.Txs) < 1 {
-		return WrapError(ErrInvalidL1Txs, "must have at least one L1 Info Deposit tx")
+func (m *MsgApplyUserDeposit) ValidateBasic() error {
+	if m.Tx == nil {
+		return errors.New("tx is nil")
+	}
+	var tx ethtypes.Transaction
+	if err := tx.UnmarshalBinary(m.Tx); err != nil {
+		return fmt.Errorf("unmarshal binary deposit tx: %v", err)
+	}
+	if !tx.IsDepositTx() {
+		return errors.New("tx is not a deposit tx")
+	}
+	if tx.IsSystemTx() {
+		return errors.New("tx must not be a system tx")
 	}
 	return nil
 }
 
-func (*MsgApplyL1Txs) Type() string {
-	return "l1txs"
+func (*MsgApplyUserDeposit) Type() string {
+	return "apply_user_deposit"
 }
 
-func (*MsgApplyL1Txs) Route() string {
-	return "rollup"
+func (*MsgApplyUserDeposit) Route() string {
+	return ModuleName
+}
+
+var _ sdktypes.Msg = (*MsgSetL1Attributes)(nil)
+
+func (m *MsgSetL1Attributes) ValidateBasic() error {
+	return nil
+}
+
+func (*MsgSetL1Attributes) Type() string {
+	return "set_l1_attributes"
+}
+
+func (*MsgSetL1Attributes) Route() string {
+	return ModuleName
 }
 
 var _ sdktypes.Msg = (*MsgInitiateWithdrawal)(nil)
@@ -52,5 +78,5 @@ func (*MsgInitiateWithdrawal) Type() string {
 }
 
 func (*MsgInitiateWithdrawal) Route() string {
-	return "rollup"
+	return ModuleName
 }

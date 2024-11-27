@@ -3,8 +3,11 @@ package monomer
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	bfttypes "github.com/cometbft/cometbft/types"
+	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
@@ -32,17 +35,12 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 		return nil, fmt.Errorf("marshal tx: %v", err)
 	}
 
-	cosmosTxs := make(bfttypes.Txs, 0, 1+numDepositTxs)
-	cosmosTxs = append(cosmosTxs, depositTxBytes)
-
 	cosmosNonDepositTxs, err := convertToCosmosNonDepositTxs(ethTxs[numDepositTxs:])
 	if err != nil {
 		return nil, fmt.Errorf("convert to cosmos txs: %v", err)
 	}
 
-	cosmosTxs = append(cosmosTxs, cosmosNonDepositTxs...)
-
-	return cosmosTxs, nil
+	return append(bfttypes.Txs{depositTxBytes}, cosmosNonDepositTxs...), nil
 }
 
 func countDepositTransactions(ethTxs []hexutil.Bytes) (int, error) {
@@ -65,17 +63,47 @@ func countDepositTransactions(ethTxs []hexutil.Bytes) (int, error) {
 	return numDepositTxs, nil
 }
 
-func packDepositTxsToCosmosTx(ethDepositTxs []hexutil.Bytes, _ string) (*rolluptypes.DepositsTx, error) { //nolint:unparam
-	depositTxs := make([]*rolluptypes.EthDepositTx, 0, len(ethDepositTxs))
-	for _, ethDepositTx := range ethDepositTxs {
-		depositTxs = append(depositTxs, &rolluptypes.EthDepositTx{
-			Tx: ethDepositTx,
-		})
+func packDepositTxsToCosmosTx(ethDepositTxs []hexutil.Bytes, _ string) (*rolluptypes.DepositsTx, error) {
+	var ethL1AttributesTx ethtypes.Transaction
+	if err := ethL1AttributesTx.UnmarshalBinary(ethDepositTxs[0]); err != nil {
+		return nil, fmt.Errorf("unmarshal binary: %v", err)
+	}
+	l1BlockInfo, err := derive.L1BlockInfoFromBytes(&rollup.Config{}, uint64(time.Now().Unix()), ethL1AttributesTx.Data())
+	if err != nil {
+		return nil, fmt.Errorf("l1 block info from bytes: %v", err)
+	}
+	l1Attributes := &rolluptypes.MsgSetL1Attributes{
+		L1BlockInfo: &rolluptypes.L1BlockInfo{
+			Number:            l1BlockInfo.Number,
+			Time:              l1BlockInfo.Time,
+			BlockHash:         l1BlockInfo.BlockHash[:],
+			SequenceNumber:    l1BlockInfo.SequenceNumber,
+			BatcherAddr:       l1BlockInfo.BatcherAddr[:],
+			L1FeeOverhead:     l1BlockInfo.L1FeeOverhead[:],
+			L1FeeScalar:       l1BlockInfo.L1FeeScalar[:],
+			BaseFeeScalar:     l1BlockInfo.BaseFeeScalar,
+			BlobBaseFeeScalar: l1BlockInfo.BlobBaseFeeScalar,
+		},
+		EthTx: ethDepositTxs[0],
+	}
+	if l1Attributes.L1BlockInfo.BaseFee != nil {
+		l1Attributes.L1BlockInfo.BaseFee = l1BlockInfo.BaseFee.Bytes()
+	}
+	if l1Attributes.L1BlockInfo.BlobBaseFee != nil {
+		l1Attributes.L1BlockInfo.BlobBaseFee = l1BlockInfo.BlobBaseFee.Bytes()
+	}
+
+	depositTxs := make([]*rolluptypes.MsgApplyUserDeposit, 0)
+	if len(ethDepositTxs) > 1 {
+		for _, ethDepositTx := range ethDepositTxs[1:] {
+			depositTxs = append(depositTxs, &rolluptypes.MsgApplyUserDeposit{
+				Tx: ethDepositTx,
+			})
+		}
 	}
 	return &rolluptypes.DepositsTx{
-		Deposits: &rolluptypes.MsgApplyL1Txs{
-			Txs: depositTxs,
-		},
+		L1Attributes: l1Attributes,
+		UserDeposits: depositTxs,
 	}, nil
 }
 
@@ -98,31 +126,35 @@ func AdaptCosmosTxsToEthTxs(cosmosTxs bfttypes.Txs) (ethtypes.Transactions, erro
 		return ethtypes.Transactions{}, nil
 	}
 	txsBytes := cosmosTxs.ToSliceOfBytes()
-	ethTxs, err := GetDepositTxs(txsBytes)
+	ethTxs, err := GetDepositTxs(txsBytes[0])
 	if err != nil {
 		return nil, fmt.Errorf("get deposit txs: %v", err)
 	}
-	for _, txBytes := range txsBytes[1:] {
-		ethTxs = append(ethTxs, AdaptNonDepositCosmosTxToEthTx(txBytes))
+	if len(txsBytes) > 1 {
+		for _, txBytes := range txsBytes[1:] {
+			ethTxs = append(ethTxs, AdaptNonDepositCosmosTxToEthTx(txBytes))
+		}
 	}
 
 	return ethTxs, nil
 }
 
-func GetDepositTxs(txsBytes [][]byte) (ethtypes.Transactions, error) {
+func GetDepositTxs(cosmosDepositTx []byte) (ethtypes.Transactions, error) {
 	msg := new(rolluptypes.DepositsTx)
-	if err := msg.Unmarshal(txsBytes[0]); err != nil {
+	if err := msg.Unmarshal(cosmosDepositTx); err != nil {
 		return nil, fmt.Errorf("unmarshal MsgL1Txs msg: %v", err)
 	}
-	ethTxsBytes := msg.GetDeposits().Txs
-	if len(ethTxsBytes) == 0 {
-		return nil, errL1AttributesNotFound
+	var ethL1AttributesTx ethtypes.Transaction
+	if err := ethL1AttributesTx.UnmarshalBinary(msg.L1Attributes.EthTx); err != nil {
+		return nil, fmt.Errorf("unmarshal binary l1 attributes tx: %v", err)
 	}
-	txs := make(ethtypes.Transactions, 0, len(ethTxsBytes)+len(txsBytes)-1)
+	txs := ethtypes.Transactions{&ethL1AttributesTx}
+
+	ethTxsBytes := msg.GetUserDeposits()
 	for _, userDepositTx := range ethTxsBytes {
 		var tx ethtypes.Transaction
 		if err := tx.UnmarshalBinary(userDepositTx.Tx); err != nil {
-			return nil, fmt.Errorf("unmarshal binary: %v", err)
+			return nil, fmt.Errorf("unmarshal binary user deposit tx: %v", err)
 		}
 		if !tx.IsDepositTx() {
 			return nil, errors.New("MsgL1Tx contains non-deposit tx")

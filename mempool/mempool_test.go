@@ -25,11 +25,13 @@ func TestMempool(t *testing.T) {
 	})
 
 	t.Run("deposit transaction", func(t *testing.T) {
-		_, depositTx, _ := testutils.GenerateEthTxs(t)
+		l1AttributesTx, depositTx, _ := testutils.GenerateEthTxs(t)
+		l1AttributesTxBytes, err := l1AttributesTx.MarshalBinary()
+		require.NoError(t, err)
 		depositTxBytes, err := depositTx.MarshalBinary()
 		require.NoError(t, err)
 
-		cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{depositTxBytes})
+		cosmosTxs, err := monomer.AdaptPayloadTxsToCosmosTxs([]hexutil.Bytes{l1AttributesTxBytes, depositTxBytes})
 		require.NoError(t, err)
 		require.ErrorContains(t, pool.Enqueue(cosmosTxs[0]), "deposit txs are not allowed in the pool")
 	})
