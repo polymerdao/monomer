@@ -2,6 +2,7 @@ package keeper
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 
 	"cosmossdk.io/math"
@@ -9,39 +10,36 @@ import (
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer/x/rollup/types"
-	"github.com/samber/lo"
 )
 
 var _ types.MsgServer = &Keeper{}
 
-// ApplyL1Txs implements types.MsgServer.
-func (k *Keeper) ApplyL1Txs(goCtx context.Context, msg *types.MsgApplyL1Txs) (*types.MsgApplyL1TxsResponse, error) {
+func (k *Keeper) SetL1Attributes(ctx context.Context, msg *types.MsgSetL1Attributes) (*types.MsgSetL1AttributesResponse, error) {
+	sdkCtx := sdk.UnwrapSDKContext(ctx)
+	if err := k.SetL1BlockInfo(sdkCtx, *msg.L1BlockInfo); err != nil {
+		return nil, fmt.Errorf("set l1 block info: %v", err)
+	}
+	return &types.MsgSetL1AttributesResponse{}, nil
+}
+
+func (k *Keeper) ApplyUserDeposit(goCtx context.Context, msg *types.MsgApplyUserDeposit) (*types.MsgApplyUserDepositResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
 
-	ctx.Logger().Debug("Processing L1 txs", "txCount", len(msg.Txs))
-
-	// process L1 attributes tx and get L1 block info
-	l1blockInfo, err := k.processL1AttributesTx(ctx, msg.Txs[0].Tx)
+	// L1BlockInfo is set in SetL1Attributes at the top of the block.
+	l1blockInfo, err := k.GetL1BlockInfo(ctx)
 	if err != nil {
-		return nil, types.WrapError(types.ErrProcessL1SystemDepositTx, "err: %v", err)
+		return nil, fmt.Errorf("get l1 block info: %v", err)
 	}
-
-	// save L1 block info to AppState
-	if err = k.SetL1BlockInfo(ctx, *l1blockInfo); err != nil {
-		return nil, types.WrapError(types.ErrL1BlockInfo, "save error: %v", err)
-	}
-
-	ctx.Logger().Debug("Save L1 block info", "l1blockInfo", string(lo.Must(l1blockInfo.Marshal())))
 
 	// process L1 user deposit txs
-	mintEvents, err := k.processL1UserDepositTxs(ctx, msg.Txs, l1blockInfo)
+	mintEvents, err := k.processL1UserDepositTxs(ctx, msg, l1blockInfo)
 	if err != nil {
 		return nil, types.WrapError(types.ErrProcessL1UserDepositTxs, "err: %v", err)
 	}
 
 	k.EmitEvents(goCtx, mintEvents)
 
-	return &types.MsgApplyL1TxsResponse{}, nil
+	return &types.MsgApplyUserDepositResponse{}, nil
 }
 
 func (k *Keeper) InitiateWithdrawal(

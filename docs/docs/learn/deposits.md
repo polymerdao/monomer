@@ -42,22 +42,13 @@ Because the OP stack and the EngineAPI are Ethereum specific, Monomer's chief re
 
 In the `x/rollup` module, Monomer defines a custom Cosmos-SDK message type to carry deposit transaction data.
 
-```go
-// MsgApplyL1Txs defines the message for applying all L1 system and user deposit txs.
-message MsgApplyL1Txs {
-  // Array of bytes where each bytes is a eth.Transaction.MarshalBinary tx.
-  // The first tx must be the L1 system deposit tx, and the rest are user txs if present.
-  repeated bytes tx_bytes = 1;
-}
-```
+For each rollup block, all deposit transactions sourced from the L1 are batched into a single `DepositTxs` transaction. The engine now awaits the `op-node`'s request to finalize a block. When that request comes:
 
-For each rollup block, all deposit transactions sourced from the L1 are batched into a single `MsgApplyL1Txs` message, which in turn is bundled into a single `cometbft` style transaction and cached in the engine. The engine now awaits the `op-node`'s request to finalize a block. When that request comes:
-
-5. the cached transaction is passed to Monomer's `builder.Build()`, which encapsulates the Cosmos-SDK appchain. In accordance with the OP stack spec, the transaction that packs the `MsgApplyL1Txs` message is the first transaction in each L2 block.
+5. the cached transaction is passed to Monomer's `builder.Build()`, which encapsulates the Cosmos-SDK appchain. In accordance with the OP stack spec, the `DepositTxs` transaction is the first transaction in each L2 block.
 
 ## The Cosmos-SDK Appchain
 
-The Cosmos Appchain now builds a block as usual. Monomer's contribution here is the `x/rollup` module, and its keeper method `processL1UserDepositTxs`, which:
+The Cosmos Appchain now builds a block as usual. Monomer's contribution here is the `x/rollup` module, which:
 
-6. unpacks the `MsgApplyL1Txs` `tx_bytes` field into a slice of `eth.Transaction` objects, minting ETH according to embedded values
+6. unpacks the deposit transaction, minting ETH according to embedded values
 7. emits events for each deposit

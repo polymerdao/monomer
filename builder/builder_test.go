@@ -400,7 +400,7 @@ func TestBuildRollupTxs(t *testing.T) {
 
 	// Verify deposit and withdrawal msg event
 	expectedEvents := []string{
-		"/rollup.v1.MsgApplyL1Txs",
+		"/rollup.v1.MsgSetL1Attributes",
 		"/rollup.v1.MsgInitiateWithdrawal",
 	}
 

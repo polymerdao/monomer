@@ -13,8 +13,12 @@ option go_package = "github.com/polymerdao/monomer/x/rollup/types";
 // Msg defines all tx endpoints for the x/rollup module.
 service Msg {
   option (cosmos.msg.v1.service) = true;
-  // ApplyL1Txs defines a method for applying applying all L1 system and user deposit txs.
-  rpc ApplyL1Txs(MsgApplyL1Txs) returns (MsgApplyL1TxsResponse);
+
+  // SetL1Attributes sets the l1 attributes in the L2 state.
+  rpc SetL1Attributes(MsgSetL1Attributes) returns (MsgSetL1AttributesResponse);
+
+  // ApplyUserDeposit defines a method for applying a user deposit tx.
+  rpc ApplyUserDeposit(MsgApplyUserDeposit) returns (MsgApplyUserDepositResponse);
 
   // InitiateWithdrawal defines a method for initiating a withdrawal from L2 to L1.
   rpc InitiateWithdrawal(MsgInitiateWithdrawal) returns (MsgInitiateWithdrawalResponse);
@@ -28,23 +32,27 @@ service Msg {
 
 // DepositsTx is the Cosmos SDK transaction type that wraps OP Stack deposit transactions.
 message DepositsTx {
-  MsgApplyL1Txs deposits = 1;
+  MsgSetL1Attributes l1_attributes = 1;
+  repeated MsgApplyUserDeposit user_deposits = 2;
 }
 
-// DepositTx is a eth deposit tx.
-message EthDepositTx {
+// MsgSetL1Attributes is the l1 attributes message.
+message MsgSetL1Attributes {
+  L1BlockInfo l1_block_info = 1;
+  bytes eth_tx = 2;
+}
+
+// MsgSetL1AttributesResponse defines the SetL1Attributes response type.
+message MsgSetL1AttributesResponse {}
+
+// MsgApplyUserDeposit is a eth deposit tx.
+message MsgApplyUserDeposit {
   // tx is the marshaled Ethereum Deposit tx.
   bytes tx = 1;
 }
 
-// MsgApplyL1Txs defines the message for applying all L1 system and user deposit txs.
-message MsgApplyL1Txs {
-  // txs are all of the system and user deposit txs.
-  repeated EthDepositTx txs = 1;
-}
-
-// MsgApplyL1TxsResponse defines the Msg/ApplyL1Txs response type.
-message MsgApplyL1TxsResponse {}
+// MsgApplyUserDepositResponse defines the ApplyUserDeposit response type.
+message MsgApplyUserDepositResponse {}
 
 // MsgInitiateWithdrawal defines the message for initiating an L2 withdrawal.
 message MsgInitiateWithdrawal {
