@@ -69,7 +69,7 @@ func (t *txstore) rollbackOneBlock(batch dbm.Batch, height uint64) error {
 	// The indexer stores txs in its underlying DB by constructing a key that uses a combination
 	// of height, indexes and hardcoded labels. For more details, see how the keys are constructed here:
 	//    https://github.com/cometbft/cometbft/blob/v0.37.2/state/txindex/kv/kv.go#L640
-	// The iterator below is a cheap trick to iterarte through all transactions that belong to a block
+	// The iterator below is a cheap trick to iterate through all transactions that belong to a block
 	// at height 'height', that is done with the 'start' of the iterator
 	// The 'end' part is where the magic happens: we construct a key that ends in a character with a higher ASCII
 	// value than any other just so we can include all keys "until the end"
@@ -97,7 +97,7 @@ func (t *txstore) rollbackOneBlock(batch dbm.Batch, height uint64) error {
 	return nil
 }
 
-// Access the underlying db used by the txindexer and removes all transactions. It needs
+// Access the underlying db used by the txindexer and remove all transactions. It needs
 // both the starting point (rollbackHeight) as well as the latest height since there's no other
 // way of knowing what's the last tx in the indexer otherwise.
 func (t *txstore) RollbackToHeight(rollbackHeight, currentHeight uint64) error {
