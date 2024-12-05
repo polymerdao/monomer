@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"errors"
 	"fmt"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -35,22 +36,28 @@ func (a *AnteHandler) AnteHandle(
 	tx sdktypes.Tx,
 	simulate bool,
 ) (sdktypes.Context, error) {
-	switch tx.(type) {
-	case *rolluptypes.DepositsTx:
+	if _, ok := tx.(*rolluptypes.DepositsTx); ok {
 		newCtx, err := rolluptx.DepositAnteHandler(ctx, tx, simulate)
 		if err != nil {
 			return newCtx, fmt.Errorf("deposit ante handle: %v", err)
 		}
-		return newCtx, err
-	default: // Unfortunately, the Cosmos SDK does not export its default tx type.
-		newCtx, err := a.authAnteHandler(ctx, tx, simulate)
-		if err != nil {
-			return newCtx, fmt.Errorf("auth ante handle: %v", err)
-		}
-		newCtx, err = rolluptx.L1DataAnteHandler(newCtx, tx, a.rollupKeeper)
-		if err != nil {
-			return newCtx, fmt.Errorf("l1 data ante handle: %v", err)
-		}
 		return newCtx, nil
 	}
+
+	for _, msg := range tx.GetMsgs() {
+		if _, ok := msg.(rolluptypes.DepositMsg); ok {
+			return ctx, errors.New("transaction contains deposit message")
+		}
+	}
+
+	// need the tx decoder
+	newCtx, err := a.authAnteHandler(ctx, tx, simulate)
+	if err != nil {
+		return newCtx, fmt.Errorf("auth ante handle: %v", err)
+	}
+	newCtx, err = rolluptx.L1DataAnteHandler(newCtx, tx, a.rollupKeeper)
+	if err != nil {
+		return newCtx, fmt.Errorf("l1 data ante handle: %v", err)
+	}
+	return newCtx, nil
 }
