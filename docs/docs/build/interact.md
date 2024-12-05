@@ -41,7 +41,7 @@ The wallet integration server provides a simple interface for depositing ETH fro
 
 ## Submitting an L2 Cosmos SDK Transaction
 
-L2 transactions behave the same as other Cosmos SDK chains and can be submitted to the Monomer rollup chain through the CometBFT  the Keplr wallet (or an alternative Cosmos SDK wallet if configured manually).
+L2 transactions behave the same as other Cosmos SDK chains and can be submitted to the Monomer rollup chain through the CometBFT the Keplr wallet (or an alternative Cosmos SDK wallet if configured manually).
 
 ## Querying the Rollup Chain
 
