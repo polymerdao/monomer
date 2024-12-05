@@ -1,6 +1,7 @@
 package helpers
 
 import (
+	"errors"
 	"fmt"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
@@ -43,6 +44,12 @@ func (a *AnteHandler) AnteHandle(
 		}
 		return newCtx, err
 	default: // Unfortunately, the Cosmos SDK does not export its default tx type.
+		for _, msg := range tx.GetMsgs() {
+			if _, ok := msg.(rolluptypes.DepositMsg); ok {
+				return ctx, errors.New("transaction contains deposit message")
+			}
+		}
+
 		newCtx, err := a.authAnteHandler(ctx, tx, simulate)
 		if err != nil {
 			return newCtx, fmt.Errorf("auth ante handle: %v", err)
