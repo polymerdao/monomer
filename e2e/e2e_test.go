@@ -30,7 +30,7 @@ var e2eTests = []struct {
 		run:  ethRollupFlow,
 	},
 	{
-		name: "ERC-20 L1 Deposits",
+		name: "ERC-20 L1 Deposits and L2 Withdrawals",
 		run:  erc20RollupFlow,
 	},
 	{

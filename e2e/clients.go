@@ -13,14 +13,14 @@ import (
 )
 
 type L1Client struct {
-	client *rpc.Client
+	RPCClient *rpc.Client
 	*ethclient.Client
 }
 
 func NewL1Client(client *rpc.Client) *L1Client {
 	return &L1Client{
-		client: client,
-		Client: ethclient.NewClient(client),
+		RPCClient: client,
+		Client:    ethclient.NewClient(client),
 	}
 }
 

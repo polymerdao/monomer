@@ -60,14 +60,21 @@ func Run(
 	setupHelperCmd := setupCmd(exec.CommandContext(ctx, filepath.Join(appDirPath, "setup-helper.sh"))) //nolint:gosec
 	setupHelperCmd.Dir = appDirPath
 	// Add the "GOFLAGS='-gcflags=all=-N -l'" environment variable to disable optimizations and make debugging easier.
-	setupHelperCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
+	setupHelperCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir, "GOFLAGS='-gcflags=all=-N -l'")
 	if err := setupHelperCmd.Run(); err != nil {
 		return fmt.Errorf("run setup helper: %v", err)
 	}
 
+	// TODO: add comment to show full delve debug flow for debugging e2e test functional code
 	//nolint:gosec // We aren't worried about tainted cmd args.
 	appCmd := setupCmd(exec.CommandContext(ctx,
+		"dlv",
+		"exec",
+		"--headless",
+		"--listen=127.0.0.1:2345",
+		"--api-version=2",
 		filepath.Join(appDirPath, appName+"d"),
+		"--",
 		"monomer",
 		"start",
 		"--minimum-gas-prices", "0.001wei",

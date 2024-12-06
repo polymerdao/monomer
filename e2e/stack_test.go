@@ -20,6 +20,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/receipts"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
 	"github.com/ethereum-optimism/optimism/op-node/bindings"
@@ -377,6 +378,79 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// check that the user's balance has been updated on L1
 	require.Equal(t, expectedBalance, balanceAfterFinalization)
 
+	//queryResult, err = stack.L2Client.ABCIQuery(stack.Ctx, authv1beta1.Query_Account_FullMethodName, queryAccountBytes)
+	//require.NoError(t, err)
+	//require.Zero(t, queryResult.Response.Code)
+	//require.NoError(t, protov1.Unmarshal(queryResult.Response.Value, &accountResponse))
+	//require.NoError(t, protov1.Unmarshal(accountResponse.Account.Value, &baseAccount))
+	//
+	//withdrawalTx.Nonce = big.NewInt(1)
+	//withdrawalTxResult, err = stack.L2Client.BroadcastTxAsync(
+	//	stack.Ctx,
+	//	buildTx(t, l2ChainID.String(), baseAccount.Sequence, baseAccount.AccountNumber, userPrivKey, []protov1.Message{
+	//		&rolluptypes.MsgInitiateWithdrawal{
+	//			Sender:   userCosmosAddr,
+	//			Target:   withdrawalTx.Target.String(),
+	//			Value:    math.NewIntFromBigInt(withdrawalTx.Value),
+	//			GasLimit: withdrawalTx.GasLimit.Bytes(),
+	//			Data:     []byte{},
+	//		},
+	//	}),
+	//)
+	//require.NoError(t, err)
+	//require.Equalf(t, abcitypes.CodeTypeOK, withdrawalTxResult.Code, "log: "+withdrawalTxResult.Log)
+	//
+	//// wait for tx to be processed on L2
+	//require.NoError(t, stack.WaitL2(2))
+	//
+	//// inspect L2 events to ensure that the user's ETH was burned on L2
+	//requireEthIsBurned(t, stack, userCosmosAddr, hexutil.EncodeBig(withdrawalAmount))
+	//
+	//// wait for the L2 output containing the withdrawal tx to be proposed on L1
+	////var l2OutputBlockNumber *big.Int
+	//for range 3 { // A bit hacky to just wait for 3 outputs, but should be sufficient.
+	//	l2OutputBlockNumber = waitForL2OutputProposal(t, stack.L2OutputOracleCaller)
+	//}
+	//
+	//// generate the proofs necessary to prove the withdrawal on L1
+	//provenWithdrawalParams, err = e2e.ProveWithdrawalParameters(stack, *withdrawalTx, l2OutputBlockNumber)
+	//require.NoError(t, err)
+	//
+	//// send a withdrawal proving tx to prove the withdrawal on L1
+	//proveWithdrawalTx, err = stack.OptimismPortal.ProveWithdrawalTransaction(
+	//	createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
+	//	withdrawalTx.WithdrawalTransaction(),
+	//	provenWithdrawalParams.L2OutputIndex,
+	//	provenWithdrawalParams.OutputRootProof,
+	//	provenWithdrawalParams.WithdrawalProof,
+	//)
+	//require.NoError(t, err, "prove withdrawal tx")
+	//
+	//// wait for withdrawal proving tx to be processed on L1
+	//require.NoError(t, stack.WaitL1(1))
+	//
+	//// inspect L1 for withdrawal proving tx receipt and emitted WithdrawalProven event
+	//receipt, err = l1Client.Client.TransactionReceipt(stack.Ctx, proveWithdrawalTx.Hash())
+	//require.NoError(t, err, "withdrawal proving tx receipt")
+	//require.NotNil(t, receipt, "withdrawal proving tx receipt")
+	//require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "withdrawal proving tx failed")
+	//
+	//withdrawalTxHash, err = withdrawalTx.Hash()
+	//require.NoError(t, err)
+	//proveWithdrawalLogs, err = stack.OptimismPortal.FilterWithdrawalProven(
+	//	&bind.FilterOpts{
+	//		Start:   0,
+	//		End:     nil,
+	//		Context: stack.Ctx,
+	//	},
+	//	[][32]byte{[32]byte(withdrawalTxHash.Bytes())},
+	//	[]common.Address{*withdrawalTx.Sender},
+	//	[]common.Address{*withdrawalTx.Target},
+	//)
+	//require.NoError(t, err, "configuring 'WithdrawalProven' event listener")
+	//require.True(t, proveWithdrawalLogs.Next(), "finding WithdrawalProven event")
+	//require.NoError(t, proveWithdrawalLogs.Close())
+
 	t.Log("Monomer can initiate withdrawals on L2 and can generate proofs for verifying the withdrawal on L1")
 }
 
@@ -465,7 +539,7 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 
 	// instantiate L1 user, tx signer.
 	userPrivKey := stack.Users[1]
-	userAddress := ethcrypto.PubkeyToAddress(userPrivKey.PublicKey)
+	userEthAddress := ethcrypto.PubkeyToAddress(userPrivKey.PublicKey)
 	l1signer := types.NewLondonSigner(l1ChainID)
 
 	/////////////////////////////
@@ -488,9 +562,9 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err)
 	_, err = wait.ForReceiptOK(stack.Ctx, l1Client.Client, tx.Hash())
 	require.NoError(t, err)
-	wethBalance, err := WETH9.BalanceOf(&bind.CallOpts{}, userAddress)
+	userWethBalance, err := WETH9.BalanceOf(&bind.CallOpts{}, userEthAddress)
 	require.NoError(t, err)
-	require.Equal(t, wethL1Amount, wethBalance)
+	require.Equal(t, wethL1Amount, userWethBalance)
 
 	// approve WETH9 transfer with the L1StandardBridge address
 	tx, err = WETH9.Approve(
@@ -524,9 +598,9 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.NoError(t, err, "should emit deposit event")
 
 	// assert the user's bridged WETH is no longer on L1
-	wethBalance, err = WETH9.BalanceOf(&bind.CallOpts{}, userAddress)
+	userWethBalance, err = WETH9.BalanceOf(&bind.CallOpts{}, userEthAddress)
 	require.NoError(t, err)
-	require.Equal(t, new(big.Int).Sub(wethL1Amount, wethL2Amount), wethBalance)
+	require.Equal(t, new(big.Int).Sub(wethL1Amount, wethL2Amount), userWethBalance)
 
 	// wait for tx to be processed
 	// 1 L1 block to process the tx on L1 +
@@ -540,6 +614,160 @@ func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	requireERC20IsMinted(t, stack, userAddr, weth9Address.String(), hexutil.EncodeBig(wethL2Amount))
 
 	t.Log("Monomer can ingest ERC-20 deposit txs from L1 and mint ERC-20 tokens on L2")
+
+	////////////////////////////////
+	////// ERC-20 WITHDRAWALS //////
+	////////////////////////////////
+
+	// deposit ETH to the user's account on L2 to pay for gas
+	depositAmount := big.NewInt(params.Ether)
+	depositTx, err := PadGasEstimate(
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, depositAmount),
+		1.1,
+		func(opts *bind.TransactOpts) (*types.Transaction, error) {
+			return stack.OptimismPortal.DepositTransaction(
+				opts,
+				common.Address(userCosmosETHAddr),
+				depositAmount,
+				100_000,  // l2GasLimit,
+				false,    // _isCreation
+				[]byte{}, // no data
+			)
+		},
+	)
+	require.NoError(t, err)
+
+	// wait for ETH deposit tx to be processed
+	_, err = wait.ForReceiptOK(stack.Ctx, l1Client.Client, depositTx.Hash())
+	require.NoError(t, err, "waiting for deposit tx on L1")
+	require.NoError(t, stack.WaitL2(2))
+
+	rollupParams := rolluptypes.DefaultParams()
+
+	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
+	withdrawalTx := e2e.NewWithdrawalTx(0, common.HexToAddress(predeploys.L2CrossDomainMessenger), common.HexToAddress(rollupParams.L1CrossDomainMessenger), big.NewInt(0), new(big.Int).SetUint64(params.TxGas*10))
+
+	queryAccountBytes, err := protov1.Marshal(&authv1beta1.QueryAccountRequest{
+		Address: userAddr,
+	})
+	require.NoError(t, err)
+	queryResult, err := stack.L2Client.ABCIQuery(stack.Ctx, authv1beta1.Query_Account_FullMethodName, queryAccountBytes)
+	require.NoError(t, err)
+	require.Zero(t, queryResult.Response.Code)
+	var accountResponse authv1beta1.QueryAccountResponse
+	require.NoError(t, protov1.Unmarshal(queryResult.Response.Value, &accountResponse))
+	var baseAccount authv1beta1.BaseAccount
+	require.NoError(t, protov1.Unmarshal(accountResponse.Account.Value, &baseAccount))
+
+	l2ChainID, err := stack.MonomerClient.ChainID(stack.Ctx)
+	require.NoError(t, err)
+
+	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
+		stack.Ctx,
+		buildTx(t, l2ChainID.String(), baseAccount.Sequence, baseAccount.AccountNumber, userPrivKey, []protov1.Message{
+			&rolluptypes.MsgInitiateERC20Withdrawal{
+				Sender:       userAddr,
+				Target:       userEthAddress.String(),
+				TokenAddress: weth9Address.String(),
+				Value:        math.NewIntFromBigInt(wethL2Amount),
+				GasLimit:     withdrawalTx.GasLimit.Bytes(),
+				ExtraData:    nil,
+			},
+		}),
+	)
+	require.NoError(t, err)
+	require.Equalf(t, abcitypes.CodeTypeOK, withdrawalTxResult.Code, "log: "+withdrawalTxResult.Log)
+
+	// wait for tx to be processed on L2
+	require.NoError(t, stack.WaitL2(3))
+
+	// inspect L2 events to ensure that the user's ETH was burned on L2 and add the withdrawal data to the withdrawal tx
+	withdrawalTx.Data = requireERC20IsBurned(t, stack, userAddr, weth9Address.String(), hexutil.EncodeBig(wethL2Amount))
+
+	// wait for the L2 output containing the withdrawal tx to be proposed on L1
+	var l2OutputBlockNumber *big.Int
+	for range 3 { // A bit hacky to just wait for 3 outputs, but should be sufficient.
+		l2OutputBlockNumber = waitForL2OutputProposal(t, stack.L2OutputOracleCaller)
+	}
+
+	// generate the proofs necessary to prove the withdrawal on L1
+	provenWithdrawalParams, err := e2e.ProveWithdrawalParameters(stack, *withdrawalTx, l2OutputBlockNumber)
+	require.NoError(t, err)
+
+	// send a withdrawal proving tx to prove the withdrawal on L1
+	proveWithdrawalTx, err := stack.OptimismPortal.ProveWithdrawalTransaction(
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
+		withdrawalTx.WithdrawalTransaction(),
+		provenWithdrawalParams.L2OutputIndex,
+		provenWithdrawalParams.OutputRootProof,
+		provenWithdrawalParams.WithdrawalProof,
+	)
+	require.NoError(t, err, "prove withdrawal tx")
+
+	// wait for withdrawal proving tx to be processed on L1
+	require.NoError(t, stack.WaitL1(1))
+
+	// inspect L1 for withdrawal proving tx receipt and emitted WithdrawalProven event
+	receipt, err := l1Client.Client.TransactionReceipt(stack.Ctx, proveWithdrawalTx.Hash())
+	require.NoError(t, err, "withdrawal proving tx receipt")
+	require.NotNil(t, receipt, "withdrawal proving tx receipt")
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "withdrawal proving tx failed")
+
+	withdrawalTxHash, err := withdrawalTx.Hash()
+	require.NoError(t, err)
+	proveWithdrawalLogs, err := stack.OptimismPortal.FilterWithdrawalProven(
+		&bind.FilterOpts{
+			Start:   0,
+			End:     nil,
+			Context: stack.Ctx,
+		},
+		[][32]byte{[32]byte(withdrawalTxHash.Bytes())},
+		[]common.Address{*withdrawalTx.Sender},
+		[]common.Address{*withdrawalTx.Target},
+	)
+	require.NoError(t, err, "configuring 'WithdrawalProven' event listener")
+	require.True(t, proveWithdrawalLogs.Next(), "finding WithdrawalProven event")
+	require.NoError(t, proveWithdrawalLogs.Close())
+
+	// wait for the withdrawal finalization period before sending the withdrawal finalizing tx
+	// even when it returned true, FinalizeWithdrawalTransaction would fail.
+	require.NoError(t, stack.WaitL1(2))
+
+	// send a withdrawal finalizing tx to finalize the withdrawal on L1
+	finalizeWithdrawalTx, err := stack.OptimismPortal.FinalizeWithdrawalTransaction(
+		createL1TransactOpts(t, stack, userPrivKey, l1signer, nil),
+		withdrawalTx.WithdrawalTransaction(),
+	)
+	require.NoError(t, err)
+
+	// wait for withdrawal finalizing tx to be processed on L1
+	require.NoError(t, stack.WaitL1(1))
+
+	// inspect L1 for withdrawal finalizing tx receipt and emitted WithdrawalFinalized event
+	receipt, err = l1Client.Client.TransactionReceipt(stack.Ctx, finalizeWithdrawalTx.Hash())
+	require.NoError(t, err, "finalize withdrawal tx receipt")
+	require.NotNil(t, receipt, "finalize withdrawal tx receipt")
+	require.Equal(t, types.ReceiptStatusSuccessful, receipt.Status, "finalize withdrawal tx failed")
+
+	finalizeWithdrawalLogs, err := stack.OptimismPortal.FilterWithdrawalFinalized(
+		&bind.FilterOpts{
+			Start:   0,
+			End:     nil,
+			Context: stack.Ctx,
+		},
+		[][32]byte{[32]byte(withdrawalTxHash.Bytes())},
+	)
+	require.NoError(t, err, "configuring 'WithdrawalFinalized' event listener")
+	require.True(t, finalizeWithdrawalLogs.Next(), "finding WithdrawalFinalized event")
+	require.True(t, finalizeWithdrawalLogs.Event.Success, "withdrawal finalization failed")
+	require.NoError(t, finalizeWithdrawalLogs.Close())
+
+	// assert the user's L2 WETH has been bridged to L1
+	userWethBalance, err = WETH9.BalanceOf(&bind.CallOpts{}, userEthAddress)
+	require.NoError(t, err)
+	require.Equal(t, wethL1Amount, userWethBalance)
+
+	t.Log("Monomer can initiate ERC-20 withdrawals on L2 and can generate proofs for verifying the withdrawal on L1")
 }
 
 func requireEthIsMinted(t *testing.T, stack *e2e.StackConfig, userAddress, valueHex string) {
@@ -577,6 +805,37 @@ func requireERC20IsMinted(t *testing.T, stack *e2e.StackConfig, userAddress, tok
 	result := l2TxSearch(t, stack, query)
 
 	require.NotEmpty(t, result.Txs, "mint_erc20 event not found")
+}
+
+// TODO: rename func?
+// requireERC20IsBurned searches for a burn_erc20 event on L2 with the given user address, token address, and value.
+// The ERC-20 withdrawal data is returned as well for use in proving and finalizing the withdrawal on L1.
+func requireERC20IsBurned(t *testing.T, stack *e2e.StackConfig, userAddress, tokenAddress, valueHex string) []byte {
+	query := fmt.Sprintf(
+		"%s.%s='%s' AND %s.%s='%s' AND %s.%s='%s' AND %s.%s='%s'",
+		rolluptypes.EventTypeBurnERC20, rolluptypes.AttributeKeyL2WithdrawalTx, rolluptypes.EventTypeWithdrawalInitiated,
+		rolluptypes.EventTypeBurnERC20, rolluptypes.AttributeKeyFromCosmosAddress, userAddress,
+		rolluptypes.EventTypeBurnERC20, rolluptypes.AttributeKeyERC20Address, tokenAddress,
+		rolluptypes.EventTypeBurnERC20, rolluptypes.AttributeKeyValue, valueHex,
+	)
+	result := l2TxSearch(t, stack, query)
+
+	require.NotEmpty(t, result.Txs, "burn_erc20 event not found")
+
+	for _, event := range result.Txs[0].TxResult.Events {
+		if event.Type == rolluptypes.EventTypeWithdrawalInitiated {
+			for _, attr := range event.Attributes {
+				if attr.Key == rolluptypes.AttributeKeyData {
+					data, err := hexutil.Decode(attr.Value)
+					require.NoError(t, err)
+					return data
+				}
+			}
+		}
+	}
+	require.Fail(t, "withdrawal event does not contain data attribute")
+
+	return nil
 }
 
 func requireExpectedBalanceAfterDeposit(
