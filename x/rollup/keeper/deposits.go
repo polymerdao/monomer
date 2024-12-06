@@ -38,7 +38,7 @@ func (k *Keeper) processL1UserDepositTxs(
 	if tx.IsSystemTx() {
 		return nil, errors.New("deposit tx must not be a system tx")
 	}
-	// if the receipient is nil, it means the tx is creating a contract which we don't support, so return an error.
+	// if the recipient is nil, it means the tx is creating a contract which we don't support, so return an error.
 	// see https://github.com/ethereum-optimism/op-geth/blob/v1.101301.0-rc.2/core/state_processor.go#L154
 	if tx.To() == nil {
 		return nil, errors.New("contract creation is not supported")
