@@ -21,7 +21,7 @@ func (g *freeInfiniteGasMeter) GasConsumed() storetypes.Gas {
 }
 
 // GasConsumedToLimit returns the gas consumed from the GasMeter since the gas is not confined to a limit.
-// NOTE: This behaviour is only called when recovering from panic when BlockGasMeter consumes gas past the limit.
+// NOTE: This behavior is only called when recovering from panic when BlockGasMeter consumes gas past the limit.
 // This should never occur for the freeInfiniteGasMeter, which never increments gas consumed.
 func (g *freeInfiniteGasMeter) GasConsumedToLimit() storetypes.Gas {
 	return 0
