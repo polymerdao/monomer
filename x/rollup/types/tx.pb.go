@@ -258,7 +258,7 @@ func (m *MsgApplyUserDepositResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgApplyUserDepositResponse proto.InternalMessageInfo
 
-// MsgInitiateWithdrawal defines the message for initiating an L2 withdrawal.
+// MsgInitiateWithdrawal defines the message for initiating an L2 ETH withdrawal.
 type MsgInitiateWithdrawal struct {
 	// The cosmos address of the user who wants to withdraw from L2.
 	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
@@ -370,6 +370,127 @@ func (m *MsgInitiateWithdrawalResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgInitiateWithdrawalResponse proto.InternalMessageInfo
 
+// MsgInitiateERC20Withdrawal defines the message for initiating an L2 ERC-20 withdrawal.
+type MsgInitiateERC20Withdrawal struct {
+	// The cosmos address of the user who wants to withdraw from L2.
+	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
+	// The ethereum address on L1 that the user wants to withdraw to.
+	Target string `protobuf:"bytes,2,opt,name=target,proto3" json:"target,omitempty"`
+	// The address of the ERC-20 token contract on L1.
+	TokenAddress string `protobuf:"bytes,3,opt,name=token_address,json=tokenAddress,proto3" json:"token_address,omitempty"`
+	// The amount of ERC-20 tokens that the user wants to withdraw.
+	Value cosmossdk_io_math.Int `protobuf:"bytes,4,opt,name=value,proto3,customtype=cosmossdk.io/math.Int" json:"value"`
+	// Minimum gas limit for executing the message on L1.
+	GasLimit []byte `protobuf:"bytes,5,opt,name=gas_limit,json=gasLimit,proto3" json:"gas_limit,omitempty"`
+	// Extra data to forward to L1 target.
+	ExtraData []byte `protobuf:"bytes,6,opt,name=extra_data,json=extraData,proto3" json:"extra_data,omitempty"`
+}
+
+func (m *MsgInitiateERC20Withdrawal) Reset()         { *m = MsgInitiateERC20Withdrawal{} }
+func (m *MsgInitiateERC20Withdrawal) String() string { return proto.CompactTextString(m) }
+func (*MsgInitiateERC20Withdrawal) ProtoMessage()    {}
+func (*MsgInitiateERC20Withdrawal) Descriptor() ([]byte, []int) {
+	return fileDescriptor_106533843870de0f, []int{7}
+}
+func (m *MsgInitiateERC20Withdrawal) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgInitiateERC20Withdrawal) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgInitiateERC20Withdrawal.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgInitiateERC20Withdrawal) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgInitiateERC20Withdrawal.Merge(m, src)
+}
+func (m *MsgInitiateERC20Withdrawal) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgInitiateERC20Withdrawal) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgInitiateERC20Withdrawal.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgInitiateERC20Withdrawal proto.InternalMessageInfo
+
+func (m *MsgInitiateERC20Withdrawal) GetSender() string {
+	if m != nil {
+		return m.Sender
+	}
+	return ""
+}
+
+func (m *MsgInitiateERC20Withdrawal) GetTarget() string {
+	if m != nil {
+		return m.Target
+	}
+	return ""
+}
+
+func (m *MsgInitiateERC20Withdrawal) GetTokenAddress() string {
+	if m != nil {
+		return m.TokenAddress
+	}
+	return ""
+}
+
+func (m *MsgInitiateERC20Withdrawal) GetGasLimit() []byte {
+	if m != nil {
+		return m.GasLimit
+	}
+	return nil
+}
+
+func (m *MsgInitiateERC20Withdrawal) GetExtraData() []byte {
+	if m != nil {
+		return m.ExtraData
+	}
+	return nil
+}
+
+// MsgInitiateERC20WithdrawalResponse defines the Msg/InitiateERC20Withdrawal response type.
+type MsgInitiateERC20WithdrawalResponse struct {
+}
+
+func (m *MsgInitiateERC20WithdrawalResponse) Reset()         { *m = MsgInitiateERC20WithdrawalResponse{} }
+func (m *MsgInitiateERC20WithdrawalResponse) String() string { return proto.CompactTextString(m) }
+func (*MsgInitiateERC20WithdrawalResponse) ProtoMessage()    {}
+func (*MsgInitiateERC20WithdrawalResponse) Descriptor() ([]byte, []int) {
+	return fileDescriptor_106533843870de0f, []int{8}
+}
+func (m *MsgInitiateERC20WithdrawalResponse) XXX_Unmarshal(b []byte) error {
+	return m.Unmarshal(b)
+}
+func (m *MsgInitiateERC20WithdrawalResponse) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	if deterministic {
+		return xxx_messageInfo_MsgInitiateERC20WithdrawalResponse.Marshal(b, m, deterministic)
+	} else {
+		b = b[:cap(b)]
+		n, err := m.MarshalToSizedBuffer(b)
+		if err != nil {
+			return nil, err
+		}
+		return b[:n], nil
+	}
+}
+func (m *MsgInitiateERC20WithdrawalResponse) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_MsgInitiateERC20WithdrawalResponse.Merge(m, src)
+}
+func (m *MsgInitiateERC20WithdrawalResponse) XXX_Size() int {
+	return m.Size()
+}
+func (m *MsgInitiateERC20WithdrawalResponse) XXX_DiscardUnknown() {
+	xxx_messageInfo_MsgInitiateERC20WithdrawalResponse.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_MsgInitiateERC20WithdrawalResponse proto.InternalMessageInfo
+
 // MsgInitiateFeeWithdrawal defines the message for initiating an L2 fee withdrawal to the L1 fee recipient address.
 type MsgInitiateFeeWithdrawal struct {
 	// The signer address of the user initiating the fee withdrawal.
@@ -380,7 +501,7 @@ func (m *MsgInitiateFeeWithdrawal) Reset()         { *m = MsgInitiateFeeWithdraw
 func (m *MsgInitiateFeeWithdrawal) String() string { return proto.CompactTextString(m) }
 func (*MsgInitiateFeeWithdrawal) ProtoMessage()    {}
 func (*MsgInitiateFeeWithdrawal) Descriptor() ([]byte, []int) {
-	return fileDescriptor_106533843870de0f, []int{7}
+	return fileDescriptor_106533843870de0f, []int{9}
 }
 func (m *MsgInitiateFeeWithdrawal) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -424,7 +545,7 @@ func (m *MsgInitiateFeeWithdrawalResponse) Reset()         { *m = MsgInitiateFee
 func (m *MsgInitiateFeeWithdrawalResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgInitiateFeeWithdrawalResponse) ProtoMessage()    {}
 func (*MsgInitiateFeeWithdrawalResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_106533843870de0f, []int{8}
+	return fileDescriptor_106533843870de0f, []int{10}
 }
 func (m *MsgInitiateFeeWithdrawalResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -466,7 +587,7 @@ func (m *MsgUpdateParams) Reset()         { *m = MsgUpdateParams{} }
 func (m *MsgUpdateParams) String() string { return proto.CompactTextString(m) }
 func (*MsgUpdateParams) ProtoMessage()    {}
 func (*MsgUpdateParams) Descriptor() ([]byte, []int) {
-	return fileDescriptor_106533843870de0f, []int{9}
+	return fileDescriptor_106533843870de0f, []int{11}
 }
 func (m *MsgUpdateParams) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -517,7 +638,7 @@ func (m *MsgUpdateParamsResponse) Reset()         { *m = MsgUpdateParamsResponse
 func (m *MsgUpdateParamsResponse) String() string { return proto.CompactTextString(m) }
 func (*MsgUpdateParamsResponse) ProtoMessage()    {}
 func (*MsgUpdateParamsResponse) Descriptor() ([]byte, []int) {
-	return fileDescriptor_106533843870de0f, []int{10}
+	return fileDescriptor_106533843870de0f, []int{12}
 }
 func (m *MsgUpdateParamsResponse) XXX_Unmarshal(b []byte) error {
 	return m.Unmarshal(b)
@@ -554,6 +675,8 @@ func init() {
 	proto.RegisterType((*MsgApplyUserDepositResponse)(nil), "rollup.v1.MsgApplyUserDepositResponse")
 	proto.RegisterType((*MsgInitiateWithdrawal)(nil), "rollup.v1.MsgInitiateWithdrawal")
 	proto.RegisterType((*MsgInitiateWithdrawalResponse)(nil), "rollup.v1.MsgInitiateWithdrawalResponse")
+	proto.RegisterType((*MsgInitiateERC20Withdrawal)(nil), "rollup.v1.MsgInitiateERC20Withdrawal")
+	proto.RegisterType((*MsgInitiateERC20WithdrawalResponse)(nil), "rollup.v1.MsgInitiateERC20WithdrawalResponse")
 	proto.RegisterType((*MsgInitiateFeeWithdrawal)(nil), "rollup.v1.MsgInitiateFeeWithdrawal")
 	proto.RegisterType((*MsgInitiateFeeWithdrawalResponse)(nil), "rollup.v1.MsgInitiateFeeWithdrawalResponse")
 	proto.RegisterType((*MsgUpdateParams)(nil), "rollup.v1.MsgUpdateParams")
@@ -563,53 +686,59 @@ func init() {
 func init() { proto.RegisterFile("rollup/v1/tx.proto", fileDescriptor_106533843870de0f) }
 
 var fileDescriptor_106533843870de0f = []byte{
-	// 727 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x54, 0xcf, 0x4e, 0xdb, 0x4c,
-	0x10, 0x8f, 0x13, 0x12, 0x7d, 0x99, 0x04, 0xf8, 0xd8, 0x8f, 0x80, 0x31, 0x1f, 0x21, 0x72, 0x45,
-	0x15, 0xd1, 0x12, 0x93, 0xb4, 0xea, 0x81, 0x1b, 0x69, 0x85, 0x14, 0x89, 0x54, 0x95, 0x01, 0xa1,
-	0x72, 0x49, 0x37, 0x78, 0x71, 0x2c, 0x6c, 0xaf, 0xe5, 0xdd, 0xd0, 0xe4, 0x56, 0xf5, 0x05, 0xda,
-	0x4b, 0xdf, 0xa1, 0x47, 0x0e, 0x3c, 0x04, 0x47, 0xc4, 0xa9, 0xea, 0x01, 0x55, 0x70, 0xe0, 0x35,
-	0xaa, 0xd8, 0x9b, 0x7f, 0x10, 0x48, 0xa5, 0x5e, 0x2c, 0xcf, 0xcc, 0x6f, 0x7e, 0xbf, 0x99, 0xdd,
-	0x99, 0x05, 0xe4, 0x53, 0xdb, 0x6e, 0x7a, 0xda, 0x49, 0x51, 0xe3, 0xad, 0x82, 0xe7, 0x53, 0x4e,
-	0x51, 0x32, 0xf4, 0x15, 0x4e, 0x8a, 0xca, 0x0c, 0x76, 0x2c, 0x97, 0x6a, 0xc1, 0x37, 0x8c, 0x2a,
-	0xf3, 0x87, 0x94, 0x39, 0x94, 0x69, 0x0e, 0x33, 0x3b, 0x59, 0x0e, 0x33, 0x45, 0x60, 0x21, 0x0c,
-	0xd4, 0x02, 0x4b, 0x0b, 0x0d, 0x11, 0x9a, 0x35, 0xa9, 0x49, 0x43, 0x7f, 0xe7, 0x4f, 0x78, 0xe7,
-	0xfa, 0xda, 0x42, 0x31, 0xf0, 0xab, 0xdf, 0x24, 0x80, 0x37, 0xc4, 0xa3, 0xcc, 0xe2, 0x6c, 0xb7,
-	0x85, 0xca, 0x30, 0x69, 0x17, 0x6b, 0x98, 0x73, 0xdf, 0xaa, 0x37, 0x39, 0x61, 0xb2, 0x94, 0x93,
-	0xf2, 0xa9, 0xd2, 0x52, 0xa1, 0x57, 0x66, 0xa1, 0xca, 0xcc, 0x1d, 0xc2, 0xb7, 0x8b, 0x9b, 0x3d,
-	0x90, 0x9e, 0xb6, 0x07, 0x2c, 0xf4, 0x1a, 0x26, 0x9b, 0x8c, 0xf8, 0x35, 0x43, 0xd0, 0xca, 0xd1,
-	0x5c, 0x2c, 0x9f, 0x2a, 0x65, 0x87, 0x39, 0x36, 0x3d, 0xcf, 0x6e, 0xef, 0x31, 0xe2, 0x0b, 0x75,
-	0x3d, 0xdd, 0xec, 0x1b, 0x4c, 0x35, 0x01, 0xdd, 0x17, 0x42, 0x1b, 0x41, 0x79, 0x75, 0x9b, 0x1e,
-	0x1e, 0xd7, 0x2c, 0xf7, 0x88, 0x8a, 0xf2, 0xe6, 0x06, 0xa8, 0xb7, 0x8b, 0xe5, 0x4e, 0xb8, 0xe2,
-	0x1e, 0x51, 0x3d, 0x65, 0xf7, 0x0d, 0x94, 0x81, 0x04, 0xe1, 0x8d, 0x1a, 0x6f, 0xc9, 0xd1, 0x9c,
-	0x94, 0x4f, 0xeb, 0x71, 0xc2, 0x1b, 0xbb, 0x2d, 0xf5, 0x7f, 0x50, 0x46, 0x74, 0x44, 0x98, 0x47,
-	0x5d, 0x46, 0xd4, 0x15, 0xf8, 0x6f, 0x44, 0xad, 0x68, 0x0a, 0xa2, 0xbc, 0x15, 0x88, 0xa7, 0xf5,
-	0x28, 0x6f, 0xa9, 0x4b, 0xb0, 0x38, 0xaa, 0xa5, 0x2e, 0xcb, 0xad, 0x04, 0x99, 0x2a, 0x33, 0x2b,
-	0xae, 0xc5, 0x2d, 0xcc, 0xc9, 0xbe, 0xc5, 0x1b, 0x86, 0x8f, 0x3f, 0x62, 0x1b, 0xad, 0x43, 0x82,
-	0x11, 0xd7, 0x20, 0x7e, 0x40, 0x96, 0x2c, 0xcb, 0x97, 0x67, 0x6b, 0xb3, 0xe2, 0x3a, 0x37, 0x0d,
-	0xc3, 0x27, 0x8c, 0xed, 0x70, 0xdf, 0x72, 0x4d, 0x5d, 0xe0, 0xd0, 0x1c, 0x24, 0x38, 0xf6, 0x4d,
-	0xc2, 0x83, 0x36, 0x92, 0xba, 0xb0, 0xd0, 0x16, 0xc4, 0x4f, 0xb0, 0xdd, 0x24, 0x72, 0x2c, 0x20,
-	0x5a, 0x3f, 0xbf, 0x5a, 0x8e, 0xfc, 0xbc, 0x5a, 0xce, 0x84, 0x64, 0xcc, 0x38, 0x2e, 0x58, 0x54,
-	0x73, 0x30, 0x6f, 0x14, 0x2a, 0x2e, 0xbf, 0x3c, 0x5b, 0x03, 0xa1, 0x52, 0x71, 0xf9, 0xf7, 0xdb,
-	0xd3, 0x55, 0x49, 0x0f, 0xd3, 0xd1, 0x22, 0x24, 0x4d, 0xcc, 0x6a, 0xb6, 0xe5, 0x58, 0x5c, 0x9e,
-	0x08, 0x3a, 0xfc, 0xc7, 0xc4, 0x6c, 0xbb, 0x63, 0x23, 0x04, 0x13, 0x06, 0xe6, 0x58, 0x8e, 0x07,
-	0xfe, 0xe0, 0x7f, 0x23, 0xf5, 0xf9, 0xf6, 0x74, 0x55, 0x54, 0xa7, 0x2e, 0xc3, 0xd2, 0xc8, 0x46,
-	0x7b, 0x47, 0xf1, 0x1e, 0xe4, 0x01, 0xc0, 0x16, 0xf9, 0xab, 0xc3, 0x18, 0xd6, 0x56, 0x21, 0xf7,
-	0x10, 0x75, 0x4f, 0xfe, 0x8b, 0x04, 0xd3, 0x55, 0x66, 0xee, 0x79, 0x06, 0xe6, 0xe4, 0x1d, 0xf6,
-	0xb1, 0xc3, 0xd0, 0x2b, 0x48, 0xe2, 0x26, 0x6f, 0x50, 0xdf, 0xe2, 0xed, 0xb1, 0xca, 0x7d, 0x28,
-	0x7a, 0x09, 0x09, 0x2f, 0x60, 0x08, 0x6e, 0x22, 0x55, 0x9a, 0x19, 0x98, 0xc2, 0x90, 0xba, 0x9c,
-	0xec, 0xdc, 0x42, 0x78, 0xbc, 0x02, 0xbb, 0x31, 0xd5, 0x29, 0xb9, 0xcf, 0xa2, 0x2e, 0xc0, 0xfc,
-	0x9d, 0x82, 0xba, 0xc5, 0x96, 0xae, 0x62, 0x10, 0xab, 0x32, 0x13, 0xed, 0xc3, 0xf4, 0xdd, 0x45,
-	0x78, 0x7c, 0x21, 0x95, 0x95, 0xc7, 0xf7, 0x55, 0x08, 0xa0, 0x03, 0xf8, 0xf7, 0xde, 0x68, 0x8f,
-	0x59, 0x53, 0xe5, 0xe9, 0x98, 0x35, 0xee, 0x72, 0x7f, 0x00, 0x34, 0x62, 0xde, 0x73, 0xc3, 0xd9,
-	0xf7, 0x11, 0x4a, 0x7e, 0x1c, 0xa2, 0xa7, 0x60, 0x41, 0x66, 0xf4, 0x1c, 0x3d, 0x19, 0x4d, 0x31,
-	0x04, 0x52, 0x9e, 0xfd, 0x01, 0xa8, 0x27, 0xf5, 0x16, 0xd2, 0x43, 0x23, 0xa3, 0x0c, 0x27, 0x0f,
-	0xc6, 0x14, 0xf5, 0xe1, 0x58, 0x97, 0x4f, 0x89, 0x7f, 0xea, 0xcc, 0x44, 0x79, 0xeb, 0xfc, 0x3a,
-	0x2b, 0x5d, 0x5c, 0x67, 0xa5, 0x5f, 0xd7, 0x59, 0xe9, 0xeb, 0x4d, 0x36, 0x72, 0x71, 0x93, 0x8d,
-	0xfc, 0xb8, 0xc9, 0x46, 0x0e, 0x9e, 0x9b, 0x16, 0x6f, 0x34, 0xeb, 0x85, 0x43, 0xea, 0x68, 0x1e,
-	0xb5, 0xdb, 0x0e, 0xf1, 0x0d, 0x4c, 0x35, 0x87, 0xba, 0xd4, 0x21, 0xbe, 0xd6, 0x12, 0x8f, 0xb8,
-	0xc6, 0xdb, 0x1e, 0x61, 0xf5, 0x44, 0xf0, 0x96, 0xbf, 0xf8, 0x1d, 0x00, 0x00, 0xff, 0xff, 0x14,
-	0xe6, 0x85, 0x5e, 0x61, 0x06, 0x00, 0x00,
+	// 817 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0xcd, 0x6e, 0xdb, 0x46,
+	0x10, 0x36, 0x65, 0x4b, 0xa8, 0x46, 0x72, 0xd2, 0x6c, 0x23, 0x9b, 0x61, 0x2a, 0x59, 0x60, 0xea,
+	0x42, 0x48, 0x6b, 0xd1, 0x52, 0x8b, 0x1e, 0x7c, 0xb3, 0x92, 0x1a, 0x10, 0x60, 0x15, 0x05, 0x93,
+	0x20, 0x68, 0x2e, 0xec, 0xca, 0xdc, 0x50, 0x84, 0x49, 0x2e, 0xc1, 0x5d, 0xb9, 0xd4, 0xad, 0xe8,
+	0x0b, 0xb4, 0x97, 0xde, 0xfa, 0x00, 0x3d, 0xe6, 0x90, 0x87, 0xc8, 0xad, 0x41, 0x4e, 0x45, 0x0f,
+	0x41, 0x61, 0x1f, 0xfc, 0x1a, 0x85, 0x96, 0x2b, 0xea, 0x8f, 0x8a, 0x02, 0xb4, 0xbd, 0x10, 0x9c,
+	0x99, 0x6f, 0xbf, 0x6f, 0xf6, 0xdb, 0xe5, 0x10, 0x50, 0x44, 0x3d, 0x6f, 0x18, 0x1a, 0x17, 0x2d,
+	0x83, 0xc7, 0xcd, 0x30, 0xa2, 0x9c, 0xa2, 0x62, 0x92, 0x6b, 0x5e, 0xb4, 0xb4, 0x5b, 0xd8, 0x77,
+	0x03, 0x6a, 0x88, 0x67, 0x52, 0xd5, 0x76, 0xcf, 0x28, 0xf3, 0x29, 0x33, 0x7c, 0xe6, 0x8c, 0x57,
+	0xf9, 0xcc, 0x91, 0x85, 0x3b, 0x49, 0xc1, 0x12, 0x91, 0x91, 0x04, 0xb2, 0x74, 0xdb, 0xa1, 0x0e,
+	0x4d, 0xf2, 0xe3, 0x37, 0x99, 0xdd, 0x99, 0x6a, 0x4b, 0x45, 0x91, 0xd7, 0x7f, 0x55, 0x00, 0x1e,
+	0x92, 0x90, 0x32, 0x97, 0xb3, 0xc7, 0x31, 0xea, 0xc0, 0xb6, 0xd7, 0xb2, 0x30, 0xe7, 0x91, 0xdb,
+	0x1f, 0x72, 0xc2, 0x54, 0xa5, 0xae, 0x34, 0x4a, 0xed, 0x6a, 0x33, 0x6d, 0xb3, 0xd9, 0x63, 0xce,
+	0x23, 0xc2, 0x4f, 0x5b, 0xc7, 0x29, 0xc8, 0x2c, 0x7b, 0x33, 0x11, 0x7a, 0x00, 0xdb, 0x43, 0x46,
+	0x22, 0xcb, 0x96, 0xb4, 0x6a, 0xae, 0xbe, 0xd9, 0x28, 0xb5, 0x6b, 0xf3, 0x1c, 0xc7, 0x61, 0xe8,
+	0x8d, 0x9e, 0x30, 0x12, 0x49, 0x75, 0xb3, 0x3c, 0x9c, 0x06, 0x4c, 0x77, 0x00, 0x2d, 0x0b, 0xa1,
+	0x23, 0xd1, 0x5e, 0xdf, 0xa3, 0x67, 0xe7, 0x96, 0x1b, 0x3c, 0xa7, 0xb2, 0xbd, 0x9d, 0x19, 0xea,
+	0xd3, 0x56, 0x67, 0x5c, 0xee, 0x06, 0xcf, 0xa9, 0x59, 0xf2, 0xa6, 0x01, 0xaa, 0x40, 0x81, 0xf0,
+	0x81, 0xc5, 0x63, 0x35, 0x57, 0x57, 0x1a, 0x65, 0x33, 0x4f, 0xf8, 0xe0, 0x71, 0xac, 0x7f, 0x0c,
+	0x5a, 0xc6, 0x8e, 0x08, 0x0b, 0x69, 0xc0, 0x88, 0xbe, 0x0f, 0x1f, 0x65, 0xf4, 0x8a, 0x6e, 0x40,
+	0x8e, 0xc7, 0x42, 0xbc, 0x6c, 0xe6, 0x78, 0xac, 0x57, 0xe1, 0x6e, 0xd6, 0x96, 0x26, 0x2c, 0xd7,
+	0x0a, 0x54, 0x7a, 0xcc, 0xe9, 0x06, 0x2e, 0x77, 0x31, 0x27, 0x4f, 0x5d, 0x3e, 0xb0, 0x23, 0xfc,
+	0x03, 0xf6, 0xd0, 0x21, 0x14, 0x18, 0x09, 0x6c, 0x12, 0x09, 0xb2, 0x62, 0x47, 0x7d, 0xf3, 0xf2,
+	0xe0, 0xb6, 0x3c, 0xce, 0x63, 0xdb, 0x8e, 0x08, 0x63, 0x8f, 0x78, 0xe4, 0x06, 0x8e, 0x29, 0x71,
+	0x68, 0x07, 0x0a, 0x1c, 0x47, 0x0e, 0xe1, 0x62, 0x1b, 0x45, 0x53, 0x46, 0xe8, 0x04, 0xf2, 0x17,
+	0xd8, 0x1b, 0x12, 0x75, 0x53, 0x10, 0x1d, 0xbe, 0x7a, 0xbb, 0xb7, 0xf1, 0xd7, 0xdb, 0xbd, 0x4a,
+	0x42, 0xc6, 0xec, 0xf3, 0xa6, 0x4b, 0x0d, 0x1f, 0xf3, 0x41, 0xb3, 0x1b, 0xf0, 0x37, 0x2f, 0x0f,
+	0x40, 0xaa, 0x74, 0x03, 0xfe, 0xfb, 0xf5, 0x8b, 0xfb, 0x8a, 0x99, 0x2c, 0x47, 0x77, 0xa1, 0xe8,
+	0x60, 0x66, 0x79, 0xae, 0xef, 0x72, 0x75, 0x4b, 0xec, 0xf0, 0x03, 0x07, 0xb3, 0xd3, 0x71, 0x8c,
+	0x10, 0x6c, 0xd9, 0x98, 0x63, 0x35, 0x2f, 0xf2, 0xe2, 0xfd, 0xa8, 0xf4, 0xd3, 0xf5, 0x8b, 0xfb,
+	0xb2, 0x3b, 0x7d, 0x0f, 0xaa, 0x99, 0x1b, 0x4d, 0xad, 0xf8, 0x2d, 0x27, 0xfc, 0x9e, 0x20, 0xbe,
+	0x36, 0x1f, 0xb4, 0x0f, 0xff, 0x17, 0x3f, 0xee, 0xc1, 0x36, 0xa7, 0xe7, 0x24, 0xb0, 0x70, 0xb2,
+	0x2c, 0xf1, 0xc5, 0x2c, 0x8b, 0xa4, 0xa4, 0x9a, 0x9a, 0xb6, 0xf5, 0x1f, 0x9a, 0x96, 0x5f, 0x30,
+	0xad, 0x0a, 0x40, 0x62, 0x1e, 0x61, 0x4b, 0x58, 0x57, 0x10, 0xd5, 0xa2, 0xc8, 0x3c, 0x5c, 0xf2,
+	0xef, 0x13, 0xd0, 0x57, 0xbb, 0x93, 0x9a, 0xf8, 0x1d, 0xa8, 0x33, 0xa8, 0x13, 0xf2, 0xaf, 0x6e,
+	0xd4, 0x7c, 0x03, 0x3a, 0xd4, 0x57, 0x51, 0xa7, 0xf2, 0x3f, 0x2b, 0x70, 0xb3, 0xc7, 0x9c, 0x27,
+	0xa1, 0x8d, 0x39, 0xf9, 0x16, 0x47, 0xd8, 0x67, 0xe8, 0x2b, 0x28, 0xe2, 0x21, 0x1f, 0xd0, 0xc8,
+	0xe5, 0xa3, 0xb5, 0xca, 0x53, 0x28, 0xfa, 0x12, 0x0a, 0xa1, 0x60, 0x10, 0xc7, 0x57, 0x6a, 0xdf,
+	0x9a, 0xf9, 0x94, 0x13, 0xea, 0x4e, 0x71, 0x7c, 0x2a, 0x89, 0xdd, 0x12, 0x7b, 0x74, 0x63, 0xdc,
+	0xf2, 0x94, 0x45, 0xbf, 0x03, 0xbb, 0x0b, 0x0d, 0x4d, 0x9a, 0x6d, 0xff, 0xb1, 0x05, 0x9b, 0x3d,
+	0xe6, 0xa0, 0xa7, 0x70, 0x73, 0x71, 0x9a, 0xbc, 0x7b, 0xaa, 0x69, 0xfb, 0xef, 0x1e, 0x7a, 0x52,
+	0x00, 0x3d, 0x83, 0x0f, 0x97, 0xe6, 0xc3, 0x9a, 0x59, 0xa7, 0x7d, 0xba, 0x66, 0x16, 0x4e, 0xb8,
+	0xbf, 0x07, 0x94, 0x31, 0x34, 0xea, 0xf3, 0xab, 0x97, 0x11, 0x5a, 0x63, 0x1d, 0x22, 0x55, 0xa0,
+	0xb0, 0xbb, 0xea, 0x5b, 0xdc, 0xcf, 0x26, 0x59, 0x80, 0x69, 0x07, 0xef, 0x05, 0x4b, 0x05, 0x5d,
+	0xa8, 0x64, 0x5f, 0xdc, 0x7b, 0xd9, 0x3c, 0x73, 0x20, 0xed, 0xb3, 0xf7, 0x00, 0xa5, 0x52, 0xdf,
+	0x40, 0x79, 0xee, 0x8e, 0x6a, 0xf3, 0x8b, 0x67, 0x6b, 0x9a, 0xbe, 0xba, 0x36, 0xe1, 0xd3, 0xf2,
+	0x3f, 0x8e, 0x2f, 0x61, 0xe7, 0xe4, 0xd5, 0x65, 0x4d, 0x79, 0x7d, 0x59, 0x53, 0xfe, 0xbe, 0xac,
+	0x29, 0xbf, 0x5c, 0xd5, 0x36, 0x5e, 0x5f, 0xd5, 0x36, 0xfe, 0xbc, 0xaa, 0x6d, 0x3c, 0xfb, 0xdc,
+	0x71, 0xf9, 0x60, 0xd8, 0x6f, 0x9e, 0x51, 0xdf, 0x08, 0xa9, 0x37, 0xf2, 0x49, 0x64, 0x63, 0x6a,
+	0xf8, 0x34, 0xa0, 0x3e, 0x89, 0x8c, 0x58, 0xfe, 0x7a, 0x0d, 0x3e, 0x0a, 0x09, 0xeb, 0x17, 0xc4,
+	0x1f, 0xf8, 0x8b, 0x7f, 0x02, 0x00, 0x00, 0xff, 0xff, 0x13, 0xda, 0x7b, 0x60, 0x17, 0x08, 0x00,
+	0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -628,8 +757,10 @@ type MsgClient interface {
 	SetL1Attributes(ctx context.Context, in *MsgSetL1Attributes, opts ...grpc.CallOption) (*MsgSetL1AttributesResponse, error)
 	// ApplyUserDeposit defines a method for applying a user deposit tx.
 	ApplyUserDeposit(ctx context.Context, in *MsgApplyUserDeposit, opts ...grpc.CallOption) (*MsgApplyUserDepositResponse, error)
-	// InitiateWithdrawal defines a method for initiating a withdrawal from L2 to L1.
+	// InitiateWithdrawal defines a method for initiating an ETH withdrawal from L2 to L1.
 	InitiateWithdrawal(ctx context.Context, in *MsgInitiateWithdrawal, opts ...grpc.CallOption) (*MsgInitiateWithdrawalResponse, error)
+	// InitiateERC20Withdrawal defines a method for initiating an ERC-20 withdrawal from L2 to L1.
+	InitiateERC20Withdrawal(ctx context.Context, in *MsgInitiateERC20Withdrawal, opts ...grpc.CallOption) (*MsgInitiateERC20WithdrawalResponse, error)
 	// InitiateFeeWithdrawal defines a method for initiating a withdrawal of fees from L2 to the L1 fee recipient address.
 	InitiateFeeWithdrawal(ctx context.Context, in *MsgInitiateFeeWithdrawal, opts ...grpc.CallOption) (*MsgInitiateFeeWithdrawalResponse, error)
 	// UpdateParams defines a method for updating the x/rollup module parameters.
@@ -671,6 +802,15 @@ func (c *msgClient) InitiateWithdrawal(ctx context.Context, in *MsgInitiateWithd
 	return out, nil
 }
 
+func (c *msgClient) InitiateERC20Withdrawal(ctx context.Context, in *MsgInitiateERC20Withdrawal, opts ...grpc.CallOption) (*MsgInitiateERC20WithdrawalResponse, error) {
+	out := new(MsgInitiateERC20WithdrawalResponse)
+	err := c.cc.Invoke(ctx, "/rollup.v1.Msg/InitiateERC20Withdrawal", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *msgClient) InitiateFeeWithdrawal(ctx context.Context, in *MsgInitiateFeeWithdrawal, opts ...grpc.CallOption) (*MsgInitiateFeeWithdrawalResponse, error) {
 	out := new(MsgInitiateFeeWithdrawalResponse)
 	err := c.cc.Invoke(ctx, "/rollup.v1.Msg/InitiateFeeWithdrawal", in, out, opts...)
@@ -695,8 +835,10 @@ type MsgServer interface {
 	SetL1Attributes(context.Context, *MsgSetL1Attributes) (*MsgSetL1AttributesResponse, error)
 	// ApplyUserDeposit defines a method for applying a user deposit tx.
 	ApplyUserDeposit(context.Context, *MsgApplyUserDeposit) (*MsgApplyUserDepositResponse, error)
-	// InitiateWithdrawal defines a method for initiating a withdrawal from L2 to L1.
+	// InitiateWithdrawal defines a method for initiating an ETH withdrawal from L2 to L1.
 	InitiateWithdrawal(context.Context, *MsgInitiateWithdrawal) (*MsgInitiateWithdrawalResponse, error)
+	// InitiateERC20Withdrawal defines a method for initiating an ERC-20 withdrawal from L2 to L1.
+	InitiateERC20Withdrawal(context.Context, *MsgInitiateERC20Withdrawal) (*MsgInitiateERC20WithdrawalResponse, error)
 	// InitiateFeeWithdrawal defines a method for initiating a withdrawal of fees from L2 to the L1 fee recipient address.
 	InitiateFeeWithdrawal(context.Context, *MsgInitiateFeeWithdrawal) (*MsgInitiateFeeWithdrawalResponse, error)
 	// UpdateParams defines a method for updating the x/rollup module parameters.
@@ -715,6 +857,9 @@ func (*UnimplementedMsgServer) ApplyUserDeposit(ctx context.Context, req *MsgApp
 }
 func (*UnimplementedMsgServer) InitiateWithdrawal(ctx context.Context, req *MsgInitiateWithdrawal) (*MsgInitiateWithdrawalResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InitiateWithdrawal not implemented")
+}
+func (*UnimplementedMsgServer) InitiateERC20Withdrawal(ctx context.Context, req *MsgInitiateERC20Withdrawal) (*MsgInitiateERC20WithdrawalResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InitiateERC20Withdrawal not implemented")
 }
 func (*UnimplementedMsgServer) InitiateFeeWithdrawal(ctx context.Context, req *MsgInitiateFeeWithdrawal) (*MsgInitiateFeeWithdrawalResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InitiateFeeWithdrawal not implemented")
@@ -781,6 +926,24 @@ func _Msg_InitiateWithdrawal_Handler(srv interface{}, ctx context.Context, dec f
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Msg_InitiateERC20Withdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MsgInitiateERC20Withdrawal)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(MsgServer).InitiateERC20Withdrawal(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/rollup.v1.Msg/InitiateERC20Withdrawal",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(MsgServer).InitiateERC20Withdrawal(ctx, req.(*MsgInitiateERC20Withdrawal))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _Msg_InitiateFeeWithdrawal_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(MsgInitiateFeeWithdrawal)
 	if err := dec(in); err != nil {
@@ -832,6 +995,10 @@ var _Msg_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "InitiateWithdrawal",
 			Handler:    _Msg_InitiateWithdrawal_Handler,
+		},
+		{
+			MethodName: "InitiateERC20Withdrawal",
+			Handler:    _Msg_InitiateERC20Withdrawal_Handler,
 		},
 		{
 			MethodName: "InitiateFeeWithdrawal",
@@ -1097,6 +1264,97 @@ func (m *MsgInitiateWithdrawalResponse) MarshalToSizedBuffer(dAtA []byte) (int, 
 	return len(dAtA) - i, nil
 }
 
+func (m *MsgInitiateERC20Withdrawal) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgInitiateERC20Withdrawal) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgInitiateERC20Withdrawal) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	if len(m.ExtraData) > 0 {
+		i -= len(m.ExtraData)
+		copy(dAtA[i:], m.ExtraData)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.ExtraData)))
+		i--
+		dAtA[i] = 0x32
+	}
+	if len(m.GasLimit) > 0 {
+		i -= len(m.GasLimit)
+		copy(dAtA[i:], m.GasLimit)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.GasLimit)))
+		i--
+		dAtA[i] = 0x2a
+	}
+	{
+		size := m.Value.Size()
+		i -= size
+		if _, err := m.Value.MarshalTo(dAtA[i:]); err != nil {
+			return 0, err
+		}
+		i = encodeVarintTx(dAtA, i, uint64(size))
+	}
+	i--
+	dAtA[i] = 0x22
+	if len(m.TokenAddress) > 0 {
+		i -= len(m.TokenAddress)
+		copy(dAtA[i:], m.TokenAddress)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.TokenAddress)))
+		i--
+		dAtA[i] = 0x1a
+	}
+	if len(m.Target) > 0 {
+		i -= len(m.Target)
+		copy(dAtA[i:], m.Target)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Target)))
+		i--
+		dAtA[i] = 0x12
+	}
+	if len(m.Sender) > 0 {
+		i -= len(m.Sender)
+		copy(dAtA[i:], m.Sender)
+		i = encodeVarintTx(dAtA, i, uint64(len(m.Sender)))
+		i--
+		dAtA[i] = 0xa
+	}
+	return len(dAtA) - i, nil
+}
+
+func (m *MsgInitiateERC20WithdrawalResponse) Marshal() (dAtA []byte, err error) {
+	size := m.Size()
+	dAtA = make([]byte, size)
+	n, err := m.MarshalToSizedBuffer(dAtA[:size])
+	if err != nil {
+		return nil, err
+	}
+	return dAtA[:n], nil
+}
+
+func (m *MsgInitiateERC20WithdrawalResponse) MarshalTo(dAtA []byte) (int, error) {
+	size := m.Size()
+	return m.MarshalToSizedBuffer(dAtA[:size])
+}
+
+func (m *MsgInitiateERC20WithdrawalResponse) MarshalToSizedBuffer(dAtA []byte) (int, error) {
+	i := len(dAtA)
+	_ = i
+	var l int
+	_ = l
+	return len(dAtA) - i, nil
+}
+
 func (m *MsgInitiateFeeWithdrawal) Marshal() (dAtA []byte, err error) {
 	size := m.Size()
 	dAtA = make([]byte, size)
@@ -1319,6 +1577,46 @@ func (m *MsgInitiateWithdrawal) Size() (n int) {
 }
 
 func (m *MsgInitiateWithdrawalResponse) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	return n
+}
+
+func (m *MsgInitiateERC20Withdrawal) Size() (n int) {
+	if m == nil {
+		return 0
+	}
+	var l int
+	_ = l
+	l = len(m.Sender)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.Target)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.TokenAddress)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = m.Value.Size()
+	n += 1 + l + sovTx(uint64(l))
+	l = len(m.GasLimit)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	l = len(m.ExtraData)
+	if l > 0 {
+		n += 1 + l + sovTx(uint64(l))
+	}
+	return n
+}
+
+func (m *MsgInitiateERC20WithdrawalResponse) Size() (n int) {
 	if m == nil {
 		return 0
 	}
@@ -2046,6 +2344,304 @@ func (m *MsgInitiateWithdrawalResponse) Unmarshal(dAtA []byte) error {
 		}
 		if fieldNum <= 0 {
 			return fmt.Errorf("proto: MsgInitiateWithdrawalResponse: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgInitiateERC20Withdrawal) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgInitiateERC20Withdrawal: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgInitiateERC20Withdrawal: illegal tag %d (wire type %d)", fieldNum, wire)
+		}
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Sender", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Sender = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 2:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Target", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Target = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 3:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field TokenAddress", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.TokenAddress = string(dAtA[iNdEx:postIndex])
+			iNdEx = postIndex
+		case 4:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Value", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				stringLen |= uint64(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			intStringLen := int(stringLen)
+			if intStringLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + intStringLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if err := m.Value.Unmarshal(dAtA[iNdEx:postIndex]); err != nil {
+				return err
+			}
+			iNdEx = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field GasLimit", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.GasLimit = append(m.GasLimit[:0], dAtA[iNdEx:postIndex]...)
+			if m.GasLimit == nil {
+				m.GasLimit = []byte{}
+			}
+			iNdEx = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ExtraData", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if shift >= 64 {
+					return ErrIntOverflowTx
+				}
+				if iNdEx >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := dAtA[iNdEx]
+				iNdEx++
+				byteLen |= int(b&0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			if byteLen < 0 {
+				return ErrInvalidLengthTx
+			}
+			postIndex := iNdEx + byteLen
+			if postIndex < 0 {
+				return ErrInvalidLengthTx
+			}
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ExtraData = append(m.ExtraData[:0], dAtA[iNdEx:postIndex]...)
+			if m.ExtraData == nil {
+				m.ExtraData = []byte{}
+			}
+			iNdEx = postIndex
+		default:
+			iNdEx = preIndex
+			skippy, err := skipTx(dAtA[iNdEx:])
+			if err != nil {
+				return err
+			}
+			if (skippy < 0) || (iNdEx+skippy) < 0 {
+				return ErrInvalidLengthTx
+			}
+			if (iNdEx + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			iNdEx += skippy
+		}
+	}
+
+	if iNdEx > l {
+		return io.ErrUnexpectedEOF
+	}
+	return nil
+}
+func (m *MsgInitiateERC20WithdrawalResponse) Unmarshal(dAtA []byte) error {
+	l := len(dAtA)
+	iNdEx := 0
+	for iNdEx < l {
+		preIndex := iNdEx
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if shift >= 64 {
+				return ErrIntOverflowTx
+			}
+			if iNdEx >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := dAtA[iNdEx]
+			iNdEx++
+			wire |= uint64(b&0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		if wireType == 4 {
+			return fmt.Errorf("proto: MsgInitiateERC20WithdrawalResponse: wiretype end group for non-group")
+		}
+		if fieldNum <= 0 {
+			return fmt.Errorf("proto: MsgInitiateERC20WithdrawalResponse: illegal tag %d (wire type %d)", fieldNum, wire)
 		}
 		switch fieldNum {
 		default:
