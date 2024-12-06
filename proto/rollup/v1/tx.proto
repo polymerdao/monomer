@@ -20,8 +20,11 @@ service Msg {
   // ApplyUserDeposit defines a method for applying a user deposit tx.
   rpc ApplyUserDeposit(MsgApplyUserDeposit) returns (MsgApplyUserDepositResponse);
 
-  // InitiateWithdrawal defines a method for initiating a withdrawal from L2 to L1.
+  // InitiateWithdrawal defines a method for initiating an ETH withdrawal from L2 to L1.
   rpc InitiateWithdrawal(MsgInitiateWithdrawal) returns (MsgInitiateWithdrawalResponse);
+
+  // InitiateERC20Withdrawal defines a method for initiating an ERC-20 withdrawal from L2 to L1.
+  rpc InitiateERC20Withdrawal(MsgInitiateERC20Withdrawal) returns (MsgInitiateERC20WithdrawalResponse);
 
   // InitiateFeeWithdrawal defines a method for initiating a withdrawal of fees from L2 to the L1 fee recipient address.
   rpc InitiateFeeWithdrawal(MsgInitiateFeeWithdrawal) returns (MsgInitiateFeeWithdrawalResponse);
@@ -54,7 +57,7 @@ message MsgApplyUserDeposit {
 // MsgApplyUserDepositResponse defines the ApplyUserDeposit response type.
 message MsgApplyUserDepositResponse {}
 
-// MsgInitiateWithdrawal defines the message for initiating an L2 withdrawal.
+// MsgInitiateWithdrawal defines the message for initiating an L2 ETH withdrawal.
 message MsgInitiateWithdrawal {
   option (cosmos.msg.v1.signer) = "sender";
 
@@ -77,6 +80,32 @@ message MsgInitiateWithdrawal {
 
 // MsgInitiateWithdrawalResponse defines the Msg/InitiateWithdrawal response type.
 message MsgInitiateWithdrawalResponse {}
+
+// MsgInitiateERC20Withdrawal defines the message for initiating an L2 ERC-20 withdrawal.
+message MsgInitiateERC20Withdrawal {
+  option (cosmos.msg.v1.signer) = "sender";
+
+  // The cosmos address of the user who wants to withdraw from L2.
+  string sender = 1 [(cosmos_proto.scalar) = "cosmos.AddressString"];
+  // The ethereum address on L1 that the user wants to withdraw to.
+  string target = 2;
+  // The address of the ERC-20 token contract on L1.
+  string token_address = 3;
+  // The amount of ERC-20 tokens that the user wants to withdraw.
+  string value = 4 [
+    (cosmos_proto.scalar) = "cosmos.Int",
+    (gogoproto.customtype) = "cosmossdk.io/math.Int",
+    (gogoproto.nullable) = false,
+    (amino.dont_omitempty) = true
+  ];
+  // Minimum gas limit for executing the message on L1.
+  bytes gas_limit = 5;
+  // Extra data to forward to L1 target.
+  bytes extra_data = 6;
+}
+
+// MsgInitiateERC20WithdrawalResponse defines the Msg/InitiateERC20Withdrawal response type.
+message MsgInitiateERC20WithdrawalResponse {}
 
 // MsgInitiateFeeWithdrawal defines the message for initiating an L2 fee withdrawal to the L1 fee recipient address.
 message MsgInitiateFeeWithdrawal {
