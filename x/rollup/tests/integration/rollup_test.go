@@ -151,6 +151,7 @@ func TestRollup(t *testing.T) {
 	updatedParams := rolluptypes.Params{
 		L1FeeRecipient:         common.HexToAddress("0x123456abcdef").String(),
 		L1CrossDomainMessenger: common.HexToAddress("0xabcdef123456").String(),
+		L1StandardBridge:       common.HexToAddress("0xa1b2c3d4e5f6").String(),
 		MinFeeWithdrawalAmount: 5,
 		FeeWithdrawalGasLimit:  5,
 	}
