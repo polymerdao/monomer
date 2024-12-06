@@ -36,7 +36,7 @@ func (p *Params) Validate() error {
 		return fmt.Errorf("validate L1 cross domain messenger address: %w", err)
 	}
 	if err := validateEthAddress(p.L1StandardBridge); err != nil {
-		return fmt.Errorf("validate L1 cross domain messenger address: %w", err)
+		return fmt.Errorf("validate L1 standard bridge address: %w", err)
 	}
 
 	return nil
