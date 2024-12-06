@@ -291,8 +291,9 @@ func (b *Builder) parseWithdrawalMessages(
 		}
 		for _, msg := range cosmosTx.GetBody().GetMessages() {
 			userWithdrawalMsgType := cdctypes.MsgTypeURL(new(rolluptypes.MsgInitiateWithdrawal))
+			erc20WithdrawalMsgType := cdctypes.MsgTypeURL(new(rolluptypes.MsgInitiateERC20Withdrawal))
 			feeWithdrawalMsgType := cdctypes.MsgTypeURL(new(rolluptypes.MsgInitiateFeeWithdrawal))
-			if msg.TypeUrl == userWithdrawalMsgType || msg.TypeUrl == feeWithdrawalMsgType {
+			if msg.TypeUrl == userWithdrawalMsgType || msg.TypeUrl == feeWithdrawalMsgType || msg.TypeUrl == erc20WithdrawalMsgType {
 				// Store the withdrawal message hash in the monomer EVM state db and populate the nonce in the event data.
 				err := b.storeWithdrawalMsgInEVM(execTxResult, ethState, header)
 				if err != nil {
@@ -362,11 +363,17 @@ func parseWithdrawalEventAttributes(withdrawalEvent *abcitypes.Event) (*crossdom
 	for _, attr := range withdrawalEvent.Attributes {
 		switch attr.Key {
 		case rolluptypes.AttributeKeySender:
-			senderCosmosAddress, err := sdk.AccAddressFromBech32(attr.Value)
-			if err != nil {
-				return nil, fmt.Errorf("convert sender to cosmos address: %v", err)
+			// check whether the sender address should be encoded as an Ethereum address or a Cosmos address
+			var sender common.Address
+			if common.IsHexAddress(attr.Value) {
+				sender = common.HexToAddress(attr.Value)
+			} else {
+				senderCosmosAddress, err := sdk.AccAddressFromBech32(attr.Value)
+				if err != nil {
+					return nil, fmt.Errorf("convert sender to cosmos address: %v", err)
+				}
+				sender = common.BytesToAddress(senderCosmosAddress.Bytes())
 			}
-			sender := common.BytesToAddress(senderCosmosAddress.Bytes())
 			params.Sender = &sender
 		case rolluptypes.AttributeKeyL1Target:
 			target := common.HexToAddress(attr.Value)
