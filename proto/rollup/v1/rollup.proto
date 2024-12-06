@@ -11,10 +11,12 @@ message Params {
   string l1_fee_recipient = 1;
   // L1 address of the cross-domain messenger contract.
   string l1_cross_domain_messenger = 2;
+  // L1 address of the standard bridge contract.
+  string l1_standard_bridge = 3;
   // Minimum amount of L2 fees that the FeeCollector account must have before they can be withdrawn.
-  uint64 min_fee_withdrawal_amount = 3;
+  uint64 min_fee_withdrawal_amount = 4;
   // L1 gas limit for withdrawing fees to the L1 recipient address.
-  uint64 fee_withdrawal_gas_limit = 4;
+  uint64 fee_withdrawal_gas_limit = 5;
 }
 
 // L1BlockInfo represents information about an L1 block and associated L2 data.

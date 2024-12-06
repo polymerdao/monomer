@@ -246,7 +246,7 @@ func (k *Keeper) mintERC20(
 	amount sdkmath.Int,
 ) (*sdk.Event, error) {
 	// use the "erc20/{l1erc20addr}" format for the coin denom
-	coin := sdk.NewCoin("erc20/"+erc20addr[2:], amount)
+	coin := sdk.NewCoin(getERC20Denom(erc20addr), amount)
 	if err := k.bankkeeper.MintCoins(ctx, types.ModuleName, sdk.NewCoins(coin)); err != nil {
 		return nil, fmt.Errorf("failed to mint ERC-20 deposit coins to the rollup module: %v", err)
 	}

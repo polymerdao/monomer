@@ -21,5 +21,6 @@ const (
 	EventTypeMintETH             = "mint_eth"
 	EventTypeMintERC20           = "mint_erc20"
 	EventTypeBurnETH             = "burn_eth"
+	EventTypeBurnERC20           = "burn_erc20"
 	EventTypeWithdrawalInitiated = "withdrawal_initiated"
 )

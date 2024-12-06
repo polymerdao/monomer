@@ -61,12 +61,12 @@ func (s *KeeperTestSuite) setup() {
 	s.eventManger = sdkCtx.EventManager()
 }
 
-func (s *KeeperTestSuite) mockBurnETH() {
+func (s *KeeperTestSuite) mockBurn() {
 	s.bankKeeper.EXPECT().SendCoinsFromAccountToModule(s.ctx, gomock.Any(), types.ModuleName, gomock.Any()).Return(nil).AnyTimes()
 	s.bankKeeper.EXPECT().BurnCoins(s.ctx, types.ModuleName, gomock.Any()).Return(nil).AnyTimes()
 }
 
-func (s *KeeperTestSuite) mockMintETH() {
+func (s *KeeperTestSuite) mockMint() {
 	s.bankKeeper.EXPECT().MintCoins(s.ctx, types.ModuleName, gomock.Any()).Return(nil).AnyTimes()
 	s.bankKeeper.EXPECT().SendCoinsFromModuleToAccount(s.ctx, types.ModuleName, gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 }

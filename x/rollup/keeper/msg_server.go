@@ -4,10 +4,15 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strings"
 
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
+	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
+	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/polymerdao/monomer/x/rollup/types"
 )
@@ -47,7 +52,7 @@ func (k *Keeper) InitiateWithdrawal(
 	msg *types.MsgInitiateWithdrawal,
 ) (*types.MsgInitiateWithdrawalResponse, error) {
 	ctx := sdk.UnwrapSDKContext(goCtx)
-	ctx.Logger().Debug("Withdrawing L2 assets", "sender", msg.Sender, "value", msg.Value)
+	ctx.Logger().Debug("Withdrawing ETH L2 assets", "sender", msg.Sender, "value", msg.Value)
 
 	cosmAddr, err := sdk.AccAddressFromBech32(msg.Sender)
 	if err != nil {
@@ -78,6 +83,96 @@ func (k *Keeper) InitiateWithdrawal(
 	})
 
 	return &types.MsgInitiateWithdrawalResponse{}, nil
+}
+
+func (k *Keeper) InitiateERC20Withdrawal(
+	goCtx context.Context,
+	msg *types.MsgInitiateERC20Withdrawal,
+) (*types.MsgInitiateERC20WithdrawalResponse, error) {
+	ctx := sdk.UnwrapSDKContext(goCtx)
+	ctx.Logger().Debug("Withdrawing ERC-20 L2 assets", "sender", msg.Sender, "value", msg.Value, "tokenAddress", msg.TokenAddress)
+
+	cosmAddr, err := sdk.AccAddressFromBech32(msg.Sender)
+	if err != nil {
+		return nil, types.WrapError(types.ErrInvalidSender, "failed to create cosmos address for sender: %v; error: %v", msg.Sender, err)
+	}
+
+	if err = k.burnERC20(ctx, cosmAddr, msg.TokenAddress, msg.Value); err != nil {
+		return nil, types.WrapError(
+			types.ErrInitiateERC20Withdrawal,
+			"failed to burn ERC-20 for cosmosAddress: %v, tokenAddress: %v; err: %v",
+			cosmAddr,
+			msg.TokenAddress,
+			err,
+		)
+	}
+
+	params, err := k.GetParams(ctx)
+	if err != nil {
+		return nil, types.WrapError(types.ErrInitiateERC20Withdrawal, "failed to get params: %v", err)
+	}
+
+	// Pack the finalizeBridgeERC20 message to forward to the L1StandardBridge contract on Ethereum.
+	// see https://github.com/ethereum-optimism/optimism/blob/24a8d3e/packages/contracts-bedrock/src/universal/StandardBridge.sol#L267
+	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.StandardBridgeMetaData.ABI))
+	if err != nil {
+		return nil, types.WrapError(types.ErrInitiateERC20Withdrawal, "failed to parse StandardBridge ABI: %v", err)
+	}
+	finalizeBridgeERC20Bz, err := standardBridgeABI.Pack(
+		"finalizeBridgeERC20",
+		common.HexToAddress(msg.TokenAddress), // local token
+		common.HexToAddress(msg.TokenAddress), // remote token
+		common.HexToAddress(msg.Sender),       // from
+		common.HexToAddress(msg.Target),       // to
+		msg.Value.BigInt(),                    // amount
+		msg.ExtraData,                         // extra data
+	)
+	if err != nil {
+		return nil, types.WrapError(types.ErrInitiateERC20Withdrawal, "failed to pack finalizeBridgeERC20: %v", err)
+	}
+
+	// Pack the relayMessage to forward to the L1CrossDomainMessenger contract on Ethereum.
+	// see https://github.com/ethereum-optimism/optimism/blob/24a8d3e/packages/contracts-bedrock/src/universal/CrossDomainMessenger.sol#L207
+	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.CrossDomainMessengerMetaData.ABI))
+	if err != nil {
+		return nil, types.WrapError(types.ErrInitiateERC20Withdrawal, "failed to parse CrossDomainMessenger ABI: %v", err)
+	}
+	relayMessageBz, err := crossDomainMessengerABI.Pack(
+		"relayMessage",
+		big.NewInt(0), // nonce
+		common.HexToAddress(predeploys.L2StandardBridge), // sender
+		common.HexToAddress(params.L1StandardBridge),     // target
+		big.NewInt(0),         // value
+		big.NewInt(0),         // min gas limit
+		finalizeBridgeERC20Bz, // message
+	)
+	if err != nil {
+		return nil, types.WrapError(types.ErrInitiateERC20Withdrawal, "failed to pack relayMessage: %v", err)
+	}
+
+	withdrawalValueHex := hexutil.EncodeBig(msg.Value.BigInt())
+	k.EmitEvents(ctx, sdk.Events{
+		sdk.NewEvent(
+			types.EventTypeWithdrawalInitiated,
+			// To forward the ERC-20 withdrawal to L1, we need to use the L2CrossDomainMessenger address as the msg.sender
+			sdk.NewAttribute(types.AttributeKeySender, predeploys.L2CrossDomainMessenger),
+			sdk.NewAttribute(types.AttributeKeyL1Target, params.L1CrossDomainMessenger),
+			// The ERC-20 withdrawal value is stored in the data field
+			sdk.NewAttribute(types.AttributeKeyValue, hexutil.EncodeBig(big.NewInt(0))),
+			sdk.NewAttribute(types.AttributeKeyGasLimit, hexutil.EncodeBig(new(big.Int).SetBytes(msg.GasLimit))),
+			sdk.NewAttribute(types.AttributeKeyData, hexutil.Encode(relayMessageBz)),
+			// The nonce attribute will be set by Monomer
+		),
+		sdk.NewEvent(
+			types.EventTypeBurnERC20,
+			sdk.NewAttribute(types.AttributeKeyL2WithdrawalTx, types.EventTypeWithdrawalInitiated),
+			sdk.NewAttribute(types.AttributeKeyFromCosmosAddress, msg.Sender),
+			sdk.NewAttribute(types.AttributeKeyERC20Address, msg.TokenAddress),
+			sdk.NewAttribute(types.AttributeKeyValue, withdrawalValueHex),
+		),
+	})
+
+	return &types.MsgInitiateERC20WithdrawalResponse{}, nil
 }
 
 func (k *Keeper) InitiateFeeWithdrawal(

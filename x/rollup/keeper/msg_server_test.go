@@ -104,7 +104,7 @@ func (s *KeeperTestSuite) TestApplyUserDeposit() {
 			if test.setupMocks != nil {
 				test.setupMocks()
 			}
-			s.mockMintETH()
+			s.mockMint()
 
 			resp, err := s.rollupKeeper.ApplyUserDeposit(s.ctx, &types.MsgApplyUserDeposit{
 				Tx: test.txBytes,
@@ -129,6 +129,7 @@ func (s *KeeperTestSuite) TestApplyUserDeposit() {
 func (s *KeeperTestSuite) TestInitiateWithdrawal() {
 	sender := sdk.AccAddress("addr").String()
 	l1Target := "0x12345abcde"
+	erc20TokenAddress := "0x0123456789abcdef"
 	withdrawalAmount := math.NewInt(1000000)
 
 	tests := map[string]struct {
@@ -146,14 +147,14 @@ func (s *KeeperTestSuite) TestInitiateWithdrawal() {
 		},
 		"bank keeper insufficient funds failure": {
 			setupMocks: func() {
-				s.bankKeeper.EXPECT().SendCoinsFromAccountToModule(s.ctx, gomock.Any(), types.ModuleName, gomock.Any()).Return(types.ErrBurnETH)
+				s.bankKeeper.EXPECT().SendCoinsFromAccountToModule(s.ctx, gomock.Any(), types.ModuleName, gomock.Any()).Return(types.ErrBurnETH).AnyTimes()
 			},
 			sender:      sender,
 			shouldError: true,
 		},
 		"bank keeper burn coins failure": {
 			setupMocks: func() {
-				s.bankKeeper.EXPECT().BurnCoins(s.ctx, types.ModuleName, gomock.Any()).Return(sdkerrors.ErrUnknownRequest)
+				s.bankKeeper.EXPECT().BurnCoins(s.ctx, types.ModuleName, gomock.Any()).Return(sdkerrors.ErrUnknownRequest).AnyTimes()
 			},
 			sender:      sender,
 			shouldError: true,
@@ -165,26 +166,42 @@ func (s *KeeperTestSuite) TestInitiateWithdrawal() {
 			if test.setupMocks != nil {
 				test.setupMocks()
 			}
-			s.mockBurnETH()
+			s.mockBurn()
 
-			resp, err := s.rollupKeeper.InitiateWithdrawal(s.ctx, &types.MsgInitiateWithdrawal{
+			ethWithdrawalResp, ethWithdrawalErr := s.rollupKeeper.InitiateWithdrawal(s.ctx, &types.MsgInitiateWithdrawal{
 				Sender: test.sender,
 				Target: l1Target,
 				Value:  withdrawalAmount,
 			})
 
+			erc20WithdrawalResp, erc20WithdrawalErr := s.rollupKeeper.InitiateERC20Withdrawal(s.ctx, &types.MsgInitiateERC20Withdrawal{
+				Sender:       test.sender,
+				Target:       l1Target,
+				TokenAddress: erc20TokenAddress,
+				Value:        withdrawalAmount,
+			})
+
 			if test.shouldError {
-				s.Require().Error(err)
-				s.Require().Nil(resp)
+				s.Require().Error(ethWithdrawalErr)
+				s.Require().Error(erc20WithdrawalErr)
+				s.Require().Nil(ethWithdrawalResp)
+				s.Require().Nil(erc20WithdrawalResp)
 			} else {
-				s.Require().NoError(err)
-				s.Require().NotNil(resp)
+				s.Require().NoError(ethWithdrawalErr)
+				s.Require().NoError(erc20WithdrawalErr)
+				s.Require().NotNil(ethWithdrawalResp)
+				s.Require().NotNil(erc20WithdrawalResp)
 
 				// Verify that the expected event types are emitted
 				expectedEventTypes := []string{
+					// MsgInitiateWithdrawal
 					sdk.EventTypeMessage,
 					types.EventTypeWithdrawalInitiated,
 					types.EventTypeBurnETH,
+					// MsgInitiateERC20Withdrawal
+					sdk.EventTypeMessage,
+					types.EventTypeWithdrawalInitiated,
+					types.EventTypeBurnERC20,
 				}
 				for i, event := range s.eventManger.Events() {
 					s.Require().Equal(expectedEventTypes[i], event.Type)
