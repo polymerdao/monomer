@@ -74,9 +74,39 @@ func (m *MsgInitiateWithdrawal) ValidateBasic() error {
 }
 
 func (*MsgInitiateWithdrawal) Type() string {
-	return "l2withdrawal"
+	return "l2_eth_withdrawal"
 }
 
 func (*MsgInitiateWithdrawal) Route() string {
 	return ModuleName
 }
+
+var _ sdktypes.Msg = (*MsgInitiateERC20Withdrawal)(nil)
+
+func (m *MsgInitiateERC20Withdrawal) ValidateBasic() error {
+	// Check if the target Ethereum address is valid
+	if !common.IsHexAddress(m.Target) {
+		return fmt.Errorf("invalid target address: %s", m.Target)
+	}
+	// Check if the token address is valid
+	if !common.IsHexAddress(m.TokenAddress) {
+		return fmt.Errorf("invalid token address: %s", m.TokenAddress)
+	}
+	// Check if the gas limit is within the allowed range.
+	gasLimit := new(big.Int).SetBytes(m.GasLimit).Uint64()
+	if gasLimit < MinTxGasLimit || gasLimit > MaxTxGasLimit {
+		return fmt.Errorf("gas limit must be between %d and %d: %d", MinTxGasLimit, MaxTxGasLimit, gasLimit)
+	}
+
+	return nil
+}
+
+func (*MsgInitiateERC20Withdrawal) Type() string {
+	return "l2_erc20_withdrawal"
+}
+
+func (*MsgInitiateERC20Withdrawal) Route() string {
+	return ModuleName
+}
+
+// TODO: Add validations for MsgUpdateParams and MsgInitiateFeeWithdrawal

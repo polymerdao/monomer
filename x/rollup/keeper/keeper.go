@@ -102,3 +102,9 @@ func (k *Keeper) SetParams(ctx sdk.Context, params *types.Params) error { //noli
 	}
 	return nil
 }
+
+// getERC20Denom returns the Monomer L2 coin denom for the given ERC-20 L1 address.
+// The "erc20/{l1erc20addr}" format is used for the L2 coin denom.
+func getERC20Denom(erc20Addr string) string {
+	return "erc20/" + erc20Addr[2:]
+}
