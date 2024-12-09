@@ -23,7 +23,7 @@ service Msg {
   // InitiateWithdrawal defines a method for initiating an ETH withdrawal from L2 to L1.
   rpc InitiateWithdrawal(MsgInitiateWithdrawal) returns (MsgInitiateWithdrawalResponse);
 
-  // InitiateWithdrawal defines a method for initiating an ERC-20 withdrawal from L2 to L1.
+  // InitiateERC20Withdrawal defines a method for initiating an ERC-20 withdrawal from L2 to L1.
   rpc InitiateERC20Withdrawal(MsgInitiateERC20Withdrawal) returns (MsgInitiateERC20WithdrawalResponse);
 
   // InitiateFeeWithdrawal defines a method for initiating a withdrawal of fees from L2 to the L1 fee recipient address.
@@ -78,10 +78,10 @@ message MsgInitiateWithdrawal {
   bytes data = 5;
 }
 
-// MsgInitiateWithdrawalResponse defines the Msg/InitiateERC20Withdrawal response type.
+// MsgInitiateWithdrawalResponse defines the Msg/InitiateWithdrawal response type.
 message MsgInitiateWithdrawalResponse {}
 
-// MsgInitiateWithdrawal defines the message for initiating an L2 ERC-20 withdrawal.
+// MsgInitiateERC20Withdrawal defines the message for initiating an L2 ERC-20 withdrawal.
 message MsgInitiateERC20Withdrawal {
   option (cosmos.msg.v1.signer) = "sender";
 

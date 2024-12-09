@@ -333,7 +333,7 @@ func (m *MsgInitiateWithdrawal) GetData() []byte {
 	return nil
 }
 
-// MsgInitiateWithdrawalResponse defines the Msg/InitiateERC20Withdrawal response type.
+// MsgInitiateWithdrawalResponse defines the Msg/InitiateWithdrawal response type.
 type MsgInitiateWithdrawalResponse struct {
 }
 
@@ -370,7 +370,7 @@ func (m *MsgInitiateWithdrawalResponse) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_MsgInitiateWithdrawalResponse proto.InternalMessageInfo
 
-// MsgInitiateWithdrawal defines the message for initiating an L2 ERC-20 withdrawal.
+// MsgInitiateERC20Withdrawal defines the message for initiating an L2 ERC-20 withdrawal.
 type MsgInitiateERC20Withdrawal struct {
 	// The cosmos address of the user who wants to withdraw from L2.
 	Sender string `protobuf:"bytes,1,opt,name=sender,proto3" json:"sender,omitempty"`
@@ -759,7 +759,7 @@ type MsgClient interface {
 	ApplyUserDeposit(ctx context.Context, in *MsgApplyUserDeposit, opts ...grpc.CallOption) (*MsgApplyUserDepositResponse, error)
 	// InitiateWithdrawal defines a method for initiating an ETH withdrawal from L2 to L1.
 	InitiateWithdrawal(ctx context.Context, in *MsgInitiateWithdrawal, opts ...grpc.CallOption) (*MsgInitiateWithdrawalResponse, error)
-	// InitiateWithdrawal defines a method for initiating an ERC-20 withdrawal from L2 to L1.
+	// InitiateERC20Withdrawal defines a method for initiating an ERC-20 withdrawal from L2 to L1.
 	InitiateERC20Withdrawal(ctx context.Context, in *MsgInitiateERC20Withdrawal, opts ...grpc.CallOption) (*MsgInitiateERC20WithdrawalResponse, error)
 	// InitiateFeeWithdrawal defines a method for initiating a withdrawal of fees from L2 to the L1 fee recipient address.
 	InitiateFeeWithdrawal(ctx context.Context, in *MsgInitiateFeeWithdrawal, opts ...grpc.CallOption) (*MsgInitiateFeeWithdrawalResponse, error)
@@ -837,7 +837,7 @@ type MsgServer interface {
 	ApplyUserDeposit(context.Context, *MsgApplyUserDeposit) (*MsgApplyUserDepositResponse, error)
 	// InitiateWithdrawal defines a method for initiating an ETH withdrawal from L2 to L1.
 	InitiateWithdrawal(context.Context, *MsgInitiateWithdrawal) (*MsgInitiateWithdrawalResponse, error)
-	// InitiateWithdrawal defines a method for initiating an ERC-20 withdrawal from L2 to L1.
+	// InitiateERC20Withdrawal defines a method for initiating an ERC-20 withdrawal from L2 to L1.
 	InitiateERC20Withdrawal(context.Context, *MsgInitiateERC20Withdrawal) (*MsgInitiateERC20WithdrawalResponse, error)
 	// InitiateFeeWithdrawal defines a method for initiating a withdrawal of fees from L2 to the L1 fee recipient address.
 	InitiateFeeWithdrawal(context.Context, *MsgInitiateFeeWithdrawal) (*MsgInitiateFeeWithdrawalResponse, error)
