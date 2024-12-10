@@ -6,19 +6,18 @@ import (
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
-	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
 	rolluptx "github.com/polymerdao/monomer/x/rollup/tx"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type AnteHandler struct {
 	authAnteHandler sdktypes.AnteHandler
-	rollupKeeper    *rollupkeeper.Keeper
+	rollupKeeper    rolluptx.RollupKeeper
 }
 
 func NewAnteHandler(
 	options authante.HandlerOptions, //nolint:gocritic // hugeParam
-	rollupKeeper *rollupkeeper.Keeper,
+	rollupKeeper rolluptx.RollupKeeper,
 ) (*AnteHandler, error) {
 	authAnteHandler, err := authante.NewAnteHandler(options)
 	if err != nil {
