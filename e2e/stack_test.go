@@ -8,17 +8,10 @@ import (
 	"time"
 
 	authv1beta1 "cosmossdk.io/api/cosmos/auth/v1beta1"
-	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
 	"cosmossdk.io/math"
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	cometcore "github.com/cometbft/cometbft/rpc/core/types"
 	bfttypes "github.com/cometbft/cometbft/types"
-	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
-	cosmossecp256k1 "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
-	"github.com/cosmos/cosmos-sdk/types/tx/signing"
-	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/receipts"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/wait"
@@ -34,9 +27,9 @@ import (
 	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e"
+	"github.com/polymerdao/monomer/testutils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/protobuf/proto"
 )
 
 func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
@@ -262,18 +255,17 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l2ChainID, err := stack.MonomerClient.ChainID(stack.Ctx)
 	require.NoError(t, err)
 
-	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(
-		stack.Ctx,
-		buildTx(t, l2ChainID.String(), baseAccount.Sequence, baseAccount.AccountNumber, userPrivKey, []protov1.Message{
-			&rolluptypes.MsgInitiateWithdrawal{
-				Sender:   userCosmosAddr,
-				Target:   withdrawalTx.Target.String(),
-				Value:    math.NewIntFromBigInt(withdrawalTx.Value),
-				GasLimit: withdrawalTx.GasLimit.Bytes(),
-				Data:     []byte{},
-			},
-		}),
-	)
+	l2WithdrawalTxBytes, err := testutils.BuildSDKTx(t, l2ChainID.String(), baseAccount.Sequence, baseAccount.AccountNumber, userPrivKey, []protov1.Message{
+		&rolluptypes.MsgInitiateWithdrawal{
+			Sender:   userCosmosAddr,
+			Target:   withdrawalTx.Target.String(),
+			Value:    math.NewIntFromBigInt(withdrawalTx.Value),
+			GasLimit: withdrawalTx.GasLimit.Bytes(),
+			Data:     []byte{},
+		},
+	}).Marshal()
+	require.NoError(t, err)
+	withdrawalTxResult, err := stack.L2Client.BroadcastTxAsync(stack.Ctx, l2WithdrawalTxBytes)
 	require.NoError(t, err)
 	require.Equalf(t, abcitypes.CodeTypeOK, withdrawalTxResult.Code, "log: "+withdrawalTxResult.Log)
 
@@ -378,83 +370,6 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	require.Equal(t, expectedBalance, balanceAfterFinalization)
 
 	t.Log("Monomer can initiate withdrawals on L2 and can generate proofs for verifying the withdrawal on L1")
-}
-
-func convertPrivKey(ecdsaPrivKey *ecdsa.PrivateKey) *secp256k1.PrivateKey {
-	privKeyBytes := ecdsaPrivKey.D.Bytes()
-	var key secp256k1.ModNScalar
-	if len(privKeyBytes) > 32 || key.SetByteSlice(privKeyBytes) {
-		panic("overflow")
-	}
-	if key.IsZero() {
-		panic("private keys must not be 0")
-	}
-	return secp256k1.NewPrivateKey(&key)
-}
-
-func buildTx(t *testing.T, chainID string, seqNum, accNum uint64, ethPrivKey *ecdsa.PrivateKey, msgs []protov1.Message) bfttypes.Tx {
-	cosmosPrivKey := &cosmossecp256k1.PrivKey{
-		Key: convertPrivKey(ethPrivKey).Serialize(),
-	}
-
-	var msgAnys []*codectypes.Any
-	for _, msg := range msgs {
-		msgAny, err := codectypes.NewAnyWithValue(msg)
-		require.NoError(t, err)
-		msgAnys = append(msgAnys, msgAny)
-	}
-
-	pubKeyAny, err := codectypes.NewAnyWithValue(cosmosPrivKey.PubKey())
-	require.NoError(t, err)
-
-	tx := &sdktx.Tx{
-		Body: &sdktx.TxBody{
-			Messages: msgAnys,
-		},
-		AuthInfo: &sdktx.AuthInfo{
-			SignerInfos: []*sdktx.SignerInfo{
-				{
-					PublicKey: pubKeyAny,
-					ModeInfo: &sdktx.ModeInfo{
-						Sum: &sdktx.ModeInfo_Single_{
-							Single: &sdktx.ModeInfo_Single{
-								Mode: signing.SignMode_SIGN_MODE_DIRECT,
-							},
-						},
-					},
-					Sequence: seqNum,
-				},
-			},
-			Fee: &sdktx.Fee{
-				Amount:   sdk.NewCoins(sdk.NewCoin(rolluptypes.WEI, math.NewInt(100000000))),
-				GasLimit: 1000000,
-			},
-		},
-	}
-
-	bodyBytes, err := protov1.Marshal(tx.Body)
-	require.NoError(t, err)
-	authInfoBytes, err := protov1.Marshal(tx.AuthInfo)
-	require.NoError(t, err)
-
-	signBytes, err := (proto.MarshalOptions{Deterministic: true}).Marshal(&txv1beta1.SignDoc{
-		BodyBytes:     bodyBytes,
-		AuthInfoBytes: authInfoBytes,
-		ChainId:       chainID,
-		AccountNumber: accNum,
-	})
-	require.NoError(t, err)
-
-	signature, err := cosmosPrivKey.Sign(signBytes)
-	require.NoError(t, err)
-
-	require.True(t, cosmosPrivKey.PubKey().VerifySignature(signBytes, signature))
-
-	tx.Signatures = [][]byte{signature}
-
-	txBytes, err := tx.Marshal()
-	require.NoError(t, err)
-	return txBytes
 }
 
 func erc20RollupFlow(t *testing.T, stack *e2e.StackConfig) {
