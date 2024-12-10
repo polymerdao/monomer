@@ -1,16 +1,25 @@
 package testutils
 
 import (
+	"crypto/ecdsa"
 	"math/big"
 	"math/rand"
 	"strings"
 	"testing"
 
+	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
+	"cosmossdk.io/math"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
 	bfttypes "github.com/cometbft/cometbft/types"
 	dbm "github.com/cosmos/cosmos-db"
+	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cosmossecp256k1 "github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdktypes "github.com/cosmos/cosmos-sdk/types"
+	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	"github.com/cosmos/cosmos-sdk/types/tx/signing"
+	"github.com/decred/dcrd/dcrec/secp256k1/v4"
 	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
@@ -24,9 +33,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
+	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/monomerdb/localdb"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
 )
 
 func NewCometMemDB(t *testing.T) cometdb.DB {
@@ -208,4 +220,77 @@ func GenerateL1Block() *gethtypes.Block {
 		Number:     big.NewInt(0),
 		Time:       uint64(0),
 	}, nil, nil, nil, trie.NewStackTrie(nil))
+}
+
+func convertPrivKey(ecdsaPrivKey *ecdsa.PrivateKey) *secp256k1.PrivateKey {
+	privKeyBytes := ecdsaPrivKey.D.Bytes()
+	var key secp256k1.ModNScalar
+	if len(privKeyBytes) > 32 || key.SetByteSlice(privKeyBytes) {
+		panic("overflow")
+	}
+	if key.IsZero() {
+		panic("private keys must not be 0")
+	}
+	return secp256k1.NewPrivateKey(&key)
+}
+
+func BuildSDKTx(t *testing.T, chainID string, seqNum, accNum uint64, ethPrivKey *ecdsa.PrivateKey, msgs []protov1.Message) *sdktx.Tx {
+	cosmosPrivKey := &cosmossecp256k1.PrivKey{
+		Key: convertPrivKey(ethPrivKey).Serialize(),
+	}
+
+	var msgAnys []*codectypes.Any
+	for _, msg := range msgs {
+		msgAny, err := codectypes.NewAnyWithValue(msg)
+		require.NoError(t, err)
+		msgAnys = append(msgAnys, msgAny)
+	}
+
+	pubKeyAny, err := codectypes.NewAnyWithValue(cosmosPrivKey.PubKey())
+	require.NoError(t, err)
+
+	tx := &sdktx.Tx{
+		Body: &sdktx.TxBody{
+			Messages: msgAnys,
+		},
+		AuthInfo: &sdktx.AuthInfo{
+			SignerInfos: []*sdktx.SignerInfo{
+				{
+					PublicKey: pubKeyAny,
+					ModeInfo: &sdktx.ModeInfo{
+						Sum: &sdktx.ModeInfo_Single_{
+							Single: &sdktx.ModeInfo_Single{
+								Mode: signing.SignMode_SIGN_MODE_DIRECT,
+							},
+						},
+					},
+					Sequence: seqNum,
+				},
+			},
+			Fee: &sdktx.Fee{
+				Amount:   sdktypes.NewCoins(sdktypes.NewCoin(rolluptypes.WEI, math.NewInt(100000000))),
+				GasLimit: 1000000,
+			},
+		},
+	}
+
+	bodyBytes, err := protov1.Marshal(tx.Body)
+	require.NoError(t, err)
+	authInfoBytes, err := protov1.Marshal(tx.AuthInfo)
+	require.NoError(t, err)
+
+	signBytes, err := (proto.MarshalOptions{Deterministic: true}).Marshal(&txv1beta1.SignDoc{
+		BodyBytes:     bodyBytes,
+		AuthInfoBytes: authInfoBytes,
+		ChainId:       chainID,
+		AccountNumber: accNum,
+	})
+	require.NoError(t, err)
+
+	signature, err := cosmosPrivKey.Sign(signBytes)
+	require.NoError(t, err)
+
+	tx.Signatures = [][]byte{signature}
+
+	return tx
 }

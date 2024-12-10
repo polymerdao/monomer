@@ -1,23 +1,23 @@
 package helpers
 
 import (
+	"errors"
 	"fmt"
 
 	sdktypes "github.com/cosmos/cosmos-sdk/types"
 	authante "github.com/cosmos/cosmos-sdk/x/auth/ante"
-	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
 	rolluptx "github.com/polymerdao/monomer/x/rollup/tx"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
 type AnteHandler struct {
 	authAnteHandler sdktypes.AnteHandler
-	rollupKeeper    *rollupkeeper.Keeper
+	rollupKeeper    rolluptx.RollupKeeper
 }
 
 func NewAnteHandler(
 	options authante.HandlerOptions, //nolint:gocritic // hugeParam
-	rollupKeeper *rollupkeeper.Keeper,
+	rollupKeeper rolluptx.RollupKeeper,
 ) (*AnteHandler, error) {
 	authAnteHandler, err := authante.NewAnteHandler(options)
 	if err != nil {
@@ -43,6 +43,12 @@ func (a *AnteHandler) AnteHandle(
 		}
 		return newCtx, err
 	default: // Unfortunately, the Cosmos SDK does not export its default tx type.
+		for _, msg := range tx.GetMsgs() {
+			if _, ok := msg.(rolluptypes.DepositMsg); ok {
+				return ctx, errors.New("transaction contains deposit message")
+			}
+		}
+
 		newCtx, err := a.authAnteHandler(ctx, tx, simulate)
 		if err != nil {
 			return newCtx, fmt.Errorf("auth ante handle: %v", err)

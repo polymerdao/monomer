@@ -8,13 +8,17 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdkerrors "github.com/cosmos/cosmos-sdk/types/errors"
 	"github.com/ethereum/go-ethereum/rlp"
-	rollupkeeper "github.com/polymerdao/monomer/x/rollup/keeper"
+	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
+
+type RollupKeeper interface {
+	GetL1BlockInfo(ctx sdk.Context) (*rolluptypes.L1BlockInfo, error)
+}
 
 // L1DataAnteHandler will consume gas to compensate the sequencer for posting
 // the transaction to Ethereum. The gas cost is calculated based on the Ecotone
 // upgrade and the sequencer is expected to post the transaction using blobs.
-func L1DataAnteHandler(ctx sdk.Context, tx sdk.Tx, rollupKeeper *rollupkeeper.Keeper) (sdk.Context, error) { //nolint:gocritic // hugeparam
+func L1DataAnteHandler(ctx sdk.Context, tx sdk.Tx, rollupKeeper RollupKeeper) (sdk.Context, error) { //nolint:gocritic // hugeparam
 	if rollupKeeper == nil {
 		return ctx, errorsmod.Wrap(sdkerrors.ErrLogic, "rollup keeper is required for l1 data ante handler")
 	}
