@@ -23,14 +23,14 @@ Many OP Stack rollups, such as Optimism and Base, use OP-Geth application as the
 OP-Geth is a slightly modified version of go-ethereum, an Ethereum execution layer client.
 
 :::note[OP Stack Flow]
-![OP Stack Flow](/img/op-stack.png)
+![OP Stack Flow](/docs/static/img/op-stack.png)
 :::
 
 Currently, most Cosmos SDK applications are deployed on top of CometBFT, an implementation of the Tendermint consensus algorithm.
 Unlike the OP Stack which uses the Engine API, CometBFT sends fork choice updates to the application using the Application BlockChain Interface (ABCI).
 
 :::note[Cosmos SDK Flow]
-![Cosmos SDK Flow](/img/cosmos-abci.png)
+![Cosmos SDK Flow](/docs/static/img/cosmos-abci.png)
 :::
 
 Monomer allows us to take any Cosmos SDK application and deploy it as the execution layer on the OP stack.
@@ -49,7 +49,7 @@ In order to achieve this, Monomer performs three primary tasks:
 - It defines a hybridized block head structure, and build process, where the Cosmos AppHash is stored as data in an EVM state tree
 
 :::note[Architecture]
-![Architecture](/img/architecture.png)
+![Architecture](/docs/static/img/architecture.png)
 :::
 
 ## Why Monomer Matters

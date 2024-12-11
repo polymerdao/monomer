@@ -13,11 +13,11 @@ Monomer is a compatibility layer allowing Cosmos SDK applications to be deployed
 
 ## Getting Started
 
-The [Overview](./overview) section provides a high level overview of Monomer, explaining its architecture and use cases.
+The [Overview](./overview.md) section provides a high level overview of Monomer, explaining its architecture and use cases.
 
-The [Learn](./category/learn) section walks through specific data flows in Monomer.
+The [Learn](https://github.com/polymerdao/monomer/tree/main/docs/docs/learn) section walks through specific data flows in Monomer.
 
-The [Build](./category/build) section provides a tutorial on how to build and interact with an application on Monomer.
+The [Build](https://github.com/polymerdao/monomer/tree/main/builder) section provides a tutorial on how to build and interact with an application on Monomer.
 
 ## Community and support
 
