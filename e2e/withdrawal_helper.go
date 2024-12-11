@@ -16,7 +16,7 @@ import (
 
 // ProveWithdrawalParameters queries L1 & L2 to generate all withdrawal parameters and proof necessary to prove a withdrawal on L1.
 // The l2BlockNumber provided is very important. It should be a block that is greater than or equal to the block where the withdrawal
-// was initiated on L2 and needs to have a submitted output in the L2 Output Oracle contract. If not, the withdrawal will fail since
+// was initiated on L2 and needed to have a submitted output in the L2 Output Oracle contract. If not, the withdrawal will fail since
 // the storage proof cannot be verified if there is no submitted state root.
 //
 // For example, if a withdrawal was initiated on L2 block 7 and the proposer submits an L2 output to L1 every 5 L2 blocks, then the
