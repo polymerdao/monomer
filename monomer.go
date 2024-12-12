@@ -133,14 +133,15 @@ func (b *Block) ToEth() (*ethtypes.Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("adapt txs: %v", err)
 	}
-	return ethtypes.NewBlockWithWithdrawals(
+	return ethtypes.NewBlock(
 		b.Header.ToEth(),
-		txs,
-		nil,
+		&ethtypes.Body{
+			Transactions: txs,
+			// op-node version requires non-nil withdrawals when it derives attributes from L1,
+			// so unsafe block consolidation will fail if we have nil withdrawals here.
+			Withdrawals: []*ethtypes.Withdrawal{},
+		},
 		[]*ethtypes.Receipt{},
-		// op-node version requires non-nil withdrawals when it derives attributes from L1,
-		// so unsafe block consolidation will fail if we have nil withdrawals here.
-		[]*ethtypes.Withdrawal{},
 		trie.NewStackTrie(nil),
 	), nil
 }

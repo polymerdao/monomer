@@ -125,12 +125,15 @@ func TestBlockToEth(t *testing.T) {
 	actualEthBlock, err := block.ToEth()
 	require.NoError(t, err)
 
-	require.Equal(t, ethtypes.NewBlockWithWithdrawals(
+	require.Equal(t, ethtypes.NewBlock(
 		block.Header.ToEth(),
-		ethTxs,
-		nil,
+		&ethtypes.Body{
+			Transactions: ethTxs,
+			// op-node version requires non-nil withdrawals when it derives attributes from L1,
+			// so unsafe block consolidation will fail if we have nil withdrawals here.
+			Withdrawals: []*ethtypes.Withdrawal{},
+		},
 		[]*ethtypes.Receipt{},
-		[]*ethtypes.Withdrawal{},
 		trie.NewStackTrie(nil),
 	).Hash(), actualEthBlock.Hash())
 }

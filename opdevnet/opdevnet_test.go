@@ -77,17 +77,16 @@ func TestOPDevnet(t *testing.T) {
 	require.NoError(t, err)
 	l1Config.BlobsDirPath = t.TempDir()
 	require.NoError(t, l1Config.Run(ctx, env, log.NewLogger(log.NewTerminalHandler(openLogFile(t, env, "l1"), false))))
-	l1GenesisBlock := l1Config.Genesis.ToBlock()
-	require.True(t, l1URL.IsReachable(ctx))
+	l1GenesisHeader := l1Config.Genesis.ToBlock().Header()
+	l1URL.IsReachable(ctx)
 
 	l2Allocs, err := opdevnet.DefaultL2Allocs()
 	require.NoError(t, err)
-	l2Genesis, err := genesis.BuildL2Genesis(deployConfig, l2Allocs, l1GenesisBlock)
+	l2Genesis, err := genesis.BuildL2Genesis(deployConfig, l2Allocs, l1GenesisHeader)
 	require.NoError(t, err)
 	jwtSecret := [32]byte{123}
 
-	// Set up and run a sequencer node
-	l2Node, l2Backend, err := geth.InitL2("l2", l2Genesis.Config.ChainID, l2Genesis, writeJWT(t, jwtSecret), func(_ *ethconfig.Config, nodeCfg *node.Config) error {
+	l2Instance, err := geth.InitL2("l2", l2Genesis, writeJWT(t, jwtSecret), func(_ *ethconfig.Config, nodeCfg *node.Config) error {
 		nodeCfg.AuthAddr = l2EngineURL.Hostname()
 		nodeCfg.AuthPort = int(l2EngineURL.PortU16())
 		nodeCfg.WSHost = l2EthURL.Hostname()
@@ -95,9 +94,9 @@ func TestOPDevnet(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-	require.NoError(t, l2Node.Start())
+	require.NoError(t, l2Instance.Node.Start())
 	defer func() {
-		require.NoError(t, l2Node.Close())
+		require.NoError(t, l2Instance.Close())
 	}()
 	require.True(t, l2EngineURL.IsReachable(ctx))
 
@@ -107,7 +106,7 @@ func TestOPDevnet(t *testing.T) {
 		deployConfig,
 		secrets.Batcher,
 		secrets.Proposer,
-		l1GenesisBlock,
+		l1GenesisHeader,
 		l1Deployments.L2OutputOracleProxy,
 		eth.HeaderBlockID(l2Genesis.ToBlock().Header()),
 		l1Config.URL,
@@ -122,7 +121,7 @@ func TestOPDevnet(t *testing.T) {
 	l2SlotDuration := time.Duration(opConfig.Node.Rollup.BlockTime) * time.Second
 
 	// Confirm safe blocks are incrementing to ensure the batcher is posting blocks to the DA layer.
-	for l2Backend.BlockChain().CurrentSafeBlock().Number.Uint64() < 3 {
+	for l2Instance.Backend.BlockChain().CurrentSafeBlock().Number.Uint64() < 3 {
 		time.Sleep(l2SlotDuration)
 	}
 
@@ -131,7 +130,7 @@ func TestOPDevnet(t *testing.T) {
 	require.NoError(t, err)
 	rollupClient := sources.NewRollupClient(opNodeRPCClient)
 	for {
-		if _, err := rollupClient.OutputAtBlock(ctx, l2Backend.BlockChain().CurrentHeader().Number.Uint64()); err == nil {
+		if _, err := rollupClient.OutputAtBlock(ctx, l2Instance.Backend.BlockChain().CurrentHeader().Number.Uint64()); err == nil {
 			break
 		}
 		time.Sleep(l2SlotDuration)
@@ -145,7 +144,7 @@ func TestOPDevnet(t *testing.T) {
 	verifierL2EthURL, err := e2eurl.ParseString("ws://127.0.0.1:8896")
 	require.NoError(t, err)
 
-	verifierL2Node, verifierL2Backend, err := geth.InitL2("l2-verifier", l2Genesis.Config.ChainID, l2Genesis, writeJWT(t, jwtSecret), func(_ *ethconfig.Config, nodeCfg *node.Config) error {
+	verifierL2Instance, err := geth.InitL2("l2-verifier", l2Genesis, writeJWT(t, jwtSecret), func(_ *ethconfig.Config, nodeCfg *node.Config) error {
 		nodeCfg.AuthAddr = verifierL2EngineURL.Hostname()
 		nodeCfg.AuthPort = int(verifierL2EngineURL.PortU16())
 		nodeCfg.WSHost = verifierL2EthURL.Hostname()
@@ -153,9 +152,9 @@ func TestOPDevnet(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, err)
-	require.NoError(t, verifierL2Node.Start())
+	require.NoError(t, verifierL2Instance.Node.Start())
 	defer func() {
-		require.NoError(t, verifierL2Node.Close())
+		require.NoError(t, verifierL2Instance.Close())
 	}()
 	require.True(t, verifierL2EngineURL.IsReachable(ctx))
 
@@ -163,7 +162,7 @@ func TestOPDevnet(t *testing.T) {
 		deployConfig,
 		secrets.Batcher,
 		secrets.Proposer,
-		l1GenesisBlock,
+		l1GenesisHeader,
 		l1Deployments.L2OutputOracleProxy,
 		eth.HeaderBlockID(l2Genesis.ToBlock().Header()),
 		l1URL,
@@ -178,14 +177,14 @@ func TestOPDevnet(t *testing.T) {
 
 	// Wait for the verifier node to sync to block 10
 	for i := 0; i < 30; i++ {
-		if verifierL2Backend.BlockChain().CurrentHeader().Number.Uint64() >= 10 {
+		if verifierL2Instance.Backend.BlockChain().CurrentHeader().Number.Uint64() >= 10 {
 			// Assert that the verifier and sequencer state roots at block 10 are equal
-			require.Equal(t, verifierL2Backend.BlockChain().GetHeaderByNumber(10).Root, l2Backend.BlockChain().GetHeaderByNumber(10).Root)
+			require.Equal(t, verifierL2Instance.Backend.BlockChain().GetHeaderByNumber(10).Root, l2Instance.Backend.BlockChain().GetHeaderByNumber(10).Root)
 			return
 		}
 		time.Sleep(time.Second * time.Duration(l1Config.BlockTime))
 	}
-	t.Fatalf("verifier only synced to block %v", verifierL2Backend.BlockChain().CurrentHeader().Number)
+	t.Fatalf("verifier only synced to block %v", verifierL2Instance.Backend.BlockChain().CurrentHeader().Number)
 }
 
 // Copied and slightly modified from optimism/op-e2e.

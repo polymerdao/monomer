@@ -30,9 +30,12 @@ import (
 	genutiltypes "github.com/cosmos/cosmos-sdk/x/genutil/types"
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/rawdb"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/state/snapshot"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethdb"
 	ethlog "github.com/ethereum/go-ethereum/log"
@@ -241,18 +244,10 @@ func startOPDevnet(
 		deployConfig.L1GenesisBlockTimestamp = hexutil.Uint64(time)
 	}
 	// TODO thinking about removing this clunky readFromFileOrGetDefault abstraction.
-	l1AllocsForge, err := readFromFileOrGetDefault(v.GetString(flagL1AllocsPath), func() (*opgenesis.ForgeDump, error) {
-		got, err := opdevnet.DefaultL1Allocs()
-		if err != nil {
-			return nil, err
-		}
-		gotForge := opgenesis.ForgeDump(*got)
-		return &gotForge, nil
-	})
+	l1Allocs, err := readFromFileOrGetDefault(v.GetString(flagL1AllocsPath), opdevnet.DefaultL1Allocs)
 	if err != nil {
 		return fmt.Errorf("get l1 allocs: %v", err)
 	}
-	l1Allocs := state.Dump(*l1AllocsForge)
 	mneumonics, err := readFromFileOrGetDefault(v.GetString(flagMneumonicsPath), func() (*opdevnet.MnemonicConfig, error) {
 		return opdevnet.DefaultMnemonicConfig, nil
 	})
@@ -273,14 +268,21 @@ func startOPDevnet(
 		return fmt.Errorf("parse op node url: %v", err)
 	}
 
-	if l1UserAddress := v.GetString(flagL1UserAddress); l1UserAddress != "" {
-		l1Allocs.Accounts[l1UserAddress] = state.DumpAccount{
-			Balance: "0x152D02C7E14AF6800000", // 100,000 ETH
+	if l1UserAddressStr := v.GetString(flagL1UserAddress); l1UserAddressStr != "" {
+		if !common.IsHexAddress(l1UserAddressStr) {
+			return errors.New("l1 user address is not a valid hex address")
+		}
+		balance, ok := new(big.Int).SetString("0x152D02C7E14AF6800000", 16) // 100,000 ETH
+		if !ok {
+			return errors.New("failed to parse balance as big int")
+		}
+		l1Allocs.Accounts[common.HexToAddress(l1UserAddressStr)] = types.Account{
+			Balance: balance,
 			Nonce:   0,
 		}
 	}
 
-	l1Config, err := opdevnet.BuildL1Config(deployConfig, l1Deployments, &l1Allocs, l1URL, os.TempDir())
+	l1Config, err := opdevnet.BuildL1Config(deployConfig, l1Deployments, l1Allocs, l1URL, os.TempDir())
 	if err != nil {
 		return fmt.Errorf("build l1 config: %v", err)
 	}
@@ -292,7 +294,7 @@ func startOPDevnet(
 		deployConfig,
 		secrets.Batcher,
 		secrets.Proposer,
-		l1Config.Genesis.ToBlock(),
+		l1Config.Genesis.ToBlock().Header(),
 		l1Deployments.L2OutputOracleProxy,
 		eth.HeaderBlockID(l2GenesisBlock.Header()),
 		l1URL,
@@ -484,7 +486,13 @@ func startMonomerNode(
 	env.DeferErr("close raw db", rawDB.Close)
 	trieDB := triedb.NewDatabase(rawDB, nil)
 	env.DeferErr("close trieDB", trieDB.Close)
-	ethstatedb := state.NewDatabaseWithNodeDB(rawDB, trieDB)
+	snapshotTree, err := snapshot.New(snapshot.Config{
+		CacheSize: defaultCacheSize, // TODO
+	}, rawDB, trieDB, common.Hash{})
+	if err != nil {
+		return fmt.Errorf("new snapshot tree: %v", err)
+	}
+	ethstatedb := state.NewDatabase(trieDB, snapshotTree)
 
 	var appState map[string]json.RawMessage
 	if err := json.Unmarshal(appStateJSON, &appState); err != nil {

@@ -163,7 +163,7 @@ func TestBuild(t *testing.T) {
 			verifyBlockContent(t, wantBlock, gotBlock, builtBlock)
 
 			// Eth state db.
-			ethState, err := state.New(ethStateRoot, env.ethstatedb, nil)
+			ethState, err := state.New(ethStateRoot, env.ethstatedb)
 			require.NoError(t, err)
 			appHash, err := getAppHashFromEVM(ethState, header)
 			require.NoError(t, err)
@@ -244,7 +244,7 @@ func TestRollback(t *testing.T) {
 	require.NoError(t, env.blockStore.UpdateLabels(block.Header.Hash, block.Header.Hash, block.Header.Hash))
 
 	// Eth state db before rollback.
-	ethState, err := state.New(block.Header.StateRoot, env.ethstatedb, nil)
+	ethState, err := state.New(block.Header.StateRoot, env.ethstatedb)
 	require.NoError(t, err)
 	require.NotEqual(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
 
@@ -267,7 +267,7 @@ func TestRollback(t *testing.T) {
 	// We trust that the other parts of a block store rollback were done as well.
 
 	// Eth state db after rollback.
-	ethState, err = state.New(genesisHeader.StateRoot, env.ethstatedb, nil)
+	ethState, err = state.New(genesisHeader.StateRoot, env.ethstatedb)
 	require.NoError(t, err)
 	require.Equal(t, ethState.GetStorageRoot(contracts.L2ApplicationStateRootProviderAddr), gethtypes.EmptyRootHash)
 
@@ -416,7 +416,7 @@ func setupTestEnvironment(t *testing.T) testEnvironment {
 	pool := mempool.New(testutils.NewMemDB(t))
 	blockStore := testutils.NewLocalMemDB(t)
 	txStore := txstore.NewTxStore(testutils.NewCometMemDB(t))
-	ethstatedb := testutils.NewEthStateDB(t)
+	ethstatedb := state.NewDatabaseForTesting()
 
 	app := testapp.NewTest(t, chainID.String())
 	appState := testapp.MakeGenesisAppState(t, app)

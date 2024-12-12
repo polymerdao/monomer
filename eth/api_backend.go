@@ -80,7 +80,7 @@ func (b *ethAPIBackend) StateAndHeaderByNumberOrHash(
 		return nil, nil, fmt.Errorf("header by number or hash: %w", err)
 	}
 
-	stateDB, err := state.New(header.Root, b.database, nil)
+	stateDB, err := state.New(header.Root, b.database)
 	if err != nil {
 		return nil, nil, fmt.Errorf("opening state.StateDB: %w", err)
 	}

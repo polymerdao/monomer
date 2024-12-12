@@ -5,12 +5,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/foundry"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
+	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/fakebeacon"
 	"github.com/ethereum-optimism/optimism/op-e2e/e2eutils/geth"
 	"github.com/ethereum-optimism/optimism/op-service/clock"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/node"
@@ -28,7 +29,7 @@ type L1Config struct {
 func BuildL1Config(
 	deployConfig *genesis.DeployConfig,
 	l1Deployments *genesis.L1Deployments,
-	l1Allocs *state.Dump,
+	l1Allocs *foundry.ForgeAllocs,
 	url *e2eurl.URL,
 	blobsDirPath string,
 ) (*L1Config, error) {
@@ -48,13 +49,13 @@ func BuildL1Config(
 }
 
 func (cfg *L1Config) Run(ctx context.Context, env *environment.Env, logger log.Logger) error {
-	l1Node, _, err := geth.InitL1(
+	gethInstance, err := geth.InitL1(
 		cfg.Genesis.Config.ChainID.Uint64(),
 		cfg.BlockTime,
 		cfg.Genesis,
 		clock.NewAdvancingClock(time.Second), // Arbitrary working duration. Eventually consumed by geth lifecycle instances.,
 		cfg.BlobsDirPath,
-		fakebeacon.NewBeacon(newLogger(logger, "fakebeacon"), cfg.BlobsDirPath, cfg.Genesis.Timestamp, cfg.BlockTime),
+		fakebeacon.NewBeacon(newLogger(logger, "fakebeacon"), e2eutils.NewBlobStore(), cfg.Genesis.Timestamp, cfg.BlockTime),
 		func(_ *ethconfig.Config, nodeCfg *node.Config) error {
 			nodeCfg.WSHost = cfg.URL.Hostname()
 			nodeCfg.WSPort = int(cfg.URL.PortU16())
@@ -69,10 +70,10 @@ func (cfg *L1Config) Run(ctx context.Context, env *environment.Env, logger log.L
 		return fmt.Errorf("init geth L1: %w", err)
 	}
 
-	if err := l1Node.Start(); err != nil {
+	if err := gethInstance.Node.Start(); err != nil {
 		return fmt.Errorf("start geth L1: %w", err)
 	}
-	env.DeferErr("close geth node", l1Node.Close)
+	env.DeferErr("close geth node", gethInstance.Close)
 
 	return nil
 }

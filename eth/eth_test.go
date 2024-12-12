@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
+	"github.com/ethereum/go-ethereum/core/tracing"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient/gethclient"
 	"github.com/ethereum/go-ethereum/rlp"
@@ -178,7 +179,7 @@ func TestGetProof(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			blockStore := testutils.NewLocalMemDB(t)
-			ethStateDB := testutils.NewEthStateDB(t)
+			ethStateDB := state.NewDatabaseForTesting()
 
 			stateRoot := setupEthState(t, ethStateDB, accountAddress, blockNumber, tc.storageKey, tc.ethStateIsEmpty)
 
@@ -210,11 +211,11 @@ func setupEthState(t *testing.T, ethStateDB state.Database, accountAddress commo
 		return ethtypes.EmptyRootHash
 	}
 
-	ethState, err := state.New(ethtypes.EmptyRootHash, ethStateDB, nil)
+	ethState, err := state.New(ethtypes.EmptyRootHash, ethStateDB)
 	require.NoError(t, err)
 
 	ethState.SetNonce(accountAddress, 1)
-	ethState.SetBalance(accountAddress, uint256.NewInt(1000))
+	ethState.SetBalance(accountAddress, uint256.NewInt(1000), tracing.BalanceChangeUnspecified)
 	ethState.SetCode(accountAddress, []byte{1, 2, 3})
 
 	// RLP encode the storage value before setting it in the account state

@@ -13,7 +13,6 @@ import (
 	"github.com/polymerdao/monomer/bindings"
 	"github.com/polymerdao/monomer/contracts"
 	"github.com/polymerdao/monomer/evm"
-	"github.com/polymerdao/monomer/testutils"
 	"github.com/stretchr/testify/require"
 )
 
@@ -85,7 +84,7 @@ func TestL2ToL1MessagePasserExecuter(t *testing.T) {
 }
 
 func setupEVM(t *testing.T) *vm.EVM {
-	ethState, err := state.New(types.EmptyRootHash, testutils.NewEthStateDB(t), nil)
+	ethState, err := state.New(types.EmptyRootHash, state.NewDatabaseForTesting())
 	require.NoError(t, err)
 	monomerEVM, err := evm.NewEVM(
 		contracts.Predeploy(ethState),

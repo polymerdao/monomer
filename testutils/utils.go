@@ -20,8 +20,8 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
-	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
+	opbindings "github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -29,8 +29,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
@@ -55,16 +53,6 @@ func NewMemDB(t *testing.T) dbm.DB {
 		require.NoError(t, db.Close())
 	})
 	return db
-}
-
-func NewEthStateDB(t *testing.T) state.Database {
-	rawstatedb := rawdb.NewMemoryDatabase()
-	ethstatedb := state.NewDatabase(rawstatedb)
-	t.Cleanup(func() {
-		require.NoError(t, rawstatedb.Close())
-		require.NoError(t, ethstatedb.TrieDB().Close())
-	})
-	return ethstatedb
 }
 
 func NewLocalMemDB(t *testing.T) *localdb.DB {
@@ -100,7 +88,8 @@ func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transactio
 }
 
 func GenerateEthBridgeDepositTx(t *testing.T, userAddr common.Address, amount *big.Int) *gethtypes.Transaction {
-	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.StandardBridgeMetaData.ABI))
+	// We should techincally use the ABI for the L2StandardBridge, but we only have the L1 bindings and they work fine here.
+	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.L1StandardBridgeMetaData.ABI))
 	require.NoError(t, err)
 	rng := rand.New(rand.NewSource(1234))
 
@@ -117,7 +106,8 @@ func GenerateEthBridgeDepositTx(t *testing.T, userAddr common.Address, amount *b
 }
 
 func GenerateERC20DepositTx(t *testing.T, tokenAddr, userAddr common.Address, amount *big.Int) *gethtypes.Transaction {
-	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.StandardBridgeMetaData.ABI))
+	// We should techincally use the ABI for the L2StandardBridge, but we only have the L1 bindings and they work fine here.
+	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.L1StandardBridgeMetaData.ABI))
 	require.NoError(t, err)
 	rng := rand.New(rand.NewSource(1234))
 
@@ -136,7 +126,7 @@ func GenerateERC20DepositTx(t *testing.T, tokenAddr, userAddr common.Address, am
 }
 
 func generateCrossDomainDepositTx(t *testing.T, crossDomainMessageBz []byte) *gethtypes.Transaction {
-	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.CrossDomainMessengerMetaData.ABI))
+	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.L2CrossDomainMessengerMetaData.ABI))
 	require.NoError(t, err)
 	rng := rand.New(rand.NewSource(1234))
 
@@ -219,7 +209,7 @@ func GenerateL1Block() *gethtypes.Block {
 		Difficulty: common.Big0,
 		Number:     big.NewInt(0),
 		Time:       uint64(0),
-	}, nil, nil, nil, trie.NewStackTrie(nil))
+	}, &gethtypes.Body{}, nil, trie.NewStackTrie(nil))
 }
 
 func convertPrivKey(ecdsaPrivKey *ecdsa.PrivateKey) *secp256k1.PrivateKey {

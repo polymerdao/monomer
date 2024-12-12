@@ -36,7 +36,7 @@ func BuildOPConfig(
 	deployConfig *opgenesis.DeployConfig,
 	batcherPrivKey *ecdsa.PrivateKey,
 	proposerPrivKey *ecdsa.PrivateKey,
-	l1Block *types.Block,
+	l1Header *types.Header,
 	l2OutputOracleAddr common.Address,
 	l2Genesis eth.BlockID,
 	l1URL *e2eurl.URL,
@@ -45,7 +45,7 @@ func BuildOPConfig(
 	l2EthURL *e2eurl.URL,
 	jwtSecret [32]byte,
 ) (*OPConfig, error) {
-	rollupConfig, err := deployConfig.RollupConfig(l1Block, l2Genesis.Hash, l2Genesis.Number)
+	rollupConfig, err := deployConfig.RollupConfig(l1Header, l2Genesis.Hash, l2Genesis.Number)
 	if err != nil {
 		return nil, fmt.Errorf("new rollup config: %v", err)
 	}
@@ -130,7 +130,6 @@ func (cfg *OPConfig) Run(ctx context.Context, env *environment.Env, logger log.L
 		ctx,
 		cfg.Node,
 		newLogger(logger, "node"),
-		newLogger(logger, "node-snapshot"),
 		appVersion,
 		opnodemetrics.NewMetrics(""),
 	)

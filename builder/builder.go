@@ -160,7 +160,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		return nil, fmt.Errorf("commit: %v", err)
 	}
 
-	ethState, err := state.New(currentHeader.StateRoot, b.ethstatedb, nil)
+	ethState, err := state.New(currentHeader.StateRoot, b.ethstatedb)
 	if err != nil {
 		return nil, fmt.Errorf("create ethereum state: %v", err)
 	}
