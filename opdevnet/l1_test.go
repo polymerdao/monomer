@@ -26,6 +26,8 @@ func TestWebsocketAndHTTPWork(t *testing.T) {
 	require.NoError(t, err)
 	l1URL, err := e2eurl.ParseString("ws://127.0.0.1:8892")
 	require.NoError(t, err)
+	beaconURL, err := e2eurl.ParseString("ws://127.0.0.1:8893")
+	require.NoError(t, err)
 	l1Allocs, err := opdevnet.DefaultL1Allocs()
 	require.NoError(t, err)
 
@@ -34,6 +36,7 @@ func TestWebsocketAndHTTPWork(t *testing.T) {
 		l1Deployments,
 		l1Allocs,
 		l1URL,
+		beaconURL,
 		t.TempDir(),
 	)
 	require.NoError(t, err)

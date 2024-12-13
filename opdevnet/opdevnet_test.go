@@ -64,6 +64,8 @@ func TestOPDevnet(t *testing.T) {
 	require.NoError(t, err)
 	l2EthURL, err := e2eurl.ParseString("ws://127.0.0.1:8893")
 	require.NoError(t, err)
+	beaconURL, err := e2eurl.ParseString("http://127.0.0.1:8894")
+	require.NoError(t, err)
 
 	l1Allocs, err := opdevnet.DefaultL1Allocs()
 	require.NoError(t, err)
@@ -72,6 +74,7 @@ func TestOPDevnet(t *testing.T) {
 		l1Deployments,
 		l1Allocs,
 		l1URL,
+		beaconURL,
 		t.TempDir(),
 	)
 	require.NoError(t, err)
@@ -113,6 +116,7 @@ func TestOPDevnet(t *testing.T) {
 		opNodeURL,
 		l2EngineURL,
 		l2EthURL,
+		beaconURL,
 		jwtSecret,
 	)
 	require.NoError(t, err)
@@ -120,10 +124,14 @@ func TestOPDevnet(t *testing.T) {
 
 	l2SlotDuration := time.Duration(opConfig.Node.Rollup.BlockTime) * time.Second
 
+	t.Log("L1 and OP are setup")
+
 	// Confirm safe blocks are incrementing to ensure the batcher is posting blocks to the DA layer.
 	for l2Instance.Backend.BlockChain().CurrentSafeBlock().Number.Uint64() < 3 {
 		time.Sleep(l2SlotDuration)
 	}
+
+	t.Log("Batcher is posting to the DA layer")
 
 	// Ensure the proposer is submitting outputs to L1.
 	opNodeRPCClient, err := client.NewRPC(ctx, log.Root(), opNodeURL.String())

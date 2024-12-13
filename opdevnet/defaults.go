@@ -18,7 +18,7 @@ var (
 	deployConfigJSON []byte
 	//go:embed config/allocs-l1.json
 	l1AllocsJSON []byte
-	//go:embed config/allocs-l2.json
+	//go:embed config/allocs-l2-granite.json
 	l2AllocsJSON []byte
 )
 

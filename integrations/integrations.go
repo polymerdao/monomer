@@ -65,6 +65,7 @@ const (
 	flagMneumonicsPath    = "monomer.dev.mneumonics"
 	flagL1URL             = "monomer.dev.l1-url"
 	flagOPNodeURL         = "monomer.dev.op-node-url"
+	flagBeaconURL         = "monomer.dev.beacon-url"
 	flagL1UserAddress     = "monomer.dev.l1-user-address"
 
 	defaultCacheSize   = 16 // 16 MB
@@ -282,7 +283,11 @@ func startOPDevnet(
 		}
 	}
 
-	l1Config, err := opdevnet.BuildL1Config(deployConfig, l1Deployments, l1Allocs, l1URL, os.TempDir())
+	beaconURL, err := url.ParseString(v.GetString(flagBeaconURL))
+	if err != nil {
+		return fmt.Errorf("parse beacon url: %v", err)
+	}
+	l1Config, err := opdevnet.BuildL1Config(deployConfig, l1Deployments, l1Allocs, l1URL, beaconURL, os.TempDir())
 	if err != nil {
 		return fmt.Errorf("build l1 config: %v", err)
 	}
@@ -301,6 +306,7 @@ func startOPDevnet(
 		opNodeURL,
 		engineURL,
 		engineURL,
+		beaconURL,
 		[32]byte{},
 	)
 	if err != nil {

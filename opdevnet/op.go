@@ -43,6 +43,7 @@ func BuildOPConfig(
 	opNodeURL *e2eurl.URL,
 	l2EngineURL *e2eurl.URL,
 	l2EthURL *e2eurl.URL,
+	beaconURL *e2eurl.URL,
 	jwtSecret [32]byte,
 ) (*OPConfig, error) {
 	rollupConfig, err := deployConfig.RollupConfig(l1Header, l2Genesis.Hash, l2Genesis.Number)
@@ -75,6 +76,9 @@ func BuildOPConfig(
 			L2: &opnode.L2EndpointConfig{
 				L2EngineAddr:      l2EngineURL.String(),
 				L2EngineJWTSecret: jwtSecret,
+			},
+			Beacon: &opnode.L1BeaconEndpointConfig{
+				BeaconAddr: beaconURL.String(),
 			},
 			Driver: driver.Config{
 				SequencerEnabled: true,
@@ -114,7 +118,7 @@ func BuildOPConfig(
 			RPC: oprpc.CLIConfig{
 				ListenAddr: "127.0.0.1",
 			},
-			DataAvailabilityType: flags.CalldataType,
+			DataAvailabilityType: flags.BlobsType,
 			TargetNumFrames:      1,
 		},
 	}, nil
