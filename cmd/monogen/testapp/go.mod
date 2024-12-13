@@ -15,7 +15,7 @@ replace (
 	// fix upstream GHSA-h395-qcrw-5vmq vulnerability.
 	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.7.0
 	github.com/libp2p/go-libp2p => github.com/joshklop/go-libp2p v0.0.0-20241004015633-cfc9936c6811
-	github.com/polymerdao/monomer => github.com/polymerdao/monomer v0.1.5
+	github.com/polymerdao/monomer => github.com/polymerdao/monomer v0.1.6
 	github.com/quic-go/quic-go => github.com/quic-go/quic-go v0.39.3
 	github.com/quic-go/webtransport-go => github.com/quic-go/webtransport-go v0.6.0
 	// replace broken goleveldb
@@ -330,7 +330,6 @@ require (
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
 	github.com/sagikazarmark/locafero v0.4.0 // indirect
 	github.com/sagikazarmark/slog-shim v0.1.0 // indirect
-	github.com/samber/lo v1.39.0 // indirect
 	github.com/sasha-s/go-deadlock v0.3.1 // indirect
 	github.com/schollz/closestmatch v2.1.0+incompatible // indirect
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
