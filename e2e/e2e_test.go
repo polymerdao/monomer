@@ -3,9 +3,6 @@ package e2e_test
 import (
 	"context"
 	"crypto/ecdsa"
-	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -51,29 +48,6 @@ func TestE2E(t *testing.T) {
 	env := environment.New()
 	defer func() {
 		require.NoError(t, env.Close())
-	}()
-	artifactsDir, err := filepath.Abs("artifacts")
-	require.NoError(t, err)
-
-	if err := os.Mkdir(artifactsDir, 0o755); !errors.Is(err, os.ErrExist) {
-		require.NoError(t, err)
-	}
-
-	stdoutFile, err := os.OpenFile(filepath.Join(artifactsDir, "stdout"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o666)
-	require.NoError(t, err)
-	env.DeferErr("close stdout file", stdoutFile.Close)
-	stdout := os.Stdout
-	os.Stdout = stdoutFile
-	defer func() {
-		os.Stdout = stdout
-	}()
-	stderrFile, err := os.OpenFile(filepath.Join(artifactsDir, "stderr"), os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o666)
-	require.NoError(t, err)
-	env.DeferErr("close stderr file", stderrFile.Close)
-	stderr := os.Stderr
-	os.Stderr = stderrFile
-	defer func() {
-		os.Stderr = stderr
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
