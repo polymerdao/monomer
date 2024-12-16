@@ -69,7 +69,7 @@ func (t *txstore) rollbackOneBlock(batch dbm.Batch, height uint64) error {
 	// The indexer stores txs in its underlying DB by constructing a key that uses a combination
 	// of height, indexes and hardcoded labels. For more details, see how the keys are constructed here:
 	//    https://github.com/cometbft/cometbft/blob/v0.37.2/state/txindex/kv/kv.go#L640
-	// The iterator below is a cheap trick to iterarte through all transactions that belong to a block
+	// The iterator below is a cheap trick to iterate through all transactions that belong to a block
 	// at height 'height', that is done with the 'start' of the iterator
 	// The 'end' part is where the magic happens: we construct a key that ends in a character with a higher ASCII
 	// value than any other just so we can include all keys "until the end"
