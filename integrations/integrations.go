@@ -54,7 +54,7 @@ import (
 
 const (
 	flagEngineURL         = "monomer.engine-url"
-	flagSequencerMode     = "monomer.sequencer-mode"
+	flagSequencerMode     = "monomer.sequencer"
 	flagDev               = "monomer.dev-start"
 	flagL1AllocsPath      = "monomer.dev.l1-allocs"
 	flagL1DeploymentsPath = "monomer.dev.l1-deployments"

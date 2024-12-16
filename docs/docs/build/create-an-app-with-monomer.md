@@ -48,10 +48,10 @@ go build -ldflags=-checklinkname=0 -o testappd ./cmd/testappd
 Now that our application is configured, we can start the Monomer application in sequencer mode by running the following command.
 
 ```bash
-./testappd monomer start --minimum-gas-prices 0.01wei --monomer.sequencer-mode --monomer.dev-start --api.enable
+./testappd monomer start --minimum-gas-prices 0.01wei --monomer.sequencer --monomer.dev-start --api.enable
 ````
 
-To run the application in verifier mode, omit the `--monomer.sequencer-mode` flag:
+To run the application in verifier mode, omit the `--monomer.sequencer` flag:
 
 ```bash
 ./testappd monomer start --minimum-gas-prices 0.01wei --monomer.dev-start --api.enable

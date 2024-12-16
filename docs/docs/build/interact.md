@@ -10,7 +10,7 @@ We will need to have an account on L1 with funds.
 To give yourself funds on the devnet at genesis, run the devnet start command specified in the last tutorial with the `--monomer.dev.l1-user-address` flag:
 
 ```bash
-./testappd monomer start --minimum-gas-prices 0.01wei --monomer.sequencer-mode --monomer.dev-start --api.enable --monomer.dev.l1-user-address "<address>"
+./testappd monomer start --minimum-gas-prices 0.01wei --monomer.sequencer --monomer.dev-start --api.enable --monomer.dev.l1-user-address "<address>"
 ```
 
 ## Configuring L1 and L2 Wallets
