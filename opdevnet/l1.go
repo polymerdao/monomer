@@ -61,8 +61,8 @@ func (cfg *L1Config) Run(ctx context.Context, env *environment.Env, logger log.L
 		_ = beacon.Close()
 	})
 	gethInstance, err := geth.InitL1(
-		cfg.Genesis.Config.ChainID.Uint64(),
 		cfg.BlockTime,
+		8,
 		cfg.Genesis,
 		clock.NewAdvancingClock(time.Second), // Arbitrary working duration. Eventually consumed by geth lifecycle instances.,
 		cfg.BlobsDirPath,
