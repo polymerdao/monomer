@@ -135,6 +135,60 @@ func TestOPDevnet(t *testing.T) {
 		}
 		time.Sleep(l2SlotDuration)
 	}
+
+	// Set up and run a verifier node
+	verifierL2EngineURL, err := e2eurl.ParseString("ws://127.0.0.1:8894")
+	require.NoError(t, err)
+	verifierOpNodeURL, err := e2eurl.ParseString("http://127.0.0.1:8895")
+	require.NoError(t, err)
+	verifierL2EthURL, err := e2eurl.ParseString("ws://127.0.0.1:8896")
+	require.NoError(t, err)
+
+	verifierL2Node, verifierL2Backend, err := geth.InitL2("l2-verifier", l2Genesis.Config.ChainID, l2Genesis, writeJWT(t, jwtSecret), func(_ *ethconfig.Config, nodeCfg *node.Config) error {
+		nodeCfg.AuthAddr = verifierL2EngineURL.Hostname()
+		nodeCfg.AuthPort = int(verifierL2EngineURL.PortU16())
+		nodeCfg.WSHost = verifierL2EthURL.Hostname()
+		nodeCfg.WSPort = int(verifierL2EthURL.PortU16())
+		return nil
+	})
+	require.NoError(t, err)
+	require.NoError(t, verifierL2Node.Start())
+	defer func() {
+		require.NoError(t, verifierL2Node.Close())
+	}()
+	l2EngineURL.IsReachable(ctx)
+
+	verifierOpConfig, err := opdevnet.BuildOPConfig(
+		deployConfig,
+		secrets.Batcher,
+		secrets.Proposer,
+		l1GenesisBlock,
+		l1Deployments.L2OutputOracleProxy,
+		eth.HeaderBlockID(l2Genesis.ToBlock().Header()),
+		l1URL,
+		verifierOpNodeURL,
+		verifierL2EngineURL,
+		verifierL2EthURL,
+		jwtSecret,
+	)
+	require.NoError(t, err)
+	verifierOpConfig.Node.Driver.SequencerEnabled = false
+	require.NoError(t, verifierOpConfig.Run(ctx, env, log.NewLogger(log.NewTerminalHandler(openLogFile(t, env, "op-verifier"), false))))
+
+	// Wait for the verifier node to sync to block 10
+	for i := 0; i < 30; i++ {
+		verifierBlockNum := verifierL2Backend.BlockChain().CurrentHeader().Number
+		if verifierBlockNum.Uint64() >= 10 {
+			break
+		}
+		if i == 29 {
+			t.Fatalf("Verifier failed to sync to block 10. Current block: %v", verifierBlockNum)
+		}
+		time.Sleep(time.Second)
+	}
+
+	// Assert that the verifier and sequencer state roots at block 10 are equal
+	require.Equal(t, verifierL2Backend.BlockChain().GetHeaderByNumber(10).Root, l2Backend.BlockChain().GetHeaderByNumber(10).Root)
 }
 
 // Copied and slightly modified from optimism/op-e2e.

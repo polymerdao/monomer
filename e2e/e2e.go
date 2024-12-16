@@ -71,6 +71,7 @@ func Run(
 		"monomer",
 		"start",
 		"--minimum-gas-prices", "0.001wei",
+		"--monomer.sequencer-mode",
 		"--monomer.dev-start",
 	))
 	appCmd.Dir = appDirPath
