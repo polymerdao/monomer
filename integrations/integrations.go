@@ -87,6 +87,7 @@ func AddMonomerCommand(rootCmd *cobra.Command, appCreator servertypes.AppCreator
 			cmd.Flags().Bool(flagDev, false, "run the OP Stack devnet in-process for testing")
 			cmd.Flags().String(flagL1URL, "ws://127.0.0.1:9001", "")
 			cmd.Flags().String(flagOPNodeURL, "http://127.0.0.1:9002", "")
+			cmd.Flags().String(flagBeaconURL, "http://127.0.0.1:9003", "")
 			cmd.Flags().String(flagL1DeploymentsPath, "", "")
 			cmd.Flags().String(flagDeployConfigPath, "", "")
 			cmd.Flags().String(flagL1AllocsPath, "", "")
