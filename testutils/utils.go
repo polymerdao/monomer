@@ -34,6 +34,7 @@ import (
 	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/monomerdb/localdb"
+	"github.com/polymerdao/monomer/utils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -71,8 +72,9 @@ func NewLocalMemDB(t *testing.T) *localdb.DB {
 func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transaction, *gethtypes.Transaction) {
 	l1Block := GenerateL1Block()
 	l1InfoRawTx, err := derive.L1InfoDeposit(&rollup.Config{
-		Genesis:   rollup.Genesis{L2: eth.BlockID{Number: 0}},
-		L2ChainID: big.NewInt(1234),
+		Genesis:     rollup.Genesis{L2: eth.BlockID{Number: 0}},
+		L2ChainID:   big.NewInt(1234),
+		EcotoneTime: utils.Ptr(uint64(0)),
 	}, eth.SystemConfig{}, 0, eth.BlockToInfo(l1Block), l1Block.Time())
 	require.NoError(t, err)
 	l1InfoTx := gethtypes.NewTx(l1InfoRawTx)

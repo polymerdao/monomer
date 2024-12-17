@@ -298,16 +298,17 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 
 func (e *EngineAPI) NewPayloadV1(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
 	// TODO should this be called after Ecotone?
-	return e.NewPayloadV3(payload)
+	return e.NewPayloadV2(payload)
 }
 
 func (e *EngineAPI) NewPayloadV2(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
 	// TODO should this be called after Ecotone?
-	return e.NewPayloadV3(payload)
+	return e.NewPayloadV3(payload, nil, nil)
 }
 
 // NewPayloadV3 ensures the payload's block hash is present in the block store.
-func (e *EngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
+func (e *EngineAPI) NewPayloadV3(payload eth.ExecutionPayload, _ []common.Hash, _ *common.Hash) (*eth.PayloadStatusV1, error) { //nolint:gocritic
+	// TODO use the parentBeaconBlockRoot, etc.
 	e.lock.Lock()
 	defer e.lock.Unlock()
 	defer e.metrics.RecordRPCMethodCall(NewPayloadV3MethodName, time.Now())

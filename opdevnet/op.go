@@ -12,6 +12,7 @@ import (
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	opnodemetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
 	opnode "github.com/ethereum-optimism/optimism/op-node/node"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-proposer/proposer"
@@ -118,6 +119,7 @@ func BuildOPConfig(
 			RPC: oprpc.CLIConfig{
 				ListenAddr: "127.0.0.1",
 			},
+			CompressionAlgo:      derive.Brotli,
 			DataAvailabilityType: flags.BlobsType,
 			TargetNumFrames:      1,
 		},
