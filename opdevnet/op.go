@@ -144,6 +144,11 @@ func (cfg *OPConfig) Run(ctx context.Context, env *environment.Env, logger log.L
 		return opNode.Stop(context.Background())
 	})
 
+	// Do not start the batcher and proposer if the node is running in verifier mode
+	if !cfg.Node.Driver.SequencerEnabled {
+		return nil
+	}
+
 	// Proposer
 	proposerService, err := proposer.ProposerServiceFromCLIConfig(ctx, "v0.1", cfg.Proposer, newLogger(logger, "proposer"))
 	if err != nil {

@@ -54,6 +54,7 @@ import (
 
 const (
 	flagEngineURL         = "monomer.engine-url"
+	flagSequencerMode     = "monomer.sequencer"
 	flagDev               = "monomer.dev-start"
 	flagL1AllocsPath      = "monomer.dev.l1-allocs"
 	flagL1DeploymentsPath = "monomer.dev.l1-deployments"
@@ -78,6 +79,7 @@ func AddMonomerCommand(rootCmd *cobra.Command, appCreator servertypes.AppCreator
 		StartCommandHandler: startCommandHandler,
 		AddFlags: func(cmd *cobra.Command) {
 			cmd.Flags().String(flagEngineURL, "ws://127.0.0.1:9000", "url of Monomer's Engine API endpoint")
+			cmd.Flags().Bool(flagSequencerMode, false, "enable sequencer mode for the Monomer node")
 			cmd.Flags().Bool(flagDev, false, "run the OP Stack devnet in-process for testing")
 			cmd.Flags().String(flagL1URL, "ws://127.0.0.1:9001", "")
 			cmd.Flags().String(flagOPNodeURL, "http://127.0.0.1:9002", "")
@@ -302,6 +304,7 @@ func startOPDevnet(
 	if err != nil {
 		return fmt.Errorf("build op config: %v", err)
 	}
+	opConfig.Node.Driver.SequencerEnabled = v.GetBool(flagSequencerMode)
 	if err := opConfig.Run(ctx, env, logger); err != nil {
 		return fmt.Errorf("run op: %v", err)
 	}

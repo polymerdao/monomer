@@ -78,14 +78,15 @@ func TestOPDevnet(t *testing.T) {
 	l1Config.BlobsDirPath = t.TempDir()
 	require.NoError(t, l1Config.Run(ctx, env, log.NewLogger(log.NewTerminalHandler(openLogFile(t, env, "l1"), false))))
 	l1GenesisBlock := l1Config.Genesis.ToBlock()
-	l1URL.IsReachable(ctx)
+	require.True(t, l1URL.IsReachable(ctx))
 
 	l2Allocs, err := opdevnet.DefaultL2Allocs()
 	require.NoError(t, err)
 	l2Genesis, err := genesis.BuildL2Genesis(deployConfig, l2Allocs, l1GenesisBlock)
 	require.NoError(t, err)
-
 	jwtSecret := [32]byte{123}
+
+	// Set up and run a sequencer node
 	l2Node, l2Backend, err := geth.InitL2("l2", l2Genesis.Config.ChainID, l2Genesis, writeJWT(t, jwtSecret), func(_ *ethconfig.Config, nodeCfg *node.Config) error {
 		nodeCfg.AuthAddr = l2EngineURL.Hostname()
 		nodeCfg.AuthPort = int(l2EngineURL.PortU16())
@@ -98,7 +99,7 @@ func TestOPDevnet(t *testing.T) {
 	defer func() {
 		require.NoError(t, l2Node.Close())
 	}()
-	l2EngineURL.IsReachable(ctx)
+	require.True(t, l2EngineURL.IsReachable(ctx))
 
 	secrets, err := opdevnet.DefaultMnemonicConfig.Secrets()
 	require.NoError(t, err)
@@ -135,6 +136,56 @@ func TestOPDevnet(t *testing.T) {
 		}
 		time.Sleep(l2SlotDuration)
 	}
+
+	// Set up and run a verifier node
+	verifierL2EngineURL, err := e2eurl.ParseString("ws://127.0.0.1:8894")
+	require.NoError(t, err)
+	verifierOpNodeURL, err := e2eurl.ParseString("http://127.0.0.1:8895")
+	require.NoError(t, err)
+	verifierL2EthURL, err := e2eurl.ParseString("ws://127.0.0.1:8896")
+	require.NoError(t, err)
+
+	verifierL2Node, verifierL2Backend, err := geth.InitL2("l2-verifier", l2Genesis.Config.ChainID, l2Genesis, writeJWT(t, jwtSecret), func(_ *ethconfig.Config, nodeCfg *node.Config) error {
+		nodeCfg.AuthAddr = verifierL2EngineURL.Hostname()
+		nodeCfg.AuthPort = int(verifierL2EngineURL.PortU16())
+		nodeCfg.WSHost = verifierL2EthURL.Hostname()
+		nodeCfg.WSPort = int(verifierL2EthURL.PortU16())
+		return nil
+	})
+	require.NoError(t, err)
+	require.NoError(t, verifierL2Node.Start())
+	defer func() {
+		require.NoError(t, verifierL2Node.Close())
+	}()
+	require.True(t, verifierL2EngineURL.IsReachable(ctx))
+
+	verifierOpConfig, err := opdevnet.BuildOPConfig(
+		deployConfig,
+		secrets.Batcher,
+		secrets.Proposer,
+		l1GenesisBlock,
+		l1Deployments.L2OutputOracleProxy,
+		eth.HeaderBlockID(l2Genesis.ToBlock().Header()),
+		l1URL,
+		verifierOpNodeURL,
+		verifierL2EngineURL,
+		verifierL2EthURL,
+		jwtSecret,
+	)
+	require.NoError(t, err)
+	verifierOpConfig.Node.Driver.SequencerEnabled = false
+	require.NoError(t, verifierOpConfig.Run(ctx, env, log.NewLogger(log.NewTerminalHandler(openLogFile(t, env, "op-verifier"), false))))
+
+	// Wait for the verifier node to sync to block 10
+	for i := 0; i < 30; i++ {
+		if verifierL2Backend.BlockChain().CurrentHeader().Number.Uint64() >= 10 {
+			// Assert that the verifier and sequencer state roots at block 10 are equal
+			require.Equal(t, verifierL2Backend.BlockChain().GetHeaderByNumber(10).Root, l2Backend.BlockChain().GetHeaderByNumber(10).Root)
+			return
+		}
+		time.Sleep(time.Second * time.Duration(l1Config.BlockTime))
+	}
+	t.Fatalf("verifier only synced to block %v", verifierL2Backend.BlockChain().CurrentHeader().Number)
 }
 
 // Copied and slightly modified from optimism/op-e2e.
