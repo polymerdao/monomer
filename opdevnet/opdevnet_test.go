@@ -177,17 +177,15 @@ func TestOPDevnet(t *testing.T) {
 	require.NoError(t, verifierOpConfig.Run(ctx, env, log.NewLogger(log.NewTerminalHandler(openLogFile(t, env, "op-verifier"), false))))
 
 	// Wait for the verifier node to sync to block 10
-	const waitBlocks = 30
-	for i := 0; i < waitBlocks; i++ {
+	for i := 0; i < 30; i++ {
 		if verifierL2Backend.BlockChain().CurrentHeader().Number.Uint64() >= 10 {
 			// Assert that the verifier and sequencer state roots at block 10 are equal
 			require.Equal(t, verifierL2Backend.BlockChain().GetHeaderByNumber(10).Root, l2Backend.BlockChain().GetHeaderByNumber(10).Root)
-			break
-		} else if i == waitBlocks-1 {
-			t.Fatalf("verifier only synced to block %v", verifierL2Backend.BlockChain().CurrentHeader().Number)
+			return
 		}
 		time.Sleep(time.Second * time.Duration(l1Config.BlockTime))
 	}
+	t.Fatalf("verifier only synced to block %v", verifierL2Backend.BlockChain().CurrentHeader().Number)
 }
 
 // Copied and slightly modified from optimism/op-e2e.
