@@ -274,7 +274,7 @@ func startOPDevnet(
 		if !common.IsHexAddress(l1UserAddressStr) {
 			return errors.New("l1 user address is not a valid hex address")
 		}
-		balance, ok := new(big.Int).SetString("0x152D02C7E14AF6800000", 16) // 100,000 ETH
+		balance, ok := new(big.Int).SetString("0x152D02C7E14AF6800000", 0) // 100,000 ETH
 		if !ok {
 			return errors.New("failed to parse balance as big int")
 		}
@@ -494,7 +494,7 @@ func startMonomerNode(
 	trieDB := triedb.NewDatabase(rawDB, nil)
 	env.DeferErr("close trieDB", trieDB.Close)
 	snapshotTree, err := snapshot.New(snapshot.Config{
-		CacheSize: defaultCacheSize, // TODO
+		CacheSize: defaultCacheSize,
 	}, rawDB, trieDB, common.Hash{})
 	if err != nil {
 		return fmt.Errorf("new snapshot tree: %v", err)

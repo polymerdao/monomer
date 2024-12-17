@@ -90,7 +90,7 @@ func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transactio
 }
 
 func GenerateEthBridgeDepositTx(t *testing.T, userAddr common.Address, amount *big.Int) *gethtypes.Transaction {
-	// We should techincally use the ABI for the L2StandardBridge, but we only have the L1 bindings and they work fine here.
+	// We should technically use the ABI for the L2StandardBridge, but we only have the L1 bindings and they work fine here.
 	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.L1StandardBridgeMetaData.ABI))
 	require.NoError(t, err)
 	rng := rand.New(rand.NewSource(1234))
@@ -108,7 +108,7 @@ func GenerateEthBridgeDepositTx(t *testing.T, userAddr common.Address, amount *b
 }
 
 func GenerateERC20DepositTx(t *testing.T, tokenAddr, userAddr common.Address, amount *big.Int) *gethtypes.Transaction {
-	// We should techincally use the ABI for the L2StandardBridge, but we only have the L1 bindings and they work fine here.
+	// We should technically use the ABI for the L2StandardBridge, but we only have the L1 bindings and they work fine here.
 	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.L1StandardBridgeMetaData.ABI))
 	require.NoError(t, err)
 	rng := rand.New(rand.NewSource(1234))

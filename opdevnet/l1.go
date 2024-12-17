@@ -62,7 +62,7 @@ func (cfg *L1Config) Run(ctx context.Context, env *environment.Env, logger log.L
 	})
 	gethInstance, err := geth.InitL1(
 		cfg.BlockTime,
-		8,
+		8, //nolint:mnd
 		cfg.Genesis,
 		clock.NewAdvancingClock(time.Second), // Arbitrary working duration. Eventually consumed by geth lifecycle instances.,
 		cfg.BlobsDirPath,

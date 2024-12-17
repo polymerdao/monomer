@@ -103,7 +103,7 @@ func (k *Keeper) processCrossDomainMessage(ctx sdk.Context, txData []byte) (*sdk
 	}
 	// It is a bit lazy to use the L1StandardBridge ABI instead of the L2StandardBridge ABI, but the bindings
 	// package doesn't have the latter. Plus, we know that the functions we want are implemented in the StandardBridge
-	// abstract contract and aren't overriden.
+	// abstract contract and aren't overridden.
 	standardBridgeABI, err := abi.JSON(strings.NewReader(crossdomainbindings.L1StandardBridgeMetaData.ABI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse StandardBridge ABI: %v", err)
