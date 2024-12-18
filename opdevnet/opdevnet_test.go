@@ -64,7 +64,7 @@ func TestOPDevnet(t *testing.T) {
 	require.NoError(t, err)
 	l2EthURL, err := e2eurl.ParseString("ws://127.0.0.1:8893")
 	require.NoError(t, err)
-	beaconURL, err := e2eurl.ParseString("http://127.0.0.1:8894")
+	beaconURL, err := e2eurl.ParseString("http://127.0.0.1:8889")
 	require.NoError(t, err)
 
 	l1Allocs, err := opdevnet.DefaultL1Allocs()
@@ -177,6 +177,7 @@ func TestOPDevnet(t *testing.T) {
 		verifierOpNodeURL,
 		verifierL2EngineURL,
 		verifierL2EthURL,
+		beaconURL,
 		jwtSecret,
 	)
 	require.NoError(t, err)
