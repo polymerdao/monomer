@@ -66,6 +66,17 @@ func Run(
 	}
 
 	//nolint:gosec // We aren't worried about tainted cmd args.
+	appCmd := setupCmd(exec.CommandContext(ctx,
+		filepath.Join(appDirPath, appName+"d"),
+		"monomer",
+		"start",
+		"--minimum-gas-prices", "0.001wei",
+		"--log_no_color",
+		"--monomer.dev-start",
+		"--monomer.sequencer",
+	))
+	// Use a headless dlv instance to debug the testapp.
+	//nolint:gocritic // commentedOutCode
 	/*
 		appCmd := setupCmd(exec.CommandContext(ctx,
 			"dlv",
@@ -77,19 +88,12 @@ func Run(
 			"--",
 			"monomer",
 			"start",
+			"--monomer.sequencer",
 			"--minimum-gas-prices", "0.001wei",
 			"--monomer.dev-start",
 			"--log_no_color",
-		))*/
-	appCmd := setupCmd(exec.CommandContext(ctx,
-		filepath.Join(appDirPath, appName+"d"),
-		"monomer",
-		"start",
-		"--minimum-gas-prices", "0.001wei",
-		"--monomer.sequencer",
-		"--monomer.dev-start",
-		"--log_no_color",
-	))
+		))
+	*/
 	appCmd.Dir = appDirPath
 	appCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
 	if err := appCmd.Start(); err != nil {

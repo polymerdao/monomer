@@ -102,6 +102,7 @@ type Payload struct {
 	Timestamp        uint64
 	NoTxPool         bool
 	ParentBeaconRoot *common.Hash
+	Coinbase         common.Address
 }
 
 func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, error) {
@@ -138,6 +139,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		ParentHash:       currentHeader.Hash,
 		GasLimit:         payload.GasLimit,
 		ParentBeaconRoot: payload.ParentBeaconRoot,
+		Coinbase:         payload.Coinbase,
 	}
 
 	cometHeader := header.ToComet()

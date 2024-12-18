@@ -258,6 +258,8 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 		GasLimit:             e.currentPayloadAttributes.GasLimit,
 		Timestamp:            e.currentPayloadAttributes.Timestamp,
 		NoTxPool:             e.currentPayloadAttributes.NoTxPool,
+		ParentBeaconRoot:     e.currentPayloadAttributes.ParentBeaconBlockRoot,
+		Coinbase:             e.currentPayloadAttributes.SuggestedFeeRecipient,
 	})
 	if err != nil {
 		panic(fmt.Errorf("build block: %v", err))

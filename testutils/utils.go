@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
-	"cosmossdk.io/math"
+	sdkmath "cosmossdk.io/math"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
@@ -260,8 +260,8 @@ func BuildSDKTx(t *testing.T, chainID string, seqNum, accNum uint64, ethPrivKey 
 				},
 			},
 			Fee: &sdktx.Fee{
-				Amount:   sdktypes.NewCoins(sdktypes.NewCoin(rolluptypes.WEI, math.NewInt(100000000))),
-				GasLimit: 1000000,
+				Amount:   sdktypes.NewCoins(sdktypes.NewCoin(rolluptypes.WEI, sdkmath.NewInt(1000000000000000000))),
+				GasLimit: sdktx.MaxGasWanted - 1,
 			},
 		},
 	}

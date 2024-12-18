@@ -63,6 +63,7 @@ type Header struct {
 	ParentBeaconRoot *common.Hash
 	GasLimit         uint64
 	Hash             common.Hash
+	Coinbase         common.Address
 }
 
 func (h *Header) ToComet() *bfttypes.Header {
@@ -122,6 +123,7 @@ func (h *Header) ToEth() *ethtypes.Header {
 		BaseFee:          common.Big0,
 		WithdrawalsHash:  &ethtypes.EmptyWithdrawalsHash,
 		Difficulty:       common.Big0,
+		Coinbase:         h.Coinbase,
 		ParentBeaconRoot: h.ParentBeaconRoot,
 	}
 }
