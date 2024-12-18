@@ -19,6 +19,7 @@ test-all:
 
 .PHONY: e2e
 e2e:
+	mkdir -p $(E2E_ARTIFACTS_PATH)
 	$(GO_WRAPPER) test -v ./e2e > $(E2E_ARTIFACTS_PATH)/stdout 2> $(E2E_ARTIFACTS_PATH)/stderr
 
 .PHONY: install-golangci-lint
