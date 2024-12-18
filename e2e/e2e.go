@@ -66,6 +66,21 @@ func Run(
 	}
 
 	//nolint:gosec // We aren't worried about tainted cmd args.
+	/*
+		appCmd := setupCmd(exec.CommandContext(ctx,
+			"dlv",
+			"exec",
+			"--headless",
+			"--listen=127.0.0.1:2345",
+			"--api-version=2",
+			filepath.Join(appDirPath, appName+"d"),
+			"--",
+			"monomer",
+			"start",
+			"--minimum-gas-prices", "0.001wei",
+			"--monomer.dev-start",
+			"--log_no_color",
+		))*/
 	appCmd := setupCmd(exec.CommandContext(ctx,
 		filepath.Join(appDirPath, appName+"d"),
 		"monomer",
@@ -73,6 +88,7 @@ func Run(
 		"--minimum-gas-prices", "0.001wei",
 		"--monomer.sequencer",
 		"--monomer.dev-start",
+		"--log_no_color",
 	))
 	appCmd.Dir = appDirPath
 	appCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)

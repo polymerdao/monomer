@@ -30,6 +30,7 @@ import (
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e"
 	"github.com/polymerdao/monomer/testutils"
+	"github.com/polymerdao/monomer/utils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 )
@@ -61,7 +62,9 @@ func checkForRollbacks(t *testing.T, stack *e2e.StackConfig) {
 		// Get the L1 block info from the first tx in the block
 		ethTxs, err := monomer.AdaptCosmosTxsToEthTxs(eventNewBlock.Block.Txs)
 		require.NoError(t, err)
-		l1BlockInfo, err := derive.L1BlockInfoFromBytes(&rollup.Config{}, uint64(eventNewBlock.Block.Time.Unix()), ethTxs[0].Data())
+		l1BlockInfo, err := derive.L1BlockInfoFromBytes(&rollup.Config{
+			EcotoneTime: utils.Ptr(uint64(0)), // TODO: hacky
+		}, uint64(eventNewBlock.Block.Time.Unix()), ethTxs[0].Data())
 		require.NoError(t, err)
 
 		// End the test once a sequencing window has passed.
@@ -242,6 +245,7 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
 	withdrawalTx := e2e.NewWithdrawalTx(0, common.Address(userCosmosETHAddress), userETHAddress, withdrawalAmount, new(big.Int).SetUint64(params.TxGas))
 
+	t.Logf("FROM TEST: %s", userCosmosAddr)
 	baseAccount := queryAccount(t, stack, userCosmosAddr)
 	l2ChainID, err := stack.MonomerClient.ChainID(stack.Ctx)
 	require.NoError(t, err)
@@ -623,7 +627,7 @@ func queryAccount(t *testing.T, stack *e2e.StackConfig, address string) *authv1b
 	require.NoError(t, err)
 	queryResult, err := stack.L2Client.ABCIQuery(stack.Ctx, authv1beta1.Query_Account_FullMethodName, queryAccountBytes)
 	require.NoError(t, err)
-	require.Zero(t, queryResult.Response.Code)
+	require.Zero(t, queryResult.Response.Code, queryResult.Response.Log)
 	var accountResponse authv1beta1.QueryAccountResponse
 	require.NoError(t, protov1.Unmarshal(queryResult.Response.Value, &accountResponse))
 	var baseAccount authv1beta1.BaseAccount

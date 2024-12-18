@@ -98,9 +98,10 @@ type Payload struct {
 	// from the consensus layer that must be included in the block.
 	InjectedTransactions bfttypes.Txs
 	// TODO: make the gas limit actually be enforced. Need to translate between cosmos and op gas limit.
-	GasLimit  uint64
-	Timestamp uint64
-	NoTxPool  bool
+	GasLimit         uint64
+	Timestamp        uint64
+	NoTxPool         bool
+	ParentBeaconRoot *common.Hash
 }
 
 func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, error) {
@@ -131,11 +132,12 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 		return nil, fmt.Errorf("header by height: %v", err)
 	}
 	header := &monomer.Header{
-		ChainID:    b.chainID,
-		Height:     currentHeader.Height + 1,
-		Time:       payload.Timestamp,
-		ParentHash: currentHeader.Hash,
-		GasLimit:   payload.GasLimit,
+		ChainID:          b.chainID,
+		Height:           currentHeader.Height + 1,
+		Time:             payload.Timestamp,
+		ParentHash:       currentHeader.Hash,
+		GasLimit:         payload.GasLimit,
+		ParentBeaconRoot: payload.ParentBeaconRoot,
 	}
 
 	cometHeader := header.ToComet()

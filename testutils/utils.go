@@ -146,7 +146,7 @@ func generateCrossDomainDepositTx(t *testing.T, crossDomainMessageBz []byte) *ge
 	to := testutils.RandomAddress(rng)
 	depositTx := &gethtypes.DepositTx{
 		// L2 aliased L1CrossDomainMessenger proxy address
-		From: crossdomain.ApplyL1ToL2Alias(common.HexToAddress("0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE")),
+		From: crossdomain.ApplyL1ToL2Alias(common.HexToAddress("0x3d609De69E066F85C38AC274e3EeC251EcfDeAa1")),
 		To:   &to,
 		Data: relayMessageBz,
 	}

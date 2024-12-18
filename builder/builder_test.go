@@ -151,12 +151,13 @@ func TestBuild(t *testing.T) {
 
 			ethStateRoot := gotBlock.Header.StateRoot
 			header := &monomer.Header{
-				ChainID:    env.g.ChainID,
-				Height:     uint64(postBuildInfo.GetLastBlockHeight()),
-				Time:       payload.Timestamp,
-				ParentHash: genesisHeader.Header.Hash,
-				StateRoot:  ethStateRoot,
-				GasLimit:   payload.GasLimit,
+				ChainID:          env.g.ChainID,
+				Height:           uint64(postBuildInfo.GetLastBlockHeight()),
+				Time:             payload.Timestamp,
+				ParentHash:       genesisHeader.Header.Hash,
+				StateRoot:        ethStateRoot,
+				GasLimit:         payload.GasLimit,
+				ParentBeaconRoot: payload.ParentBeaconRoot,
 			}
 			wantBlock, err := monomer.MakeBlock(header, bfttypes.ToTxs(allTxs))
 			require.NoError(t, err)
@@ -378,12 +379,13 @@ func TestBuildRollupTxs(t *testing.T) {
 
 	ethStateRoot := gotBlock.Header.StateRoot
 	header := monomer.Header{
-		ChainID:    env.g.ChainID,
-		Height:     uint64(postBuildInfo.GetLastBlockHeight()),
-		Time:       payload.Timestamp,
-		ParentHash: genesisBlock.Header.Hash,
-		StateRoot:  ethStateRoot,
-		GasLimit:   payload.GasLimit,
+		ChainID:          env.g.ChainID,
+		Height:           uint64(postBuildInfo.GetLastBlockHeight()),
+		Time:             payload.Timestamp,
+		ParentHash:       genesisBlock.Header.Hash,
+		StateRoot:        ethStateRoot,
+		GasLimit:         payload.GasLimit,
+		ParentBeaconRoot: payload.ParentBeaconRoot,
 	}
 	wantBlock, err := monomer.MakeBlock(&header, txs)
 	require.NoError(t, err)
