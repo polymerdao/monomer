@@ -12,7 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/state"
 	"github.com/polymerdao/monomer"
-	"github.com/polymerdao/monomer/bindings/generated"
+	bindings "github.com/polymerdao/monomer/bindings/generated"
 	"github.com/polymerdao/monomer/contracts"
 	"github.com/polymerdao/monomer/evm"
 	"github.com/polymerdao/monomer/genesis"
@@ -49,7 +49,7 @@ func TestCommit(t *testing.T) {
 			test.genesis.AppState = testapp.MakeGenesisAppState(t, app, test.kvs...)
 
 			blockStore := testutils.NewLocalMemDB(t)
-			ethstatedb := testutils.NewEthStateDB(t)
+			ethstatedb := state.NewDatabaseForTesting()
 
 			require.NoError(t, test.genesis.Commit(context.Background(), app, blockStore, ethstatedb))
 
@@ -89,7 +89,7 @@ func TestCommit(t *testing.T) {
 			require.Equal(t, block, gotBlock)
 
 			// Eth state db.
-			ethState, err := state.New(evm.MonomerGenesisRootHash, ethstatedb, nil)
+			ethState, err := state.New(evm.MonomerGenesisRootHash, ethstatedb)
 			require.NoError(t, err)
 			require.Equal(t, ethState.GetCode(contracts.L2ApplicationStateRootProviderAddr), common.FromHex(bindings.L2ApplicationStateRootProviderMetaData.Bin))
 			require.Equal(t, ethState.GetCode(predeploys.L2ToL1MessagePasserAddr), common.FromHex(bindings.L2ToL1MessagePasserMetaData.Bin))

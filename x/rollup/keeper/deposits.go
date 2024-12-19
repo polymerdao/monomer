@@ -10,8 +10,8 @@ import (
 
 	sdkmath "cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
+	crossdomainbindings "github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain/bindings"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -97,11 +97,14 @@ func (k *Keeper) processL1UserDepositTxs(
 // Currently, only finalizeBridgeETH and finalizeBridgeERC20 messages from the L1StandardBridge are recognized for minting tokens
 // on the Cosmos chain. If a message is not recognized, it returns nil and does not error.
 func (k *Keeper) processCrossDomainMessage(ctx sdk.Context, txData []byte) (*sdk.Event, error) { //nolint:gocritic // hugeParam
-	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.CrossDomainMessengerMetaData.ABI))
+	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(crossdomainbindings.L2CrossDomainMessengerMetaData.ABI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse CrossDomainMessenger ABI: %v", err)
 	}
-	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.StandardBridgeMetaData.ABI))
+	// It is a bit lazy to use the L1StandardBridge ABI instead of the L2StandardBridge ABI, but the bindings
+	// package doesn't have the latter. Plus, we know that the functions we want are implemented in the StandardBridge
+	// abstract contract and aren't overridden.
+	standardBridgeABI, err := abi.JSON(strings.NewReader(crossdomainbindings.L1StandardBridgeMetaData.ABI))
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse StandardBridge ABI: %v", err)
 	}

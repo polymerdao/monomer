@@ -58,7 +58,6 @@ func (e *EngineAPI) ForkchoiceUpdatedV1(
 	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
-	// TODO should this be called after Ecotone?
 	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
 
@@ -258,6 +257,8 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 		GasLimit:             e.currentPayloadAttributes.GasLimit,
 		Timestamp:            e.currentPayloadAttributes.Timestamp,
 		NoTxPool:             e.currentPayloadAttributes.NoTxPool,
+		ParentBeaconRoot:     e.currentPayloadAttributes.ParentBeaconBlockRoot,
+		Coinbase:             e.currentPayloadAttributes.SuggestedFeeRecipient,
 	})
 	if err != nil {
 		panic(fmt.Errorf("build block: %v", err))
@@ -298,16 +299,21 @@ func (e *EngineAPI) GetPayloadV3(ctx context.Context, payloadID engine.PayloadID
 
 func (e *EngineAPI) NewPayloadV1(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
 	// TODO should this be called after Ecotone?
-	return e.NewPayloadV3(payload)
+	return e.NewPayloadV2(payload)
 }
 
 func (e *EngineAPI) NewPayloadV2(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
 	// TODO should this be called after Ecotone?
-	return e.NewPayloadV3(payload)
+	return e.NewPayloadV3(payload, nil, nil)
 }
 
 // NewPayloadV3 ensures the payload's block hash is present in the block store.
-func (e *EngineAPI) NewPayloadV3(payload eth.ExecutionPayload) (*eth.PayloadStatusV1, error) { //nolint:gocritic
+func (e *EngineAPI) NewPayloadV3(
+	payload eth.ExecutionPayload, //nolint:gocritic
+	_ []common.Hash,
+	_ *common.Hash,
+) (*eth.PayloadStatusV1, error) {
+	// TODO use the parentBeaconBlockRoot, etc.
 	e.lock.Lock()
 	defer e.lock.Unlock()
 	defer e.metrics.RecordRPCMethodCall(NewPayloadV3MethodName, time.Now())

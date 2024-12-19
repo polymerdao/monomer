@@ -55,13 +55,15 @@ func (id ChainID) Big() *big.Int {
 }
 
 type Header struct {
-	ChainID    ChainID
-	Height     uint64
-	Time       uint64
-	ParentHash common.Hash
-	StateRoot  common.Hash
-	GasLimit   uint64
-	Hash       common.Hash
+	ChainID          ChainID
+	Height           uint64
+	Time             uint64
+	ParentHash       common.Hash
+	StateRoot        common.Hash
+	ParentBeaconRoot *common.Hash
+	GasLimit         uint64
+	Hash             common.Hash
+	Coinbase         common.Address
 }
 
 func (h *Header) ToComet() *bfttypes.Header {
@@ -110,17 +112,19 @@ func MakeBlock(h *Header, txs bfttypes.Txs) (*Block, error) {
 // Extrinsic properties on the header (like the block hash) need to be set separately by SetHeader.
 func (h *Header) ToEth() *ethtypes.Header {
 	return &ethtypes.Header{
-		ParentHash:      h.ParentHash,
-		Root:            h.StateRoot,
-		Number:          new(big.Int).SetUint64(h.Height),
-		GasLimit:        h.GasLimit,
-		MixDigest:       common.Hash{},
-		Time:            h.Time,
-		UncleHash:       ethtypes.EmptyUncleHash,
-		ReceiptHash:     ethtypes.EmptyReceiptsHash,
-		BaseFee:         common.Big0,
-		WithdrawalsHash: &ethtypes.EmptyWithdrawalsHash,
-		Difficulty:      common.Big0,
+		ParentHash:       h.ParentHash,
+		Root:             h.StateRoot,
+		Number:           new(big.Int).SetUint64(h.Height),
+		GasLimit:         h.GasLimit,
+		MixDigest:        common.Hash{},
+		Time:             h.Time,
+		UncleHash:        ethtypes.EmptyUncleHash,
+		ReceiptHash:      ethtypes.EmptyReceiptsHash,
+		BaseFee:          common.Big0,
+		WithdrawalsHash:  &ethtypes.EmptyWithdrawalsHash,
+		Difficulty:       common.Big0,
+		Coinbase:         h.Coinbase,
+		ParentBeaconRoot: h.ParentBeaconRoot,
 	}
 }
 
@@ -133,14 +137,15 @@ func (b *Block) ToEth() (*ethtypes.Block, error) {
 	if err != nil {
 		return nil, fmt.Errorf("adapt txs: %v", err)
 	}
-	return ethtypes.NewBlockWithWithdrawals(
+	return ethtypes.NewBlock(
 		b.Header.ToEth(),
-		txs,
-		nil,
+		&ethtypes.Body{
+			Transactions: txs,
+			// op-node version requires non-nil withdrawals when it derives attributes from L1,
+			// so unsafe block consolidation will fail if we have nil withdrawals here.
+			Withdrawals: []*ethtypes.Withdrawal{},
+		},
 		[]*ethtypes.Receipt{},
-		// op-node version requires non-nil withdrawals when it derives attributes from L1,
-		// so unsafe block consolidation will fail if we have nil withdrawals here.
-		[]*ethtypes.Withdrawal{},
 		trie.NewStackTrie(nil),
 	), nil
 }

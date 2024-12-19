@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/polymerdao/monomer/utils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 )
 
@@ -28,7 +29,9 @@ func AdaptPayloadTxsToCosmosTxs(ethTxs []hexutil.Bytes) (bfttypes.Txs, error) {
 	if ethL1AttributesTx.Type() != ethtypes.DepositTxType {
 		return nil, errors.New("first transaction is not a deposit transaction")
 	}
-	l1BlockInfo, err := derive.L1BlockInfoFromBytes(&rollup.Config{}, uint64(time.Now().Unix()), ethL1AttributesTx.Data())
+	l1BlockInfo, err := derive.L1BlockInfoFromBytes(&rollup.Config{
+		EcotoneTime: utils.Ptr(uint64(0)), // TODO: this is a hack, but it works for now.
+	}, uint64(time.Now().Unix()), ethL1AttributesTx.Data())
 	if err != nil {
 		return nil, fmt.Errorf("l1 block info from bytes: %v", err)
 	}
