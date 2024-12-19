@@ -38,6 +38,10 @@ var e2eTests = []struct {
 		name: "No Rollbacks",
 		run:  checkForRollbacks,
 	},
+	{
+		name: "Verifier Sync",
+		run:  verifierSync,
+	},
 }
 
 func TestE2E(t *testing.T) {
@@ -53,6 +57,9 @@ func TestE2E(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	require.NoError(t, e2e.Run(ctx, env, t.TempDir()))
+
+	// Wait for the node setup to finish.
+	time.Sleep(time.Second)
 
 	for _, test := range e2eTests {
 		t.Run(test.name, func(t *testing.T) {
@@ -75,6 +82,17 @@ func newStackConfig(t *testing.T) *e2e.StackConfig {
 	bftClient, err := bftclient.New("tcp://127.0.0.1:26657", "/websocket")
 	require.NoError(t, err)
 	require.NoError(t, bftClient.Start())
+
+	verifierEngineURL, err := url.ParseString("ws://127.0.0.1:9010")
+	require.NoError(t, err)
+	require.True(t, engineURL.IsReachable(context.Background()))
+	verifierRPCClient, err := rpc.Dial(verifierEngineURL.String())
+	require.NoError(t, err)
+	verifierClient := e2e.NewMonomerClient(verifierRPCClient)
+
+	verifierBftClient, err := bftclient.New("tcp://127.0.0.1:26667", "/websocket")
+	require.NoError(t, err)
+	require.NoError(t, verifierBftClient.Start())
 
 	l1URL, err := url.ParseString("ws://127.0.0.1:9001")
 	require.NoError(t, err)
@@ -106,6 +124,7 @@ func newStackConfig(t *testing.T) *e2e.StackConfig {
 		L2OutputOracleCaller: l2OutputOracleCaller,
 		L2Client:             bftClient,
 		MonomerClient:        monomerClient,
+		VerifierClient:       verifierClient,
 		RollupConfig: &rollup.Config{
 			SeqWindowSize: deployConfig.SequencerWindowSize,
 		},
