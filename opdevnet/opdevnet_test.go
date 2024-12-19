@@ -124,8 +124,6 @@ func TestOPDevnet(t *testing.T) {
 
 	l2SlotDuration := time.Duration(opConfig.Node.Rollup.BlockTime) * time.Second
 
-	t.Log("L1 and OP are setup")
-
 	// Confirm safe blocks are incrementing to ensure the batcher is posting blocks to the DA layer.
 	for l2Instance.Backend.BlockChain().CurrentSafeBlock().Number.Uint64() < 3 {
 		time.Sleep(l2SlotDuration)

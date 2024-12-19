@@ -245,7 +245,6 @@ func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	// create a withdrawal tx to withdraw the deposited amount from L2 back to L1
 	withdrawalTx := e2e.NewWithdrawalTx(0, common.Address(userCosmosETHAddress), userETHAddress, withdrawalAmount, new(big.Int).SetUint64(params.TxGas))
 
-	t.Logf("FROM TEST: %s", userCosmosAddr)
 	baseAccount := queryAccount(t, stack, userCosmosAddr)
 	l2ChainID, err := stack.MonomerClient.ChainID(stack.Ctx)
 	require.NoError(t, err)

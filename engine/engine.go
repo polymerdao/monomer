@@ -58,7 +58,6 @@ func (e *EngineAPI) ForkchoiceUpdatedV1(
 	fcs eth.ForkchoiceState, //nolint:gocritic
 	pa *eth.PayloadAttributes,
 ) (*eth.ForkchoiceUpdatedResult, error) {
-	// TODO should this be called after Ecotone?
 	return e.ForkchoiceUpdatedV3(ctx, fcs, pa)
 }
 

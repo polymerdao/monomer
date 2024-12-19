@@ -76,6 +76,7 @@ func Run(
 		"--monomer.sequencer",
 	))
 	// Use a headless dlv instance to debug the testapp.
+	// Connect using `dlv connect :2345`.
 	//nolint:gocritic // commentedOutCode
 	/*
 		appCmd := setupCmd(exec.CommandContext(ctx,
