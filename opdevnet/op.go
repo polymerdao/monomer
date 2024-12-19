@@ -12,6 +12,7 @@ import (
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	opnodemetrics "github.com/ethereum-optimism/optimism/op-node/metrics"
 	opnode "github.com/ethereum-optimism/optimism/op-node/node"
+	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/driver"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/sync"
 	"github.com/ethereum-optimism/optimism/op-proposer/proposer"
@@ -36,16 +37,17 @@ func BuildOPConfig(
 	deployConfig *opgenesis.DeployConfig,
 	batcherPrivKey *ecdsa.PrivateKey,
 	proposerPrivKey *ecdsa.PrivateKey,
-	l1Block *types.Block,
+	l1Header *types.Header,
 	l2OutputOracleAddr common.Address,
 	l2Genesis eth.BlockID,
 	l1URL *e2eurl.URL,
 	opNodeURL *e2eurl.URL,
 	l2EngineURL *e2eurl.URL,
 	l2EthURL *e2eurl.URL,
+	beaconURL *e2eurl.URL,
 	jwtSecret [32]byte,
 ) (*OPConfig, error) {
-	rollupConfig, err := deployConfig.RollupConfig(l1Block, l2Genesis.Hash, l2Genesis.Number)
+	rollupConfig, err := deployConfig.RollupConfig(l1Header, l2Genesis.Hash, l2Genesis.Number)
 	if err != nil {
 		return nil, fmt.Errorf("new rollup config: %v", err)
 	}
@@ -75,6 +77,9 @@ func BuildOPConfig(
 			L2: &opnode.L2EndpointConfig{
 				L2EngineAddr:      l2EngineURL.String(),
 				L2EngineJWTSecret: jwtSecret,
+			},
+			Beacon: &opnode.L1BeaconEndpointConfig{
+				BeaconAddr: beaconURL.String(),
 			},
 			Driver: driver.Config{
 				SequencerEnabled: true,
@@ -114,7 +119,8 @@ func BuildOPConfig(
 			RPC: oprpc.CLIConfig{
 				ListenAddr: "127.0.0.1",
 			},
-			DataAvailabilityType: flags.CalldataType,
+			CompressionAlgo:      derive.Brotli,
+			DataAvailabilityType: flags.BlobsType,
 			TargetNumFrames:      1,
 		},
 	}, nil
@@ -130,7 +136,6 @@ func (cfg *OPConfig) Run(ctx context.Context, env *environment.Env, logger log.L
 		ctx,
 		cfg.Node,
 		newLogger(logger, "node"),
-		newLogger(logger, "node-snapshot"),
 		appVersion,
 		opnodemetrics.NewMetrics(""),
 	)

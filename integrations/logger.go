@@ -3,10 +3,10 @@ package integrations
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"cosmossdk.io/log"
 	ethlog "github.com/ethereum/go-ethereum/log"
-	"golang.org/x/exp/slog"
 )
 
 // cosmosToETHLogger adapts a Cosmos Logger to fulfill geth's logger interface.

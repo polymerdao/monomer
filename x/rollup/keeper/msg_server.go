@@ -9,8 +9,8 @@ import (
 	"cosmossdk.io/math"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtypes "github.com/cosmos/cosmos-sdk/x/auth/types"
-	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-bindings/predeploys"
+	crossdomainbindings "github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain/bindings"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -114,7 +114,7 @@ func (k *Keeper) InitiateERC20Withdrawal(
 
 	// Pack the finalizeBridgeERC20 message to forward to the L1StandardBridge contract on Ethereum.
 	// see https://github.com/ethereum-optimism/optimism/blob/24a8d3e/packages/contracts-bedrock/src/universal/StandardBridge.sol#L267
-	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.StandardBridgeMetaData.ABI))
+	standardBridgeABI, err := abi.JSON(strings.NewReader(crossdomainbindings.L1StandardBridgeMetaData.ABI))
 	if err != nil {
 		return nil, types.WrapError(types.ErrInitiateERC20Withdrawal, "failed to parse StandardBridge ABI: %v", err)
 	}
@@ -133,7 +133,7 @@ func (k *Keeper) InitiateERC20Withdrawal(
 
 	// Pack the relayMessage to forward to the L1CrossDomainMessenger contract on Ethereum.
 	// see https://github.com/ethereum-optimism/optimism/blob/24a8d3e/packages/contracts-bedrock/src/universal/CrossDomainMessenger.sol#L207
-	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.CrossDomainMessengerMetaData.ABI))
+	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(crossdomainbindings.L1CrossDomainMessengerMetaData.ABI))
 	if err != nil {
 		return nil, types.WrapError(types.ErrInitiateERC20Withdrawal, "failed to parse CrossDomainMessenger ABI: %v", err)
 	}

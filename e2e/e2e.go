@@ -71,9 +71,30 @@ func Run(
 		"monomer",
 		"start",
 		"--minimum-gas-prices", "0.001wei",
-		"--monomer.sequencer",
+		"--log_no_color",
 		"--monomer.dev-start",
+		"--monomer.sequencer",
 	))
+	// Use a headless dlv instance to debug the testapp.
+	// Connect using `dlv connect :2345`.
+	//nolint:gocritic // commentedOutCode
+	/*
+		appCmd := setupCmd(exec.CommandContext(ctx,
+			"dlv",
+			"exec",
+			"--headless",
+			"--listen=127.0.0.1:2345",
+			"--api-version=2",
+			filepath.Join(appDirPath, appName+"d"),
+			"--",
+			"monomer",
+			"start",
+			"--monomer.sequencer",
+			"--minimum-gas-prices", "0.001wei",
+			"--monomer.dev-start",
+			"--log_no_color",
+		))
+	*/
 	appCmd.Dir = appDirPath
 	appCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
 	if err := appCmd.Start(); err != nil {

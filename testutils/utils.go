@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	txv1beta1 "cosmossdk.io/api/cosmos/tx/v1beta1"
-	"cosmossdk.io/math"
+	sdkmath "cosmossdk.io/math"
 	"github.com/cockroachdb/pebble"
 	"github.com/cockroachdb/pebble/vfs"
 	cometdb "github.com/cometbft/cometbft-db"
@@ -20,8 +20,8 @@ import (
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
 	"github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/decred/dcrd/dcrec/secp256k1/v4"
-	opbindings "github.com/ethereum-optimism/optimism/op-bindings/bindings"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain"
+	opbindings "github.com/ethereum-optimism/optimism/op-chain-ops/crossdomain/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
 	"github.com/ethereum-optimism/optimism/op-node/rollup/derive"
 	"github.com/ethereum-optimism/optimism/op-service/eth"
@@ -29,13 +29,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/rawdb"
-	"github.com/ethereum/go-ethereum/core/state"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/trie"
 	protov1 "github.com/golang/protobuf/proto" //nolint:staticcheck
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/monomerdb/localdb"
+	"github.com/polymerdao/monomer/utils"
 	rolluptypes "github.com/polymerdao/monomer/x/rollup/types"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
@@ -57,16 +56,6 @@ func NewMemDB(t *testing.T) dbm.DB {
 	return db
 }
 
-func NewEthStateDB(t *testing.T) state.Database {
-	rawstatedb := rawdb.NewMemoryDatabase()
-	ethstatedb := state.NewDatabase(rawstatedb)
-	t.Cleanup(func() {
-		require.NoError(t, rawstatedb.Close())
-		require.NoError(t, ethstatedb.TrieDB().Close())
-	})
-	return ethstatedb
-}
-
 func NewLocalMemDB(t *testing.T) *localdb.DB {
 	db, err := pebble.Open("", &pebble.Options{
 		FS: vfs.NewMem(),
@@ -83,8 +72,9 @@ func NewLocalMemDB(t *testing.T) *localdb.DB {
 func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transaction, *gethtypes.Transaction) {
 	l1Block := GenerateL1Block()
 	l1InfoRawTx, err := derive.L1InfoDeposit(&rollup.Config{
-		Genesis:   rollup.Genesis{L2: eth.BlockID{Number: 0}},
-		L2ChainID: big.NewInt(1234),
+		Genesis:     rollup.Genesis{L2: eth.BlockID{Number: 0}},
+		L2ChainID:   big.NewInt(1234),
+		EcotoneTime: utils.Ptr(uint64(0)),
 	}, eth.SystemConfig{}, 0, eth.BlockToInfo(l1Block), l1Block.Time())
 	require.NoError(t, err)
 	l1InfoTx := gethtypes.NewTx(l1InfoRawTx)
@@ -100,7 +90,8 @@ func GenerateEthTxs(t *testing.T) (*gethtypes.Transaction, *gethtypes.Transactio
 }
 
 func GenerateEthBridgeDepositTx(t *testing.T, userAddr common.Address, amount *big.Int) *gethtypes.Transaction {
-	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.StandardBridgeMetaData.ABI))
+	// We should technically use the ABI for the L2StandardBridge, but we only have the L1 bindings and they work fine here.
+	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.L1StandardBridgeMetaData.ABI))
 	require.NoError(t, err)
 	rng := rand.New(rand.NewSource(1234))
 
@@ -117,7 +108,8 @@ func GenerateEthBridgeDepositTx(t *testing.T, userAddr common.Address, amount *b
 }
 
 func GenerateERC20DepositTx(t *testing.T, tokenAddr, userAddr common.Address, amount *big.Int) *gethtypes.Transaction {
-	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.StandardBridgeMetaData.ABI))
+	// We should technically use the ABI for the L2StandardBridge, but we only have the L1 bindings and they work fine here.
+	standardBridgeABI, err := abi.JSON(strings.NewReader(opbindings.L1StandardBridgeMetaData.ABI))
 	require.NoError(t, err)
 	rng := rand.New(rand.NewSource(1234))
 
@@ -136,7 +128,7 @@ func GenerateERC20DepositTx(t *testing.T, tokenAddr, userAddr common.Address, am
 }
 
 func generateCrossDomainDepositTx(t *testing.T, crossDomainMessageBz []byte) *gethtypes.Transaction {
-	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.CrossDomainMessengerMetaData.ABI))
+	crossDomainMessengerABI, err := abi.JSON(strings.NewReader(opbindings.L2CrossDomainMessengerMetaData.ABI))
 	require.NoError(t, err)
 	rng := rand.New(rand.NewSource(1234))
 
@@ -154,7 +146,7 @@ func generateCrossDomainDepositTx(t *testing.T, crossDomainMessageBz []byte) *ge
 	to := testutils.RandomAddress(rng)
 	depositTx := &gethtypes.DepositTx{
 		// L2 aliased L1CrossDomainMessenger proxy address
-		From: crossdomain.ApplyL1ToL2Alias(common.HexToAddress("0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE")),
+		From: crossdomain.ApplyL1ToL2Alias(common.HexToAddress("0x3d609De69E066F85C38AC274e3EeC251EcfDeAa1")),
 		To:   &to,
 		Data: relayMessageBz,
 	}
@@ -219,7 +211,7 @@ func GenerateL1Block() *gethtypes.Block {
 		Difficulty: common.Big0,
 		Number:     big.NewInt(0),
 		Time:       uint64(0),
-	}, nil, nil, nil, trie.NewStackTrie(nil))
+	}, &gethtypes.Body{}, nil, trie.NewStackTrie(nil))
 }
 
 func convertPrivKey(ecdsaPrivKey *ecdsa.PrivateKey) *secp256k1.PrivateKey {
@@ -268,8 +260,8 @@ func BuildSDKTx(t *testing.T, chainID string, seqNum, accNum uint64, ethPrivKey 
 				},
 			},
 			Fee: &sdktx.Fee{
-				Amount:   sdktypes.NewCoins(sdktypes.NewCoin(rolluptypes.WEI, math.NewInt(100000000))),
-				GasLimit: 1000000,
+				Amount:   sdktypes.NewCoins(sdktypes.NewCoin(rolluptypes.WEI, sdkmath.NewInt(1000000000000000000))),
+				GasLimit: sdktx.MaxGasWanted - 1,
 			},
 		},
 	}

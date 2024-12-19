@@ -75,7 +75,7 @@ func (g *Genesis) Commit(ctx context.Context, app monomer.Application, blockStor
 	}
 
 	// Create ethereum genesis state.
-	ethState, err := state.New(gethtypes.EmptyRootHash, ethstatedb, nil)
+	ethState, err := state.New(gethtypes.EmptyRootHash, ethstatedb)
 	if err != nil {
 		return fmt.Errorf("create ethereum state: %v", err)
 	}

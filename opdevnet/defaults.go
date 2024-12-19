@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum-optimism/optimism/op-chain-ops/foundry"
 	"github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum/go-ethereum/common/hexutil"
-	"github.com/ethereum/go-ethereum/core/state"
 )
 
 var (
@@ -18,7 +18,7 @@ var (
 	deployConfigJSON []byte
 	//go:embed config/allocs-l1.json
 	l1AllocsJSON []byte
-	//go:embed config/allocs-l2.json
+	//go:embed config/allocs-l2-granite.json
 	l2AllocsJSON []byte
 )
 
@@ -57,17 +57,16 @@ func DefaultDeployConfig(l1Deployments *genesis.L1Deployments) (*genesis.DeployC
 	return &deployConfig, nil
 }
 
-func DefaultL1Allocs() (*state.Dump, error) {
-	var fdump genesis.ForgeDump
-	if err := json.Unmarshal(l1AllocsJSON, &fdump); err != nil {
+func DefaultL1Allocs() (*foundry.ForgeAllocs, error) {
+	var l1Allocs foundry.ForgeAllocs
+	if err := json.Unmarshal(l1AllocsJSON, &l1Allocs); err != nil {
 		return nil, fmt.Errorf("cannot unmarshal dump: %w", err)
 	}
-	dump := state.Dump(fdump)
-	return &dump, nil
+	return &l1Allocs, nil
 }
 
-func DefaultL2Allocs() (*genesis.ForgeAllocs, error) {
-	var l2Allocs genesis.ForgeAllocs
+func DefaultL2Allocs() (*foundry.ForgeAllocs, error) {
+	var l2Allocs foundry.ForgeAllocs
 	if err := json.Unmarshal(l2AllocsJSON, &l2Allocs); err != nil {
 		return nil, fmt.Errorf("unmarshal l2 allocs: %v", err)
 	}
