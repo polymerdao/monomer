@@ -39,6 +39,7 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/ethdb"
 	ethlog "github.com/ethereum/go-ethereum/log"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/ethereum/go-ethereum/triedb"
 	"github.com/polymerdao/monomer"
 	"github.com/polymerdao/monomer/e2e/url"
@@ -292,8 +293,16 @@ func startOPDevnet(
 	if err != nil {
 		return fmt.Errorf("build l1 config: %v", err)
 	}
-	if err := l1Config.Run(ctx, env, logger); err != nil {
-		return fmt.Errorf("run l1: %v", err)
+
+	// Start the L1 instance if it isn't already up. This allows for verifier nodes to boot up independently if no
+	// sequencer node is already running.
+	l1Client, err := rpc.DialContext(ctx, l1URL.String())
+	if err == nil {
+		l1Client.Close()
+	} else {
+		if err = l1Config.Run(ctx, env, logger); err != nil {
+			return fmt.Errorf("run l1: %v", err)
+		}
 	}
 
 	opConfig, err := opdevnet.BuildOPConfig(
