@@ -53,7 +53,15 @@ func (m *MonomerClient) GenesisHash(ctx context.Context) (common.Hash, error) {
 func (m *MonomerClient) BlockByNumber(ctx context.Context, number *big.Int) (*ethtypes.Block, error) {
 	block, err := m.ethclient.BlockByNumber(ctx, number)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("block by number: %v", err)
+	}
+	return block, nil
+}
+
+func (m *MonomerClient) BlockByHash(ctx context.Context, hash common.Hash) (*ethtypes.Block, error) {
+	block, err := m.ethclient.BlockByHash(ctx, hash)
+	if err != nil {
+		return nil, fmt.Errorf("block by hash: %v", err)
 	}
 	return block, nil
 }
