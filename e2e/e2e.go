@@ -15,6 +15,7 @@ import (
 	opgenesis "github.com/ethereum-optimism/optimism/op-chain-ops/genesis"
 	"github.com/ethereum-optimism/optimism/op-node/bindings"
 	"github.com/ethereum-optimism/optimism/op-node/rollup"
+	"github.com/polymerdao/monomer/e2e/url"
 	"github.com/polymerdao/monomer/environment"
 )
 
@@ -28,6 +29,7 @@ type StackConfig struct {
 	L2OutputOracleCaller *bindings.L2OutputOracleCaller
 	L2Client             *bftclient.HTTP
 	MonomerClient        *MonomerClient
+	VerifierClient       *MonomerClient
 	RollupConfig         *rollup.Config
 	WaitL1               func(numBlocks int) error
 	WaitL2               func(numBlocks int) error
@@ -53,7 +55,7 @@ func Run(
 		"--address-prefix", "e2e",
 		"--monomer-path", monomerPath,
 	))
-	if err := monogenCmd.Run(); err != nil {
+	if err = monogenCmd.Run(); err != nil {
 		return fmt.Errorf("run monogen: %v", err)
 	}
 
@@ -61,12 +63,12 @@ func Run(
 	setupHelperCmd.Dir = appDirPath
 	// Add the "GOFLAGS='-gcflags=all=-N -l'" environment variable to disable optimizations and make debugging easier.
 	setupHelperCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
-	if err := setupHelperCmd.Run(); err != nil {
+	if err = setupHelperCmd.Run(); err != nil {
 		return fmt.Errorf("run setup helper: %v", err)
 	}
 
 	//nolint:gosec // We aren't worried about tainted cmd args.
-	appCmd := setupCmd(exec.CommandContext(ctx,
+	sequencerAppCmd := setupCmd(exec.CommandContext(ctx,
 		filepath.Join(appDirPath, appName+"d"),
 		"monomer",
 		"start",
@@ -95,13 +97,48 @@ func Run(
 			"--log_no_color",
 		))
 	*/
-	appCmd.Dir = appDirPath
-	appCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
-	if err := appCmd.Start(); err != nil {
-		return fmt.Errorf("run app: %v", err)
+	sequencerAppCmd.Dir = appDirPath
+	sequencerAppCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
+	if err = sequencerAppCmd.Start(); err != nil {
+		return fmt.Errorf("run sequencer app: %v", err)
 	}
-	env.DeferErr("wait for app", func() error {
-		err := appCmd.Wait()
+	env.DeferErr("wait for sequencer app", func() error {
+		err = sequencerAppCmd.Wait()
+		if errors.Is(err, context.Canceled) {
+			return nil
+		}
+		return err
+	})
+
+	// Wait for the L1 instance to start up before starting the verifier node.
+	l1URL, err := url.ParseString("ws://127.0.0.1:9001")
+	if err != nil {
+		return fmt.Errorf("parse L1 URL: %v", err)
+	}
+	if !l1URL.IsReachable(context.Background()) {
+		return fmt.Errorf("l1 instance is not reachable: %v", err)
+	}
+
+	//nolint:gosec // We aren't worried about tainted cmd args.
+	verifierAppCmd := setupCmd(exec.CommandContext(ctx,
+		filepath.Join(appDirPath, appName+"d"),
+		"monomer",
+		"start",
+		"--minimum-gas-prices", "0.001wei",
+		"--log_no_color",
+		"--grpc.enable=false",
+		"--rpc.laddr", "tcp://127.0.0.1:26667",
+		"--monomer.dev-start",
+		"--monomer.engine-url", "ws://127.0.0.1:9010",
+		"--monomer.dev.op-node-url", "http://127.0.0.1:9012",
+	))
+	verifierAppCmd.Dir = appDirPath
+	verifierAppCmd.Env = append(os.Environ(), "e2eapp_HOME="+outDir)
+	if err = verifierAppCmd.Start(); err != nil {
+		return fmt.Errorf("run verifier app: %v", err)
+	}
+	env.DeferErr("wait for verifier app", func() error {
+		err = verifierAppCmd.Wait()
 		if errors.Is(err, context.Canceled) {
 			return nil
 		}

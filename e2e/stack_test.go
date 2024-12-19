@@ -98,6 +98,24 @@ func containsAttributesTx(t *testing.T, stack *e2e.StackConfig) {
 	t.Log("Monomer blocks contain the l1 attributes deposit tx")
 }
 
+func verifierSync(t *testing.T, stack *e2e.StackConfig) {
+	sequencerBlock, err := stack.MonomerClient.BlockByNumber(stack.Ctx, nil)
+	require.NoError(t, err)
+
+	// Wait for the verifier node to sync with the sequencer node
+	for i := 0; i < 10; i++ {
+		verifierBlock, err := stack.VerifierClient.BlockByHash(stack.Ctx, sequencerBlock.Header().Hash())
+		if verifierBlock != nil && err == nil {
+			t.Log("Verifier node can sync with the sequencer node")
+			return
+		}
+
+		err = stack.WaitL1(1)
+		require.NoError(t, err)
+	}
+	require.Fail(t, "verifier node did not sync with the sequencer node")
+}
+
 func ethRollupFlow(t *testing.T, stack *e2e.StackConfig) {
 	l1Client := stack.L1Client
 
