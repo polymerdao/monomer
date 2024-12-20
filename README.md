@@ -2,6 +2,8 @@
 
 Monomer uses the OP stack to make Cosmos applications deployable as Ethereum rollups.
 
+> ⏸️ **Development Status:** Active development on Monomer is currently paused.
+
 > ⚠ Monomer is pre-production software and should be used with caution. ⚠
 
 ## At a Glance
