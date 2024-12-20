@@ -1051,8 +1051,8 @@ github.com/pkg/profile v1.7.0/go.mod h1:8Uer0jas47ZQMJ7VD+OHknK4YDY07LPUC6dEvqDj
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
-github.com/polymerdao/monomer v0.1.6 h1:dUj9uvd3rGxF0J7trTXkxaN7Z82P1m5Yszw7uE3vEwM=
-github.com/polymerdao/monomer v0.1.6/go.mod h1:08lU5gmig6WpUBaUIA07F/pbxjL08Typ+zDDKgGkP90=
+github.com/polymerdao/monomer v0.1.7 h1:ABBmK2sCVyPHuOt1KyKYnV527CusQAtZ0OaJ7rU3NJM=
+github.com/polymerdao/monomer v0.1.7/go.mod h1:fvSYjbweTyUojbr2UfwAPiPhJc9Loe5l+ur2pf8gfb0=
 github.com/posener/complete v1.1.1/go.mod h1:em0nMJCgc9GFtwrmVmEMR/ZL6WyhyjMBndrE9hABlRI=
 github.com/prometheus/client_golang v0.8.0/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=
 github.com/prometheus/client_golang v0.9.1/go.mod h1:7SWBe2y4D6OKWSNQJUaRYU/AaXPKyh/dDVn+NZz0KFw=

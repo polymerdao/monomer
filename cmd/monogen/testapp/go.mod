@@ -11,7 +11,7 @@ replace (
 
 	// fix upstream GHSA-h395-qcrw-5vmq vulnerability.
 	github.com/gin-gonic/gin => github.com/gin-gonic/gin v1.7.0
-	github.com/polymerdao/monomer => github.com/polymerdao/monomer v0.1.6
+	github.com/polymerdao/monomer => github.com/polymerdao/monomer v0.1.7
 	// replace broken goleveldb
 	github.com/syndtr/goleveldb => github.com/syndtr/goleveldb v1.0.1-0.20210819022825-2ae1ddf74ef7
 )
