@@ -727,3 +727,35 @@ func PadGasEstimate(opts *bind.TransactOpts, paddingFactor float64, builder TxBu
 	o.NoSend = false
 	return builder(o)
 }
+
+// BlockByNumberInterface defines the interface for getting a block by number
+type BlockByNumberInterface interface {
+    BlockByNumber(context.Context, *big.Int) (*types.Block, error)
+}
+
+// wait waits for the specified number of blocks for the given client
+func wait(client BlockByNumberInterface, numBlocks uint64) error {
+    ctx := context.Background()
+    
+    // Get the current block number
+    currentBlock, err := client.BlockByNumber(ctx, nil)
+    if err != nil {
+        return fmt.Errorf("failed to get current block: %w", err)
+    }
+    
+    targetBlock := new(big.Int).Add(currentBlock.Number(), new(big.Int).SetUint64(numBlocks))
+    
+    // Wait until the target block is reached
+    for {
+        latest, err := client.BlockByNumber(ctx, nil)
+        if err != nil {
+            return fmt.Errorf("failed to get latest block: %w", err)
+        }
+        
+        if latest.Number().Cmp(targetBlock) >= 0 {
+            return nil
+        }
+        
+        time.Sleep(500 * time.Millisecond)
+    }
+}
