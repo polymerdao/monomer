@@ -110,7 +110,7 @@ func (b *Builder) Build(ctx context.Context, payload *Payload) (*monomer.Block, 
 	if !payload.NoTxPool {
 		for {
 			// TODO there is risk of losing txs if mempool db fails.
-			// we need to fix db consistency in general, so we're just panicing on errors for now.
+			// we need to fix db consistency in general, so we're just panicking on errors for now.
 			length, err := b.mempool.Len()
 			if err != nil {
 				panic(fmt.Errorf("enqueue: %v", err))
