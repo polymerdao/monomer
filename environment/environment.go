@@ -48,7 +48,7 @@ func (e *Env) DeferErr(errMsg string, fn func() error) {
 }
 
 // Close waits for all functions run with Go to finish. Then, it runs all Defer-ed functions.
-// The defered functions are called in reverse order. The Environment must not be used after Close is called.
+// The deferred functions are called in reverse order. The Environment must not be used after Close is called.
 func (e *Env) Close() error {
 	e.wg.Wait()
 	var combinedErr error
