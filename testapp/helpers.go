@@ -9,7 +9,11 @@ import (
 	abcitypes "github.com/cometbft/cometbft/abci/types"
 	dbm "github.com/cosmos/cosmos-db"
 	codectypes "github.com/cosmos/cosmos-sdk/codec/types"
+	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+	"github.com/cosmos/cosmos-sdk/crypto/keys/secp256k1"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	sdktx "github.com/cosmos/cosmos-sdk/types/tx"
+	signingtypes "github.com/cosmos/cosmos-sdk/types/tx/signing"
 	"github.com/cosmos/gogoproto/proto"
 	"github.com/polymerdao/monomer/testapp/x/testmodule"
 	"github.com/polymerdao/monomer/testapp/x/testmodule/types"
@@ -50,26 +54,48 @@ func MakeGenesisAppState(t *testing.T, app *App, kvs ...string) map[string]json.
 }
 
 func ToTestTx(t *testing.T, k, v string) []byte {
-	return ToTx(t, &types.MsgSetValue{
-		// TODO use real addresses and enable the signature and gas checks.
-		// This is just a dummy address. The signature and gas checks are disabled in testapp.go,
-		// so this works for now.
-		FromAddress: "cosmos1fl48vsnmsdzcv85q5d2q4z5ajdha8yu34mf0eh",
+	// Generate a new private key for testing
+	privKey := secp256k1.GenPrivKey()
+	pubKey := privKey.PubKey()
+	addr := sdk.AccAddress(pubKey.Address())
+
+	msg := &types.MsgSetValue{
+		FromAddress: addr.String(),
 		Key:         k,
 		Value:       v,
-	})
+	}
+
+	return ToSignedTx(t, msg, privKey)
 }
 
-func ToTx(t *testing.T, msg proto.Message) []byte {
+func ToSignedTx(t *testing.T, msg proto.Message, privKey cryptotypes.PrivKey) []byte {
 	msgAny, err := codectypes.NewAnyWithValue(msg)
 	require.NoError(t, err)
 
+	// Create signed transaction
 	tx := &sdktx.Tx{
 		Body: &sdktx.TxBody{
 			Messages: []*codectypes.Any{msgAny},
+			Memo:     "",
 		},
 		AuthInfo: &sdktx.AuthInfo{
-			Fee: &sdktx.Fee{},
+			Fee: &sdktx.Fee{
+				Amount:   sdk.NewCoins(sdk.NewCoin("stake", sdk.NewInt(1000))),
+				GasLimit: 200000,
+			},
+			SignerInfos: []*sdktx.SignerInfo{
+				{
+					PublicKey: codectypes.UnsafePackAny(privKey.PubKey()),
+					ModeInfo: &sdktx.ModeInfo{
+						Sum: &sdktx.ModeInfo_Single_{
+							Single: &sdktx.ModeInfo_Single{
+								Mode: signingtypes.SignMode_SIGN_MODE_DIRECT,
+							},
+						},
+					},
+					Sequence: 0,
+				},
+			},
 		},
 	}
 
