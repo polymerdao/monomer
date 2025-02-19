@@ -143,7 +143,7 @@ func NewBroadcastTxAPI(app AppMempool, mempool Mempool) *BroadcastTxAPI {
 	}
 }
 
-// BroadcastTxSync returns with the response from CheckTx, but does not wait for DeliverTx (tx execution).
+// BroadcastTx returns with the response from CheckTx, but does not wait for DeliverTx (tx execution).
 // More: https://docs.cometbft.com/main/rpc/#/Tx/broadcast_tx_sync
 func (s *BroadcastTxAPI) BroadcastTx(ctx *jsonrpctypes.Context, tx bfttypes.Tx) (*rpctypes.ResultBroadcastTx, error) {
 	checkTxResp, err := s.app.CheckTx(ctx.Context(), &abcitypes.RequestCheckTx{
